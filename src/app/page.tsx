@@ -6,7 +6,7 @@ export default function Home() {
       <main className="container mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold">Welcome to Ace-it AI Learning</h1>
+            <h1 className="text-2xl font-semibold">Welcome to Ace-it AI</h1>
             <p className="text-muted-foreground">Your personal AI tutor for personalized learning</p>
           </div>
           <div className="flex items-center gap-2">
