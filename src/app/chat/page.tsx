@@ -24,18 +24,27 @@ import { useEffect, useRef, useState } from "react";
 const ChatAiIcons = [
   {
     icon: CopyIcon,
-    label: "Copy",
+    label: "Save Note",
   },
   {
     icon: RefreshCcw,
-    label: "Refresh",
+    label: "Explain Again",
   },
   {
     icon: Volume2,
-    label: "Volume",
+    label: "Read Aloud",
   },
 ];
 
+const topics = [
+  "Mathematics",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "Computer Science",
+  "Literature",
+  "History",
+];
 
 export default function Page() {
   const messages = useChatStore((state) => state.chatBotMessages);
@@ -51,6 +60,7 @@ export default function Page() {
     (state) => state.setHasInitialAIResponse,
   );
   const [isLoading, setisLoading] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -96,28 +106,85 @@ export default function Page() {
       inputRef.current.focus();
     }
 
-    // Simulate AI response
     if (!hasInitialAIResponse) {
+      const initialConversation = [
+        {
+          id: 1,
+          avatar: "",
+          name: "AI Tutor",
+          role: "ai",
+          message: "Hi! 👋 I'm your AI tutor. You can select a specific topic to study, or just ask me anything you'd like to learn about.",
+        },
+        {
+          id: 2,
+          avatar: selectedUser.avatar,
+          name: selectedUser.name,
+          role: "user",
+          message: "Can you help me understand what Newton's First Law means?",
+        },
+        {
+          id: 3,
+          avatar: "",
+          name: "AI Tutor",
+          role: "ai",
+          message: "Of course! Newton's First Law, also known as the Law of Inertia, states that an object will remain at rest or in uniform motion unless acted upon by an external force. Let me break this down with a simple example:\n\nImagine you're riding a bike. When you stop pedaling:\n\n1. On a flat surface with no friction, you'd keep moving at the same speed (uniform motion)\n2. In reality, friction and air resistance (external forces) slow you down\n\nWould you like me to explain this further or give more examples?",
+        }
+      ];
+
       setisLoading(true);
-      setTimeout(() => {
-        setMessages((messages) => [
-          ...messages.slice(0, messages.length - 1),
-          {
-            id: messages.length + 1,
-            avatar: "",
-            name: "ChatBot",
-            role: "ai",
-            message: "Sure! If you have any more questions, feel free to ask.",
-          },
-        ]);
-        setisLoading(false);
-        setHasInitialAIResponse(true);
-      }, 2500);
+      setMessages(() => initialConversation);
+      setisLoading(false);
+      setHasInitialAIResponse(true);
+      
+      // Auto-select Physics topic since the conversation is about Newton's Law
+      setSelectedTopic("Physics");
     }
   }, []);
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-screen sm:h-xl w-full sm:w-[900px] flex-col mx-auto my-auto">
+      <div className="flex items-center justify-between p-4 border-b bg-muted/40">
+        <div className="flex items-center gap-4">
+          <select
+            value={selectedTopic || ""}
+            onChange={(e) => setSelectedTopic(e.target.value)}
+            className="rounded-lg border bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-ring"
+          >
+            <option value="">Select a Topic</option>
+            {topics.map((topic) => (
+              <option key={topic} value={topic}>
+                {topic}
+              </option>
+            ))}
+          </select>
+          {selectedTopic && (
+            <div className="text-sm text-muted-foreground">
+              Studying: <span className="font-medium text-foreground">{selectedTopic}</span>
+            </div>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setMessages(() => []);
+            setSelectedTopic(null);
+            setisLoading(true);
+            setTimeout(() => {
+              setMessages(() => [{
+                id: 1,
+                avatar: "",
+                name: "AI Tutor",
+                role: "ai",
+                message: "Hi! 👋 I'm your AI tutor. You can select a specific topic to study, or just ask me anything you'd like to learn about.",
+              }]);
+              setisLoading(false);
+            }, 2500);
+          }}
+        >
+          Start New Session
+        </Button>
+      </div>
       <div className="flex-1 w-full overflow-y-auto bg-muted/40">
         <ChatMessageList ref={messagesContainerRef}>
           {/* Chat messages */}
@@ -200,18 +267,28 @@ export default function Page() {
             ref={inputRef}
             onKeyDown={handleKeyDown}
             onChange={handleInputChange}
-            placeholder="Type your message here..."
+            placeholder={selectedTopic 
+              ? `Ask anything about ${selectedTopic}...` 
+              : "Ask me anything you'd like to learn about..."}
             className="min-h-12 resize-none rounded-lg bg-background border-0 p-3 shadow-none focus-visible:ring-0"
           />
           <div className="flex items-center p-3 pt-0">
-            <Button variant="ghost" size="icon">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              title="Upload study material"
+            >
               <Paperclip className="size-4" />
-              <span className="sr-only">Attach file</span>
+              <span className="sr-only">Upload study material</span>
             </Button>
 
-            <Button variant="ghost" size="icon">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              title="Voice question"
+            >
               <Mic className="size-4" />
-              <span className="sr-only">Use Microphone</span>
+              <span className="sr-only">Ask with voice</span>
             </Button>
 
             <Button
@@ -220,7 +297,7 @@ export default function Page() {
               size="sm"
               className="ml-auto gap-1.5"
             >
-              Send Message
+              Ask Question
               <CornerDownLeft className="size-3.5" />
             </Button>
           </div>
