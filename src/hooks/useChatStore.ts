@@ -30,7 +30,7 @@ interface Actions {
   handleInputChange: (
     e:
       | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>,
+      | React.ChangeEvent<HTMLTextAreaElement>
   ) => void;
   setchatBotMessages: (fn: (chatBotMessages: Message[]) => Message[]) => void;
   setMessages: (fn: (messages: Message[]) => Message[]) => void;
@@ -59,7 +59,7 @@ const useChatStore = create<State & Actions>()((set) => ({
   handleInputChange: (
     e:
       | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>,
+      | React.ChangeEvent<HTMLTextAreaElement>
   ) => set({ input: e.target.value }),
 
   chatBotMessages: ChatBotMessages,

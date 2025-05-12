@@ -1,8 +1,15 @@
+'use client';
+
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function Home() {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <div className="min-h-screen bg-background p-8">
       <main className="container mx-auto space-y-8">
@@ -11,9 +18,26 @@ export default function Home() {
             <h1 className="scroll-m-20 text-4xl font-bold tracking-tight">Welcome to Ace-it AI</h1>
             <p className="text-lg text-muted-foreground">Your personal AI tutor for personalized learning</p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-muted-foreground">Current Topic:</span>
-            <Badge variant="secondary">Not Selected</Badge>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                toggleTheme();
+                document.documentElement.classList.toggle('dark');
+              }}
+              className="rounded-full"
+            >
+              {theme === 'dark' ? (
+                <Sun className="h-5 w-5 text-primary" />
+              ) : (
+                <Moon className="h-5 w-5 text-primary" />
+              )}
+            </Button>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">Current Topic:</span>
+              <Badge variant="secondary">Not Selected</Badge>
+            </div>
           </div>
         </div>
 

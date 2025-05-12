@@ -18,7 +18,12 @@ import {
   Plus,
   CopyIcon,
   RefreshCcw,
+  ChevronUp,
+  Sun,
+  Moon,
+  LogIn,
 } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useEffect, useRef, useState } from "react";
 
 const ChatAiIcons = [
@@ -44,10 +49,13 @@ export default function Page() {
   const [isLoading, setisLoading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile
   const [isMobileView, setIsMobileView] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const getMessageVariant = (role: string) =>
     role === "ai" ? "received" : "sent";
@@ -75,6 +83,23 @@ export default function Page() {
         messagesContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Click outside handler for user menu
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+
+    if (isUserMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -125,18 +150,18 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen bg-zinc-900 text-zinc-100">
+    <div className="flex h-screen w-screen bg-background text-foreground">
       {/* Sidebar - Now with mobile overlay */}
       <aside 
         className={`${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } transition-transform duration-300 ease-in-out fixed md:relative z-50 h-screen bg-zinc-800 border-r border-zinc-700 flex flex-col ${
+        } transition-transform duration-300 ease-in-out fixed md:relative z-50 h-screen bg-muted border-r border-border flex flex-col ${
           isMobileView ? 'w-[80vw]' : 'w-64'
         }`}
       >
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b border-zinc-700">
-            <span className="font-semibold text-zinc-100">Chat History</span>
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <span className="font-semibold text-foreground">Chat History</span>
             <Button
               variant="ghost"
               size="icon"
@@ -149,13 +174,68 @@ export default function Page() {
                 }
               }}>
               <Plus className="h-4 w-4" />
-              <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-zinc-200">
+              <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-foreground/80">
                 New chat
               </span>
             </Button>
           </div>
-          <div className="p-4 text-sm text-zinc-400">
+          <div className="p-4 text-sm text-muted-foreground">
             Your conversations will appear here
+          </div>
+
+          {/* User Menu */}
+          <div className="mt-auto relative" ref={menuRef}>
+            {/* User Menu Dropdown - Positioned above the button */}
+            {isUserMenuOpen && (
+              <div className="absolute bottom-full w-full border-b border-border">
+                <button
+                  onClick={() => {
+                    toggleTheme();
+                    // Force a re-render of the entire app to update theme
+                    document.documentElement.classList.toggle('dark');
+                  }}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors text-sm text-foreground bg-muted"
+                >
+                  {theme === 'dark' ? (
+                    <>
+                      <Sun className="h-4 w-4 text-muted-foreground" />
+                      Toggle light mode
+                    </>
+                  ) : (
+                    <>
+                      <Moon className="h-4 w-4 text-muted-foreground" />
+                      Toggle dark mode
+                    </>
+                  )}
+                </button>
+                <button
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors text-sm text-foreground opacity-50 bg-muted"
+                  disabled
+                >
+                  <LogIn className="h-4 w-4 text-muted-foreground" />
+                  Sign in to your account
+                </button>
+              </div>
+            )}
+
+            {/* User Menu Button - Fixed at bottom */}
+            <button
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors border-t border-border bg-muted"
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={selectedUser.avatar} />
+                <AvatarFallback>U</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left">
+                <div className="text-sm text-foreground font-medium">{selectedUser.name}</div>
+              </div>
+              <ChevronUp 
+                className={`h-4 w-4 text-muted-foreground transition-transform ${
+                  isUserMenuOpen ? 'rotate-180' : ''
+                }`} 
+              />
+            </button>
           </div>
         </div>
       </aside>
@@ -163,15 +243,15 @@ export default function Page() {
       {/* Overlay for mobile */}
       {isMobileView && isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40"
+          className="fixed inset-0 bg-background/50 z-40"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-screen bg-zinc-900 relative">
+      <div className="flex-1 flex flex-col h-screen bg-background relative">
         {/* Chat Header */}
-        <header className="h-12 border-b border-zinc-800 flex items-center px-4 gap-4 bg-zinc-800/50">
+        <header className="h-12 border-b border-border flex items-center px-4 gap-4 bg-muted/50">
           <Button
             variant="ghost"
             size="icon"
@@ -180,7 +260,7 @@ export default function Page() {
           >
             <PanelLeft className="h-4 w-4" />
           </Button>
-          <h1 className="font-semibold text-zinc-100">Ace It AI</h1>
+          <h1 className="font-semibold text-foreground">Ace It AI</h1>
         </header>
 
         {/* Messages Area - Adjusted padding for mobile */}
@@ -188,8 +268,8 @@ export default function Page() {
           {messages.length === 0 && (
             <div className="flex-1 flex items-center justify-center text-center p-4 md:p-8">
               <div className="space-y-2">
-                <h2 className="text-xl md:text-2xl font-semibold text-zinc-100">Hello there!</h2>
-                <p className="text-zinc-400">How can I help you today?</p>
+                <h2 className="text-xl md:text-2xl font-semibold text-foreground">Hello there!</h2>
+                <p className="text-muted-foreground">How can I help you today?</p>
               </div>
             </div>
           )}
@@ -223,15 +303,15 @@ export default function Page() {
                             alt="Avatar"
                             className={message.role === "ai" ? "dark:invert" : ""}
                           />
-                          <AvatarFallback className="bg-zinc-700 text-zinc-100">
+                          <AvatarFallback className="bg-muted text-foreground">
                             {message.role === "ai" ? "🤖" : "U"}
                           </AvatarFallback>
                         </Avatar>
                         <ChatBubbleMessage 
                           isLoading={message.isLoading}
-                          className={`${message.role === "ai" ? "bg-zinc-800 border-zinc-700 text-zinc-100" : "bg-blue-600 border-blue-500 text-zinc-100"} w-full md:w-auto`}
+                          className={`${message.role === "ai" ? "bg-muted" : "bg-primary/10"} border border-border text-foreground w-full md:w-auto`}
                         >
-                          <div className="flex md:hidden items-center gap-2 mb-1 text-xs text-zinc-400">
+                          <div className="flex md:hidden items-center gap-2 mb-1 text-xs text-muted-foreground">
                             {message.role === "ai" ? "AI Tutor" : "You"}
                           </div>
                           {message.message}
@@ -244,9 +324,9 @@ export default function Page() {
                                     return (
                                       <ChatBubbleAction
                                         variant="outline"
-                                        className="size-6 bg-zinc-900 border-zinc-700 hover:bg-zinc-100 transition-colors group"
+                                        className="size-6 bg-background border-border hover:bg-foreground transition-colors group"
                                         key={index}
-                                        icon={<Icon className="size-3 text-zinc-100 group-hover:text-zinc-900 transition-colors" />}
+                                        icon={<Icon className="size-3 text-foreground group-hover:text-background transition-colors" />}
                                         onClick={() =>
                                           console.log(
                                             "Action " +
@@ -273,7 +353,7 @@ export default function Page() {
         </div>
 
         {/* Input Area - Adjusted padding for mobile */}
-        <div className="p-2 md:p-4 bg-zinc-900">
+        <div className="p-2 md:p-4 bg-background">
           <div className="max-w-3xl mx-auto">
             <form
               ref={formRef}
@@ -285,7 +365,7 @@ export default function Page() {
                 onKeyDown={handleKeyDown}
                 onChange={handleInputChange}
                 placeholder="Ask anything..."
-                className="min-h-[60px] md:min-h-[80px] resize-none rounded-lg bg-zinc-800 border-zinc-700 p-3 text-zinc-100 placeholder:text-zinc-400"
+                className="min-h-[60px] md:min-h-[80px] resize-none rounded-lg bg-muted border-border p-3 text-foreground placeholder:text-muted-foreground"
               />
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -293,7 +373,7 @@ export default function Page() {
                     variant="ghost" 
                     size="icon"
                     type="button"
-                    className="h-8 w-8 hover:opacity-80 transition-opacity text-zinc-200"
+                    className="h-8 w-8 hover:opacity-80 transition-opacity text-foreground"
                   >
                     <Paperclip className="h-4 w-4" />
                   </Button>
@@ -301,10 +381,12 @@ export default function Page() {
                 <Button
                   type="submit"
                   disabled={!input || isLoading}
-                  className="bg-blue-600 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:bg-zinc-700 px-4 h-8 text-zinc-100"
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
                 >
                   Send message
-                  <CornerDownLeft className="h-4 w-4 ml-2" />
+                  <CornerDownLeft className="h-4 w-4" />
                 </Button>
               </div>
             </form>
