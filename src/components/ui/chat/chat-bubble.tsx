@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 // ChatBubble
 const chatBubbleVariant = cva(
-  "flex gap-2 max-w-[60%] items-end relative group",
+  "flex gap-2 max-w-[60%] items-end relative",
   {
     variants: {
       variant: {
@@ -32,11 +32,10 @@ interface ChatBubbleProps
     VariantProps<typeof chatBubbleVariant> {}
 
 const ChatBubble = React.forwardRef<HTMLDivElement, ChatBubbleProps>(
-  ({ className, variant, layout, children, ...props }, ref) => (
-    <div
+  ({ className, variant, layout, children, ...props }, ref) => (    <div
       className={cn(
         chatBubbleVariant({ variant, layout, className }),
-        "relative group",
+        "relative",
       )}
       ref={ref}
       {...props}
@@ -178,7 +177,7 @@ const ChatBubbleActionWrapper = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "absolute top-1/2 -translate-y-1/2 flex opacity-0 group-hover:opacity-100 transition-opacity duration-200",
+      "absolute top-1/2 -translate-y-1/2 flex",
       variant === "sent"
         ? "-left-1 -translate-x-full flex-row-reverse"
         : "-right-1 translate-x-full",
