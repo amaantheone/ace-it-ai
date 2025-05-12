@@ -36,9 +36,11 @@ interface Actions {
   setMessages: (fn: (messages: Message[]) => Message[]) => void;
   setHasInitialAIResponse: (hasInitialAIResponse: boolean) => void;
   setHasInitialResponse: (hasInitialResponse: boolean) => void;
+  regenerateResponse: () => void;
+  copyMessageToClipboard: (message: string) => void;
 }
 
-const useChatStore = create<State & Actions>()((set) => ({
+const useChatStore = create<State & Actions>()((set, get) => ({
   selectedUser: Users[4],
 
   selectedExample: { name: "Messenger example", url: "/" },
@@ -75,6 +77,100 @@ const useChatStore = create<State & Actions>()((set) => ({
 
   hasInitialResponse: false,
   setHasInitialResponse: (hasInitialResponse) => set({ hasInitialResponse }),
+
+  copyMessageToClipboard: (message: string) => {
+    navigator.clipboard.writeText(message);
+  },
+
+  regenerateResponse: async () => {
+    const state = get();
+    const messages = state.chatBotMessages;
+
+    // Find the last user message
+    let lastUserMessage = "";
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") {
+        lastUserMessage = messages[i].message || "";
+        break;
+      }
+    }
+
+    if (!lastUserMessage) return;
+
+    // Remove the last AI response
+    const newMessages = [...messages];
+    if (newMessages[newMessages.length - 1].role === "ai") {
+      newMessages.pop();
+    }
+
+    // Add new AI message with loading state
+    set((state) => ({
+      ...state,
+      chatBotMessages: [
+        ...newMessages,
+        {
+          id: newMessages.length + 1,
+          avatar: "",
+          name: "AI Tutor",
+          role: "ai",
+          message: "",
+          isLoading: true,
+        },
+      ],
+    }));
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: lastUserMessage }),
+      });
+
+      if (!response.ok) throw new Error("Failed to get response");
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No reader available");
+
+      let accumulatedMessage = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = new TextDecoder().decode(value);
+        try {
+          const data = JSON.parse(chunk);
+          const messageChunk = data.message || "";
+          accumulatedMessage += messageChunk;
+
+          set((state) => {
+            const newMessages = [...state.chatBotMessages];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage.role === "ai") {
+              lastMessage.message = accumulatedMessage;
+              lastMessage.isLoading = false;
+            }
+            return { ...state, chatBotMessages: newMessages };
+          });
+        } catch (e) {
+          console.warn("Error parsing chunk:", e);
+        }
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      set((state) => {
+        const newMessages = [...state.chatBotMessages];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (lastMessage.role === "ai") {
+          lastMessage.message = "Sorry, there was an error. Please try again.";
+          lastMessage.isLoading = false;
+        }
+        return { ...state, chatBotMessages: newMessages };
+      });
+    }
+  },
 }));
 
 export default useChatStore;
