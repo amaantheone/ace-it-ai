@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import useChatStore from "@/hooks/useChatStore";
-
+import { useSession, signIn } from "next-auth/react";
 import { Sidebar } from "@/components/ui/chat/sidebar";
 import { ChatHeader } from "@/components/ui/chat/chat-header";
 import { ChatMessages } from "@/components/ui/chat/chat-messages";
@@ -29,8 +29,9 @@ export default function Page() {
   const formRef = useRef<HTMLFormElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const getMessageVariant = (role: string) =>
-    role === "ai" ? "received" : "sent";
+  const { data: session } = useSession();
+  const username = session?.user?.name || "Guest";
+  const avatar = session?.user?.image;
 
   useEffect(() => {
     const handleResize = () => {
@@ -210,6 +211,9 @@ export default function Page() {
           isUserMenuOpen={isUserMenuOpen}
           theme={theme}
           selectedUser={selectedUser}
+          username={username}
+          //@ts-ignore
+          avatar={avatar}
           onNewChat={() => {
             setMessages(() => []);
             setHasInitialAIResponse(false);

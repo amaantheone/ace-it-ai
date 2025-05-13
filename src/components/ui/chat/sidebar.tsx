@@ -1,9 +1,11 @@
 'use client';
 
-import { Plus, Sun, Moon, LogIn } from "lucide-react";
+import { Plus, Sun, Moon, LogIn, LogOut, LogOutIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ChevronUp } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { redirect } from "next/navigation";
 
 interface SidebarProps {
   isSidebarOpen: boolean;
@@ -14,6 +16,8 @@ interface SidebarProps {
     avatar: string;
     name: string;
   };
+  username: string;
+  avatar: string | Blob | undefined;
   onNewChat: () => void;
   onToggleTheme: () => void;
   onToggleUserMenu: () => void;
@@ -22,10 +26,10 @@ interface SidebarProps {
 
 export function Sidebar({
   isSidebarOpen,
-  isMobileView,
   isUserMenuOpen,
   theme,
-  selectedUser,
+  username,
+  avatar,
   onNewChat,
   onToggleTheme,
   onToggleUserMenu,
@@ -78,11 +82,20 @@ export function Sidebar({
                 )}
               </button>
               <button
-                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors text-sm text-foreground opacity-50 bg-muted"
-                disabled
-              >
+                onClick={() => {
+                  redirect("/auth/login");
+                }}
+                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors text-sm text-foreground bg-muted hover:cursor-pointer">
                 <LogIn className="h-4 w-4 text-muted-foreground" />
                 Sign in to your account
+              </button>
+              <button
+                onClick={() => {
+                  signOut();
+                }}
+                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors text-sm text-foreground bg-muted hover:cursor-pointer">
+                <LogOutIcon className="h-4 w-4 text-muted-foreground" />
+                Sign out
               </button>
             </div>
           )}
@@ -93,11 +106,11 @@ export function Sidebar({
             className="w-full p-4 flex items-center gap-3 hover:bg-muted/50 transition-colors border-t border-border bg-muted"
           >
             <Avatar className="h-8 w-8">
-              <AvatarImage src={selectedUser.avatar} />
+              <AvatarImage src={avatar} />
               <AvatarFallback>U</AvatarFallback>
             </Avatar>
             <div className="flex-1 text-left">
-              <div className="text-sm text-foreground font-medium">{selectedUser.name}</div>
+              <div className="text-sm text-foreground font-medium">{username}</div>
             </div>
             <ChevronUp 
               className={`h-4 w-4 text-muted-foreground transition-transform ${
