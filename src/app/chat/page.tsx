@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/ui/chat/sidebar";
 import { ChatHeader } from "@/components/ui/chat/chat-header";
 import { ChatMessages } from "@/components/ui/chat/chat-messages";
 import { ChatInputArea } from "@/components/ui/chat/chat-input-area";
+import { Bot } from "lucide-react";
 
 export default function Page() {
   const messages = useChatStore((state) => state.chatBotMessages);
@@ -82,100 +83,102 @@ export default function Page() {
     }
   };
 
-  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input) return;
+const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  if (!input) return;
 
-    const userMessage = input;
+  const userMessage = input;
 
-    // Add user message
-    setMessages((messages) => [
-      ...messages,
-      {
-        id: messages.length + 1,
-        avatar: selectedUser.avatar,
-        name: selectedUser.name,
-        role: "user",
-        message: userMessage,
+  // Add user message
+  setMessages((messages) => [
+    ...messages,
+    {
+      id: messages.length + 1,
+      avatar: avatar || "",
+      name: username,
+      role: "user",
+      message: userMessage,
+    },
+  ]);
+  // Add AI message with loading state
+  setMessages((messages) => [
+    ...messages,
+    {
+      id: messages.length + 1,
+      avatar: "",
+      name: "AI Tutor",
+      role: "ai",
+      message: "",
+      isLoading: true,
+    },
+  ]);
+
+  setInput("");
+  formRef.current?.reset();
+
+  try {
+    setisLoading(true);
+
+    // Prepare messages for backend
+    const formattedMessages = [
+      ...messages.map((msg) => ({
+        role: msg.role === "ai" ? "assistant" : "user",
+        content: msg.message,
+      })),
+      { role: "user", content: userMessage }
+    ];
+
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    ]);
+      body: JSON.stringify({ messages: formattedMessages }),
+    });
 
-    // Add AI message with loading state
-    setMessages((messages) => [
-      ...messages,
-      {
-        id: messages.length + 1,
-        avatar: "",
-        name: "AI Tutor",
-        role: "ai",
-        message: "",
-        isLoading: true,
-      },
-    ]);
+    if (!response.ok) {
+      throw new Error('Failed to get response');
+    }
 
-    setInput("");
-    formRef.current?.reset();
-    
-    try {
-      setisLoading(true);
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: userMessage }),
-      });
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No reader available');
 
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
+    let accumulatedMessage = "";
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No reader available');
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      let accumulatedMessage = "";
+      const chunk = new TextDecoder().decode(value);
+      accumulatedMessage += chunk;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Convert the chunk to text and parse the JSON
-        const chunk = new TextDecoder().decode(value);
-        try {
-          const data = JSON.parse(chunk);
-          const messageChunk = data.message || "";
-          accumulatedMessage += messageChunk;
-
-          // Update the AI message with accumulated text
-          setMessages((messages) => {
-            const newMessages = [...messages];
-            const lastMessage = newMessages[newMessages.length - 1];
-            if (lastMessage.role === "ai") {
-              lastMessage.message = accumulatedMessage;
-              lastMessage.isLoading = false;
-            }
-            return newMessages;
-          });
-        } catch (e) {
-          console.warn("Error parsing chunk:", e);
-        }
-      }
-
-    } catch (error) {
-      console.error("Error:", error);
       setMessages((messages) => {
         const newMessages = [...messages];
         const lastMessage = newMessages[newMessages.length - 1];
         if (lastMessage.role === "ai") {
-          lastMessage.message = "Sorry, there was an error. Please try again.";
+          lastMessage.message = accumulatedMessage;
           lastMessage.isLoading = false;
         }
         return newMessages;
       });
-    } finally {
-      setisLoading(false);
     }
-  };
+
+  } catch (error) {
+    console.error("Error:", error);
+    setMessages((messages) => {
+      const newMessages = [...messages];
+      const lastMessage = newMessages[newMessages.length - 1];
+      if (lastMessage.role === "ai") {
+        lastMessage.message = "Sorry, there was an error. Please try again.";
+        lastMessage.isLoading = false;
+      }
+      return newMessages;
+    });
+  } finally {
+    setisLoading(false);
+  }
+};
+
 
   useEffect(() => {
     if (inputRef.current) {
