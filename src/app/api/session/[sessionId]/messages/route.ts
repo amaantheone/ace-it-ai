@@ -1,9 +1,8 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { prisma } from '@/lib/prisma';
-
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { prisma } from "@/lib/prisma";
 
 interface MessageWithUser {
   id: string;
@@ -17,21 +16,22 @@ interface MessageWithUser {
 
 export async function GET(
   request: Request,
-  { params }: { params: { sessionId: string } }
+  context: { params: Promise<{ sessionId: string }> }
 ) {
   const session = await getServerSession(authOptions);
+  const { sessionId } = await context.params;
 
   if (!session?.user?.email) {
-    return new NextResponse('Unauthorized', { status: 401 });
+    return new NextResponse("Unauthorized", { status: 401 });
   }
 
   try {
     const messages: MessageWithUser[] = await prisma.message.findMany({
       where: {
-        sessionId: params.sessionId,
+        sessionId: sessionId,
       },
       orderBy: {
-        createdAt: 'asc',
+        createdAt: "asc",
       },
       include: {
         user: {
@@ -54,19 +54,20 @@ export async function GET(
 
     return NextResponse.json(transformedMessages);
   } catch (error) {
-    console.error('Error fetching messages:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    console.error("Error fetching messages:", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
 
 export async function POST(
   request: Request,
-  context: { params: { sessionId: string } }
+  context: { params: Promise<{ sessionId: string }> }
 ) {
   const session = await getServerSession(authOptions);
+  const { sessionId } = await context.params;
 
   if (!session?.user?.email) {
-    return new NextResponse('Unauthorized', { status: 401 });
+    return new NextResponse("Unauthorized", { status: 401 });
   }
 
   try {
@@ -78,14 +79,14 @@ export async function POST(
     ]);
 
     if (!user) {
-      return new NextResponse('User not found', { status: 404 });
+      return new NextResponse("User not found", { status: 404 });
     }
 
     const message = await prisma.message.create({
       data: {
         content,
         role,
-        sessionId: context.params.sessionId,
+        sessionId: sessionId,
         userId: user.id,
       },
       include: {
@@ -109,7 +110,7 @@ export async function POST(
 
     return NextResponse.json(transformedMessage);
   } catch (error) {
-    console.error('Error creating message:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    console.error("Error creating message:", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
