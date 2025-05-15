@@ -11,17 +11,20 @@ import {
 } from "./chat-bubble";
 import { RefreshCcw, CopyIcon } from "lucide-react";
 import Markdown from 'markdown-to-jsx';
-import { Message } from '@/app/data';
-import useChatStore from '@/hooks/useChatStore';
+import { useSessionStore } from '@/hooks/useSessionStore';
 
-interface ExtendedMessage extends Message {
-  role?: string;
+interface Message {
+  id: string | number;
+  avatar?: string;
+  name?: string;
+  role: 'user' | 'ai';
+  message?: string;
   isLoading?: boolean;
   className?: string;
 }
 
 interface ChatMessagesProps {
-  messages: ExtendedMessage[];
+  messages: Message[];
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -77,7 +80,7 @@ export function ChatMessages({ messages, messagesContainerRef }: ChatMessagesPro
                 <ChatBubble variant={variant} className="max-w-full md:max-w-[85%]">
                   <Avatar className="hidden md:flex">
                     <AvatarImage
-                      src={message.role === "ai" ? "" : message.avatar}
+                      src={message.role === "ai" ? undefined : message.avatar}
                       alt="Avatar"
                       className={message.role === "ai" ? "dark:invert" : ""}
                     />
@@ -135,7 +138,7 @@ export function ChatMessages({ messages, messagesContainerRef }: ChatMessagesPro
                                     if (icon.label === "Save Note") {
                                       navigator.clipboard.writeText(message.message || "");
                                     } else if (icon.label === "Explain Again") {
-                                      useChatStore.getState().regenerateResponse();
+                                      useSessionStore.getState().regenerateResponse();
                                     }
                                   }}
                                 />

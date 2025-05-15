@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.9.1",
     "@langchain/core": "^0.3.55",
     "@langchain/google-genai": "^0.2.8",
     "@prisma/client": "^6.7.0",

@@ -1,25 +1,32 @@
 'use client';
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
-import useChatStore from "@/hooks/useChatStore";
-import { useSession, signIn } from "next-auth/react";
+import { useSessionStore, Message } from "@/hooks/useSessionStore";
+import { useSession } from "next-auth/react";
 import { Sidebar } from "@/components/ui/chat/sidebar";
 import { ChatHeader } from "@/components/ui/chat/chat-header";
-import { ChatMessages } from "@/components/ui/chat/chat-messages";
 import { ChatInputArea } from "@/components/ui/chat/chat-input-area";
+import { ChatMessages } from "@/components/ui/chat/chat-messages";
+import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil } from "@/chatFunctions/messageHandlers";
+import { generateTitle as generateTitleUtil, createNewSession as createNewSessionUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil } from "@/chatFunctions/sessionHandlers";
 
-export default function Page() {
-  const messages = useChatStore((state) => state.chatBotMessages);
-  const setMessages = useChatStore((state) => state.setchatBotMessages);
-  const selectedUser = useChatStore((state) => state.selectedUser);
-  const input = useChatStore((state) => state.input);
-  const setInput = useChatStore((state) => state.setInput);
-  const handleInputChange = useChatStore((state) => state.handleInputChange);
-  const hasInitialAIResponse = useChatStore((state) => state.hasInitialAIResponse);
-  const setHasInitialAIResponse = useChatStore((state) => state.setHasInitialAIResponse);
-  const [isLoading, setisLoading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default to closed on mobile
+export default function ChatPage() {
+  const {
+    sessions,
+    currentSessionId,
+    messages,
+    input,
+    isLoading,
+    setSessions,
+    setCurrentSessionId,
+    addMessage,
+    setMessages,
+    setInput,
+    setIsLoading,
+  } = useSessionStore();
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
@@ -74,130 +81,121 @@ export default function Page() {
     };
   }, [isUserMenuOpen]);
 
+  // Load initial sessions
+  useEffect(() => {
+    async function loadSessions() {
+      try {
+        const response = await fetch('/api/session');
+        if (!response.ok) {
+          throw new Error('Failed to load sessions');
+        }
+        const data = await response.json();
+        setSessions(data);
+        
+        // If there are no sessions, create one
+        if (data.length === 0) {
+          const newSessionResponse = await fetch('/api/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
 
+          if (!newSessionResponse.ok) {
+            throw new Error('Failed to create session');
+          }
+
+          const newSession = await newSessionResponse.json();
+          setSessions([newSession]);
+          setCurrentSessionId(newSession.id);
+
+          const initialConversation: Message[] = [
+            {
+              id: crypto.randomUUID(),
+              avatar: "",
+              name: "AI Tutor",
+              role: "ai" as const,
+              message: "Hi! 👋 I'm your AI tutor. Ask me anything you'd like to learn about!",
+              className: "text-zinc-100"
+            }
+          ];
+
+          setIsLoading(true);
+          setMessages(newSession.id, initialConversation);
+          setIsLoading(false);
+        } else {
+          // Set the most recent session as current if none is selected
+          if (!currentSessionId) {
+            setCurrentSessionId(data[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading sessions:', error);
+      }
+    }
+    loadSessions();
+  }, [setSessions, setCurrentSessionId, setMessages, setIsLoading, currentSessionId]);
+
+  // Load messages when switching sessions
+  useEffect(() => {
+    async function loadMessages() {
+      if (!currentSessionId) return;
+      try {
+        const response = await fetch(`/api/session/${currentSessionId}/messages`);
+        if (!response.ok) {
+          throw new Error('Failed to load messages');
+        }
+        const data = await response.json();
+        setMessages(currentSessionId, data);
+      } catch (error) {
+        console.error('Error loading messages:', error);
+      }
+    }
+    loadMessages();
+  }, [currentSessionId, setMessages]);
+
+  const generateTitle = useCallback(async (sessionId: string, message: string) => {
+    await generateTitleUtil(sessionId, message, sessions, setSessions);
+  }, [sessions, setSessions]);
+
+  const createNewSession = () => createNewSessionUtil({ sessions, setSessions, setCurrentSessionId });
+
+  const getCurrentSessionMessages = useCallback(() => {
+    return getCurrentSessionMessagesUtil(currentSessionId, messages);
+  }, [currentSessionId, messages]);
+
+  const handleNewChat = useCallback(() => {
+    handleNewChatUtil({
+      sessions,
+      setSessions,
+      setCurrentSessionId,
+      setMessages,
+      isMobileView,
+      setIsSidebarOpen
+    });
+  }, [sessions, setSessions, setCurrentSessionId, setMessages, isMobileView]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      handleSendMessage(e as unknown as React.FormEvent<HTMLFormElement>);
-    }
+    handleKeyDownUtil(e, handleSendMessage);
   };
 
-  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input) return;
-
-    const userMessage = input;
-
-    // Add user message
-    setMessages((messages) => [
-      ...messages,
-      {
-        id: messages.length + 1,
-        avatar: selectedUser.avatar,
-        name: selectedUser.name,
-        role: "user",
-        message: userMessage,
-      },
-    ]);
-
-    // Add AI message with loading state
-    setMessages((messages) => [
-      ...messages,
-      {
-        id: messages.length + 1,
-        avatar: "",
-        name: "AI Tutor",
-        role: "ai",
-        message: "",
-        isLoading: true,
-      },
-    ]);
-
-    setInput("");
-    formRef.current?.reset();
-    
-    try {
-      setisLoading(true);
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: userMessage }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No reader available');
-
-      let accumulatedMessage = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Convert the chunk to text and parse the JSON
-        const chunk = new TextDecoder().decode(value);
-        try {
-          const data = JSON.parse(chunk);
-          const messageChunk = data.message || "";
-          accumulatedMessage += messageChunk;
-
-          // Update the AI message with accumulated text
-          setMessages((messages) => {
-            const newMessages = [...messages];
-            const lastMessage = newMessages[newMessages.length - 1];
-            if (lastMessage.role === "ai") {
-              lastMessage.message = accumulatedMessage;
-              lastMessage.isLoading = false;
-            }
-            return newMessages;
-          });
-        } catch (e) {
-          console.warn("Error parsing chunk:", e);
-        }
-      }
-
-    } catch (error) {
-      console.error("Error:", error);
-      setMessages((messages) => {
-        const newMessages = [...messages];
-        const lastMessage = newMessages[newMessages.length - 1];
-        if (lastMessage.role === "ai") {
-          lastMessage.message = "Sorry, there was an error. Please try again.";
-          lastMessage.isLoading = false;
-        }
-        return newMessages;
-      });
-    } finally {
-      setisLoading(false);
-    }
+  const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
+    if (!currentSessionId) return;
+    handleSendMessageUtil(e, {
+      input,
+      currentSessionId,
+      username,
+      avatar,
+      messages,
+      setInput,
+      setMessages,
+      setSessions,
+      sessions,
+      formRef: formRef as React.RefObject<HTMLFormElement>
+    });
   };
 
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
-    }
-
-    if (!hasInitialAIResponse) { 
-      const initialConversation = [
-        {
-          id: 1,
-          avatar: "",
-          name: "AI Tutor",
-          role: "ai",
-          message: "Hi! 👋 I'm your AI tutor. Ask me anything you'd like to learn about!",
-          className: "text-zinc-100"
-        }
-      ];
-
-      setisLoading(true);
-      setMessages(() => initialConversation);
-      setisLoading(false);
-      setHasInitialAIResponse(true);
     }
   }, []);
 
@@ -210,23 +208,20 @@ export default function Page() {
           isMobileView={isMobileView}
           isUserMenuOpen={isUserMenuOpen}
           theme={theme}
-          selectedUser={selectedUser}
+          selectedUser={undefined}
           username={username}
-          //@ts-ignore
           avatar={avatar}
-          onNewChat={() => {
-            setMessages(() => []);
-            setHasInitialAIResponse(false);
-            if (isMobileView) {
-              setIsSidebarOpen(false);
-            }
-          }}
+          onNewChat={handleNewChat}
           onToggleTheme={() => {
             toggleTheme();
             document.documentElement.classList.toggle('dark');
           }}
           onToggleUserMenu={() => setIsUserMenuOpen(!isUserMenuOpen)}
           menuRef={menuRef}
+          sessions={sessions}
+          currentSessionId={currentSessionId}
+          onSelectSession={setCurrentSessionId}
+          generateTitle={generateTitle}
         />
       </div>
 
@@ -244,8 +239,8 @@ export default function Page() {
         
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto flex flex-col">
-          <ChatMessages 
-            messages={messages}
+          <ChatMessages
+            messages={getCurrentSessionMessages()}
             messagesContainerRef={messagesContainerRef}
           />
         </div>
@@ -255,7 +250,7 @@ export default function Page() {
           isLoading={isLoading}
           onSubmit={handleSendMessage}
           onKeyDown={handleKeyDown}
-          onChange={handleInputChange}
+          onChange={(e) => setInput(e.target.value)}
         />
       </div>
     </div>
