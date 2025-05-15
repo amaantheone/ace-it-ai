@@ -93,23 +93,30 @@ export function Sidebar({
           ) : (
             <div className="py-2 space-y-1">
               {sessions.map((session) => (
-                <button
+                <Button
                   key={session.id}
+                  variant="ghost"
                   onClick={() => handleSessionSelect(session.id, session)}
                   className={cn(
-                    "w-full px-4 py-2 text-sm text-left transition-colors hover:bg-muted/50 flex items-center justify-between group",
-                    session.id === currentSessionId && "bg-muted"
+                    "w-full px-4 py-2 h-auto text-sm justify-start font-normal relative group",
+                    "hover:opacity-80 transition-opacity",
+                    session.id === currentSessionId && "bg-white/5 font-medium"
                   )}
                 >
-                  <span className="truncate flex-1">
+                  <span className="truncate flex-1 text-left">
                     {session.topic || (session.id === currentSessionId ? (
                       <span className="text-muted-foreground italic">Generating title...</span>
                     ) : "New Chat")}
                   </span>
-                  {session.id === currentSessionId && !session.topic && (
+                  {!session.topic && session.id === currentSessionId && (
                     <span className="w-3 h-3 rounded-full border-2 border-t-transparent border-muted-foreground/50 animate-spin ml-2" />
                   )}
-                </button>
+                  {!session.topic && session.id !== currentSessionId && (
+                    <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-foreground/80">
+                      Start new conversation
+                    </span>
+                  )}
+                </Button>
               ))}
             </div>
           )}
