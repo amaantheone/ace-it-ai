@@ -81,22 +81,24 @@ export default function Home() {
             </Card>
           </Link>
 
-          <Card className="transition-all hover:shadow-md">
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="rounded-full bg-primary/10 p-2.5 transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-                    <rect x="3" y="4" width="18" height="16" rx="2" />
-                    <path d="M7 8h10M7 12h4" />
-                  </svg>
+          <Link href="/flashcard" className="block">
+            <Card className="transition-all hover:shadow-md hover:border-primary/50">
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div className="rounded-full bg-primary/10 p-2.5 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                      <rect x="3" y="4" width="18" height="16" rx="2" />
+                      <path d="M7 8h10M7 12h4" />
+                    </svg>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold">Flash Card Generator</h3>
+                    <p className="text-sm text-muted-foreground">Create and review flashcards</p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-semibold">Flash Card Generator</h3>
-                  <p className="text-sm text-muted-foreground">Create and review flashcards</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">

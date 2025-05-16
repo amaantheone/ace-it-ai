@@ -11,17 +11,18 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?     @unique
   emailVerified DateTime?
   image         String?
   avatar        String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
   accounts      Account[]
   sessions      Session[]
   messages      Message[]
+  flashCards    FlashCard[]
 }
 
 model Session {
@@ -64,4 +65,17 @@ model Message {
   session   Session  @relation(fields: [sessionId], references: [id])
   userId    String
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model FlashCard {
+  id           String   @id @default(cuid())
+  term         String
+  translation  String?
+  partOfSpeech String?
+  definition   String
+  example      String
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

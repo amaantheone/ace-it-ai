@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronUp } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { redirect } from "next/navigation";
-import { cn } from "@/utils/utils";
+import { cn } from "@/lib/utils";
 
 interface Session {
   id: string;
