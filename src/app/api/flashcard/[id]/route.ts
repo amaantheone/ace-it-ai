@@ -5,17 +5,16 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
+  const { id } = await context.params;
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const { id } = params;
-
     const flashCard = await prisma.flashCard.findFirst({
       where: {
         id,
@@ -42,9 +41,10 @@ export async function GET(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
+  const { id } = await context.params;
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -52,7 +52,6 @@ export async function PUT(
 
   try {
     const flashCardData = await req.json();
-    const { id } = params;
 
     // First check if the flashcard exists and belongs to the current user
     const existingCard = await prisma.flashCard.findFirst({

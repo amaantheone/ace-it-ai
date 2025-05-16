@@ -6,17 +6,16 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
+  const { id } = await context.params;
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const { id } = params;
-
     const deletedFlashCard = await prisma.flashCard.delete({
       where: { id },
     });

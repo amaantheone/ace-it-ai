@@ -5,17 +5,16 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
+  const { id } = await context.params;
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const { id } = params;
-
     const flashCard = await prisma.flashCard.findFirst({
       where: {
         id,
