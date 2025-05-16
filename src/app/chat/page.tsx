@@ -20,7 +20,6 @@ export default function ChatPage() {
     isLoading,
     setSessions,
     setCurrentSessionId,
-    addMessage,
     setMessages,
     setInput,
     setIsLoading,
@@ -155,8 +154,6 @@ export default function ChatPage() {
   const generateTitle = useCallback(async (sessionId: string, message: string) => {
     await generateTitleUtil(sessionId, message, sessions, setSessions);
   }, [sessions, setSessions]);
-
-  const createNewSession = () => createNewSessionUtil({ sessions, setSessions, setCurrentSessionId });
 
   const getCurrentSessionMessages = useCallback(() => {
     return getCurrentSessionMessagesUtil(currentSessionId, messages);

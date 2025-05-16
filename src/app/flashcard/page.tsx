@@ -5,17 +5,42 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, PanelLeft } from 'lucide-react';
 import { FlashCard, FlashCardData } from '@/components/ui/flashcard/flash-card';
 import { FlashCardSidebar } from '@/components/ui/flashcard/flashcard-sidebar';
+import { FlashCardProvider, useFlashCards } from '@/contexts/FlashCardContext';
 import { ChatInput } from '@/components/ui/chat/chat-input';
 
-export default function FlashCardPage() {
+function FlashCardPageContent() {
   const searchParams = useSearchParams();
+  const { addFlashCard, updateFlashCard, deleteFlashCard } = useFlashCards();
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentCard, setCurrentCard] = useState<FlashCardData | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileView, setIsMobileView] = useState(false);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+
+    // Initial check
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Close sidebar when a card is selected on mobile
+  useEffect(() => {
+    if (isMobileView && currentCard) {
+      setIsSidebarOpen(false);
+    }
+  }, [currentCard, isMobileView]);
+
 
   // Fetch the specific card if an ID is provided in the URL
   useEffect(() => {
@@ -64,6 +89,7 @@ export default function FlashCardPage() {
       
       const data = await response.json();
       setCurrentCard(data.flashCard);
+      addFlashCard(data.flashCard);
       setTopic(''); // Clear input after successful generation
     } catch (err: any) {
       console.error('Error generating flashcard:', err);
@@ -95,6 +121,7 @@ export default function FlashCardPage() {
 
       const { flashCard } = await response.json();
       setCurrentCard(flashCard);
+      updateFlashCard(flashCard);
     } catch (error: any) {
       console.error('Error updating flashcard:', error);
       setError(error.message || 'Failed to update flashcard');
@@ -111,6 +138,7 @@ export default function FlashCardPage() {
         throw new Error('Failed to delete flashcard');
       }
 
+      deleteFlashCard(id);
       setCurrentCard(null);
       // Force reload the sidebar
       window.location.href = '/flashcard';
@@ -121,23 +149,41 @@ export default function FlashCardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="grid grid-cols-4 gap-4 p-4">
-        <div className="col-span-1">
-          <FlashCardSidebar />
+    <div className="flex h-screen w-screen bg-background text-foreground">
+      {/* Sidebar Container */}
+      <div className={`${isSidebarOpen ? 'w-64 md:w-64' : 'w-0'} ${
+        isMobileView ? 'fixed left-0 top-0 bottom-0 z-50' : 'relative'
+      } flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden bg-background border-r border-border`}>
+        <FlashCardSidebar />
+      </div>
+
+      {/* Overlay for mobile */}
+      {isMobileView && isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-background/50 z-40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <div className="flex items-center gap-2 p-4 border-b border-border">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="hover:opacity-80 transition-opacity"
+          >
+            <PanelLeft className="h-5 w-5" />
+          </Button>
+          <Link href="/">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <h1 className="text-2xl font-bold">Flash Card Generator</h1>
         </div>
-        <div className="col-span-3">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <Link href="/">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <h1 className="text-2xl font-bold">Flash Card Generator</h1>
-            </div>
-          </div>
-          
+        
+        <div className="flex-1 overflow-auto p-4">
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Generate a Flash Card</CardTitle>
@@ -181,5 +227,13 @@ export default function FlashCardPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FlashCardPage() {
+  return (
+    <FlashCardProvider>
+      <FlashCardPageContent />
+    </FlashCardProvider>
   );
 }
