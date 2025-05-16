@@ -8,8 +8,8 @@ import { Sidebar } from "@/components/ui/chat/sidebar";
 import { ChatHeader } from "@/components/ui/chat/chat-header";
 import { ChatInputArea } from "@/components/ui/chat/chat-input-area";
 import { ChatMessages } from "@/components/ui/chat/chat-messages";
-import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil } from "@/chatFunctions/messageHandlers";
-import { generateTitle as generateTitleUtil, createNewSession as createNewSessionUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil } from "@/chatFunctions/sessionHandlers";
+import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil } from "@/utils/chatFunctions/messageHandlers";
+import { generateTitle as generateTitleUtil, createNewSession as createNewSessionUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil } from "@/utils/chatFunctions/sessionHandlers";
 
 export default function ChatPage() {
   const {

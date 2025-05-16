@@ -1,0 +1,123 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import { MindmapRenderer } from '@/components/ui/mindmap/mindmap-renderer';
+import { ChatInput } from "@/components/ui/chat/chat-input";
+
+export default function MindmapPage() {
+  const { theme, toggleTheme } = useTheme();
+  const [topic, setTopic] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [mindmapData, setMindmapData] = useState(null);
+
+  const handleGenerateMindmap = async () => {
+    if (!topic.trim()) {
+      setError('Please enter a topic');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const response = await fetch('/api/mindmap', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ topic }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate mindmap');
+      }
+      
+      const data = await response.json();
+      setMindmapData(data.mindmap);
+    } catch (err: any) {
+      console.error('Error generating mindmap:', err);
+      setError(err.message || 'Failed to generate mindmap');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-4">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Link href="/">
+              <Button variant="ghost" size="icon">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <h1 className="text-2xl font-bold">Mindmap Generator</h1>
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              toggleTheme();
+              document.documentElement.classList.toggle('dark');
+            }}
+            className="rounded-full"
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-5 w-5 text-primary" />
+            ) : (
+              <Moon className="h-5 w-5 text-primary" />
+            )}
+          </Button>
+        </div>
+        
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Generate a Mindmap</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleGenerateMindmap();
+            }} className="flex gap-2 items-center min-h-0">
+              <div className="flex-1">
+                <ChatInput
+                  placeholder="Enter a topic (e.g., Quantum Physics, Climate Change, Machine Learning)"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  disabled={isLoading}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleGenerateMindmap();
+                    }
+                  }}
+                />
+              </div>
+              <Button type="submit" disabled={isLoading} className="cursor-pointer hover:opacity-90">
+                {isLoading ? 'Generating...' : 'Generate'}
+              </Button>
+            </form>
+            {error && <p className="text-destructive mt-2">{error}</p>}
+          </CardContent>
+        </Card>
+        
+        {mindmapData && (
+          <Card>
+            <CardContent className="pt-6">
+              <MindmapRenderer mindmapData={mindmapData} />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
