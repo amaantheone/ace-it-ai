@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { ChatInput } from '@/components/ui/chat/chat-input';
 
 function FlashCardPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { 
     flashCards,
     folders,
@@ -124,6 +125,11 @@ function FlashCardPageContent() {
       // Set the current card to the first generated card
       if (newCards.length > 0) {
         setCurrentCard(newCards[0]);
+        
+        // Update the URL with the first card's id
+        if (newCards[0].id) {
+          router.push(`/flashcard?id=${newCards[0].id}`);
+        }
       }
       
       setTopic(''); // Clear input after successful generation
@@ -170,6 +176,11 @@ function FlashCardPageContent() {
       setCurrentCard(data.flashCard);
       await addFlashCard(data.flashCard);
       setTopic(''); // Clear input after successful generation
+      
+      // Update the URL with the new card's id
+      if (data.flashCard && data.flashCard.id) {
+        router.push(`/flashcard?id=${data.flashCard.id}`);
+      }
     } catch (err: any) {
       console.error('Error generating flashcard:', err);
       setError(err.message || 'Failed to generate flashcard');
@@ -201,6 +212,11 @@ function FlashCardPageContent() {
       const { flashCard } = await response.json();
       setCurrentCard(flashCard);
       updateFlashCard(flashCard);
+      
+      // Update URL if the ID has changed
+      if (flashCard.id && flashCard.id !== currentCard.id) {
+        router.push(`/flashcard?id=${flashCard.id}`);
+      }
     } catch (error: any) {
       console.error('Error updating flashcard:', error);
       setError(error.message || 'Failed to update flashcard');
