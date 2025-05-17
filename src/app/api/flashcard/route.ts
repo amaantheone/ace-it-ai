@@ -16,7 +16,7 @@ const FLASHCARD_SYSTEM_MESSAGE = `You are a flashcard generator specializing in 
 Create a detailed flashcard for learning the given word or concept.
 Return a JSON structure with exactly this format:
 {
-  "term": "The word or concept itself",
+  "term": "The word or concept itself (KEEP THIS SHORT, 1-3 words maximum)",
   "translation": "Translation or alternate name (or null if not applicable)",
   "partOfSpeech": "Part of speech for words (or null for concepts)",
   "definition": "A clear, concise definition",
@@ -24,6 +24,7 @@ Return a JSON structure with exactly this format:
 }
 Keep the content educational and accurate.
 Ensure definitions are clear and examples are practical.
+IMPORTANT: Keep the "term" field VERY SHORT (1-3 words maximum).
 Always return valid JSON format.`;
 
 const llm = new ChatGoogleGenerativeAI({
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { topic } = await req.json();
+    const { topic, folderId } = await req.json();
 
     if (!topic) {
       return NextResponse.json({ error: "Topic is required" }, { status: 400 });
@@ -78,16 +79,39 @@ export async function POST(req: Request) {
 
       flashCard = parsedData;
 
+      // Prepare the data for creating the flash card
+      const flashCardData: {
+        userId: string;
+        term: string;
+        translation: string | null;
+        partOfSpeech: string | null;
+        definition: string;
+        example: string;
+        folderId?: string;
+      } = {
+        userId: session.user.id,
+        term: flashCard.term,
+        translation: flashCard.translation,
+        partOfSpeech: flashCard.partOfSpeech,
+        definition: flashCard.definition,
+        example: flashCard.example,
+      };
+
+      // If a folder ID is provided, check if it exists and belongs to the user
+      if (folderId) {
+        const folder = await prisma.flashCardFolder.findUnique({
+          where: { id: folderId },
+        });
+
+        if (folder && folder.userId === session.user.id) {
+          // Add the folder ID to the flashcard data
+          flashCardData.folderId = folderId;
+        }
+      }
+
       // Save the flash card to the database
       const savedFlashCard = await prisma.flashCard.create({
-        data: {
-          userId: session.user.id,
-          term: flashCard.term,
-          translation: flashCard.translation,
-          partOfSpeech: flashCard.partOfSpeech,
-          definition: flashCard.definition,
-          example: flashCard.example,
-        },
+        data: flashCardData,
       });
 
       return NextResponse.json({ flashCard: savedFlashCard });

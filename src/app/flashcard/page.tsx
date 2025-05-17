@@ -13,14 +13,28 @@ import { ChatInput } from '@/components/ui/chat/chat-input';
 
 function FlashCardPageContent() {
   const searchParams = useSearchParams();
-  const { addFlashCard, updateFlashCard, deleteFlashCard } = useFlashCards();
+  const { 
+    flashCards,
+    folders,
+    setFlashCards, 
+    setFolders,
+    addFlashCard, 
+    updateFlashCard, 
+    deleteFlashCard,
+    addFolder,
+    addCardToFolder
+  } = useFlashCards();
+  
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentCard, setCurrentCard] = useState<FlashCardData | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileView, setIsMobileView] = useState(false);
-
+  const [isBulk, setIsBulk] = useState(false);
+  const [bulkCount, setBulkCount] = useState(10);
+  const [bulkCardsGenerated, setBulkCardsGenerated] = useState(0);
+  
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
@@ -40,7 +54,6 @@ function FlashCardPageContent() {
       setIsSidebarOpen(false);
     }
   }, [currentCard, isMobileView]);
-
 
   // Fetch the specific card if an ID is provided in the URL
   useEffect(() => {
@@ -62,6 +75,65 @@ function FlashCardPageContent() {
       console.error('Error fetching flash card:', err);
       setError(err.message || 'Failed to fetch flash card');
     }
+  };  const generateBulkFlashCards = async () => {
+    if (!topic.trim()) {
+      setError('Please enter a topic');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    setBulkCardsGenerated(0);
+
+    try {
+      // Use the updated bulk API with folder creation
+      const bulkResponse = await fetch('/api/flashcard/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          topic,
+          count: bulkCount,
+          createFolder: true // Create a folder for these cards
+        }),
+      });
+      
+      if (!bulkResponse.ok) {
+        const errorData = await bulkResponse.json();
+        throw new Error(errorData.error || 'Failed to generate flashcards');
+      }
+      
+      const bulkData = await bulkResponse.json();
+      const { flashCards: newCards, folder } = bulkData;
+      
+      if (!newCards || newCards.length === 0) {
+        throw new Error('No flashcards were generated');
+      }
+      
+      // Add the folder to the context if it was created
+      if (folder) {
+        // Update local state with the folder from the API
+        setFolders([...folders, folder]);
+      }
+      
+      // Add all cards to the context and update the count
+      setFlashCards([...flashCards, ...newCards]);
+      setBulkCardsGenerated(newCards.length);
+      
+      // Set the current card to the first generated card
+      if (newCards.length > 0) {
+        setCurrentCard(newCards[0]);
+      }
+      
+      setTopic(''); // Clear input after successful generation
+      
+    } catch (err: any) {
+      console.error('Error generating flashcards:', err);
+      setError(err.message || 'Failed to generate flashcards');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGenerateFlashCard = async () => {
@@ -69,11 +141,18 @@ function FlashCardPageContent() {
       setError('Please enter a topic');
       return;
     }
-    
+
     setIsLoading(true);
     setError('');
-    
+
     try {
+      if (isBulk) {
+        // Handle bulk generation
+        await generateBulkFlashCards();
+        return;
+      }
+      
+      // Individual card generation logic
       const response = await fetch('/api/flashcard', {
         method: 'POST',
         headers: {
@@ -81,15 +160,15 @@ function FlashCardPageContent() {
         },
         body: JSON.stringify({ topic }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to generate flashcard');
       }
-      
+
       const data = await response.json();
       setCurrentCard(data.flashCard);
-      addFlashCard(data.flashCard);
+      await addFlashCard(data.flashCard);
       setTopic(''); // Clear input after successful generation
     } catch (err: any) {
       console.error('Error generating flashcard:', err);
@@ -192,24 +271,61 @@ function FlashCardPageContent() {
               <form onSubmit={(e) => {
                 e.preventDefault();
                 handleGenerateFlashCard();
-              }} className="flex gap-2 items-center">
-                <div className="flex-1">
-                  <ChatInput
-                    placeholder="Enter a word or phrase to learn"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    disabled={isLoading}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleGenerateFlashCard();
-                      }
-                    }}
-                  />
+              }} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <ChatInput
+                      placeholder="Enter a word or phrase to learn"
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      disabled={isLoading}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleGenerateFlashCard();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1 text-sm cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isBulk}
+                        onChange={() => setIsBulk((prev) => !prev)}
+                        className="accent-primary"
+                      />
+                      Pack
+                    </label>
+                  </div>
                 </div>
-                <Button type="submit" disabled={isLoading} className="cursor-pointer hover:opacity-90">
-                  {isLoading ? 'Generating...' : 'Generate'}
-                </Button>
+                {isBulk && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <label htmlFor="bulk-count" className="text-sm">Number of flashcards</label>
+                    <input
+                      id="bulk-count"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={bulkCount}
+                      onChange={(e) => setBulkCount(Number(e.target.value))}
+                      className="w-20 border rounded px-2 py-1 text-sm"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mt-2">
+                  <Button 
+                    type="submit" 
+                    disabled={isLoading} 
+                    className="cursor-pointer hover:opacity-90"
+                  >
+                    {isLoading ? (
+                      isBulk 
+                        ? `Generating ${bulkCardsGenerated}/${bulkCount}...` 
+                        : 'Generating...'
+                    ) : 'Generate'}
+                  </Button>
+                </div>
               </form>
               {error && <p className="text-destructive mt-2">{error}</p>}
             </CardContent>
