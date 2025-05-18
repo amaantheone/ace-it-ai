@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronDown, ChevronRight, FolderIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFlashCards } from '@/contexts/FlashCardContext';
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function FlashCardSidebar() {
   const { 
@@ -22,6 +23,10 @@ export function FlashCardSidebar() {
   const [error, setError] = useState('');
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState<string | null>(null);
+  const menuButtonRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -96,6 +101,16 @@ export function FlashCardSidebar() {
     }
   };
 
+  // Close menu on click outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      setMenuOpen(null);
+    };
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, [menuOpen]);
+
   if (error) {
     return (
       <div className="p-4 text-destructive">
@@ -128,8 +143,15 @@ export function FlashCardSidebar() {
               <div className="mb-2">
                 {folders.map((folder) => (
                   <div key={folder.id} className="mb-1">
-                    <div className="flex items-center group">
-                      <button 
+                    <div
+                      className="flex items-center group relative select-none"
+                      onContextMenu={e => {
+                        e.preventDefault();
+                        setMenuOpen(folder.id);
+                      }}
+                      ref={el => { menuButtonRefs.current[folder.id] = el; }}
+                    >
+                      <button
                         onClick={() => handleSelectFolder(folder.id)}
                         className="flex items-center flex-1 px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
                       >
@@ -139,19 +161,88 @@ export function FlashCardSidebar() {
                           <ChevronRight className="h-4 w-4 mr-1 flex-shrink-0" />
                         )}
                         <FolderIcon className="h-4 w-4 mr-2 flex-shrink-0" />
-                        <span className="max-w-[100px] truncate">{folder.name}</span>
+                        {editingFolderId === folder.id ? (
+                          <input
+                            className="w-48 max-w-full truncate border rounded px-2 py-1 text-sm bg-background"
+                            autoFocus
+                            defaultValue={folder.name}
+                            onBlur={async e => {
+                              const newName = e.target.value.trim();
+                              if (newName && newName !== folder.name) {
+                                try {
+                                  await fetch(`/api/flashcard/folder/${folder.id}`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ name: newName }),
+                                  });
+                                  await setFolders(folders.map(f => f.id === folder.id ? { ...f, name: newName } : f));
+                                } finally {
+                                  setEditingFolderId(null);
+                                }
+                              } else {
+                                setEditingFolderId(null);
+                              }
+                            }}
+                            onKeyDown={async e => {
+                              if (e.key === 'Enter') {
+                                const newName = (e.target as HTMLInputElement).value.trim();
+                                if (newName && newName !== folder.name) {
+                                  try {
+                                    await fetch(`/api/flashcard/folder/${folder.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ name: newName }),
+                                    });
+                                    await setFolders(folders.map(f => f.id === folder.id ? { ...f, name: newName } : f));
+                                  } finally {
+                                    setEditingFolderId(null);
+                                  }
+                                } else {
+                                  setEditingFolderId(null);
+                                }
+                              } else if (e.key === 'Escape') {
+                                setEditingFolderId(null);
+                              }
+                            }}
+                          />
+                        ) : (
+                          <>
+                            <span className="max-w-[100px] truncate">{folder.name}</span>
+                            <span className="ml-2 text-xs text-muted-foreground">{folder.cardIds.length}</span>
+                          </>
+                        )}
                         <span className="ml-auto text-xs text-muted-foreground">
                           {folder.cardIds.length}
                         </span>
                       </button>
-                      <div
-                        role="button"
-                        className="opacity-80 hover:opacity-100 px-2"
-                        onClick={(e) => handleDeleteFolder(folder.id, e)}
-                        title="Delete folder"
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive hover:text-destructive/80" />
-                      </div>
+                      {/* Dropdown menu on right click */}
+                      {menuOpen === folder.id && (
+                        <div
+                          className="absolute left-32 top-2 z-50 bg-popover border border-border rounded shadow-lg flex flex-col min-w-[100px]"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent rounded-t"
+                            onClick={() => {
+                              setEditingFolderId(folder.id);
+                              setMenuOpen(null);
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent rounded-b text-destructive"
+                            onClick={e => {
+                              setMenuOpen(null);
+                              setShowConfirm(folder.id);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                     
                     {/* Render cards in folder if expanded */}
@@ -224,6 +315,30 @@ export function FlashCardSidebar() {
           </div>
         )}
       </ScrollArea>
+
+      {/* ConfirmDialog for folder deletion */}
+      <ConfirmDialog
+        open={!!showConfirm}
+        title="Delete Folder?"
+        description="Are you sure you want to delete this folder and all its flashcards? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={async () => {
+          const folderId = showConfirm;
+          setShowConfirm(null);
+          if (folderId) {
+            // Delete folder and its flashcards
+            await fetch(`/api/flashcard/folder/${folderId}`, { method: 'DELETE' });
+            setFolders(folders.filter(f => f.id !== folderId));
+            // Remove all cards that were in this folder from local state
+            const folder = folders.find(f => f.id === folderId);
+            if (folder) {
+              setFlashCards(flashCards.filter(card => !folder.cardIds.includes(card.id!)));
+            }
+          }
+        }}
+        onCancel={() => setShowConfirm(null)}
+      />
     </aside>
   );
 }

@@ -10,9 +10,12 @@ interface Params {
 }
 
 // Update folder
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(
+  req: NextRequest,
+  context: { params: Promise<{ folderId: string }> }
+) {
   try {
-    const { folderId } = params;
+    const { folderId } = await context.params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
@@ -70,9 +73,12 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 // Delete folder
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ folderId: string }> }
+) {
   try {
-    const { folderId } = params;
+    const { folderId } = await context.params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
@@ -100,10 +106,9 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // When a folder is deleted, don't delete the cards, just remove their reference to the folder
-    await prisma.flashCard.updateMany({
+    // When a folder is deleted, also delete all its flashcards
+    await prisma.flashCard.deleteMany({
       where: { folderId },
-      data: { folderId: null },
     });
 
     // Now delete the folder

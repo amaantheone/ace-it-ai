@@ -13,8 +13,8 @@ export interface FlashCardFolder {
 interface FlashCardContextType {
   flashCards: FlashCardData[];
   folders: FlashCardFolder[];
-  setFlashCards: (cards: FlashCardData[]) => void;
-  setFolders: (folders: FlashCardFolder[]) => void;
+  setFlashCards: React.Dispatch<React.SetStateAction<FlashCardData[]>>;
+  setFolders: React.Dispatch<React.SetStateAction<FlashCardFolder[]>>;
   addFlashCard: (card: FlashCardData, folderId?: string) => Promise<void>;
   updateFlashCard: (updatedCard: FlashCardData) => Promise<void>;
   deleteFlashCard: (id: string) => Promise<void>;

@@ -72,23 +72,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create a folder for the flashcards if requested
-    let folderId: string | null = null;
-    if (createFolder) {
-      try {
-        const folder = await prisma.flashCardFolder.create({
-          data: {
-            name: topic,
-            userId: session.user.id,
-          },
-        });
-        folderId = folder.id;
-      } catch (folderError) {
-        console.error("Error creating folder:", folderError);
-        // Continue without folder if creation fails
-      }
-    }
-
     // Limit maximum count
     const adjustedCount = Math.min(count, 50);
 
@@ -131,101 +114,136 @@ export async function POST(req: Request) {
       );
     }
 
-    // Step 2: Generate a flashcard for each subtopic
-    const flashCards: any[] = [];
+    // --- Streaming response starts here ---
+    let folderId: string | null = null;
+    let folderSent = false;
+    let folderCardIds: string[] = [];
+    let folderName = topic;
 
-    for (const subtopic of subtopics) {
-      try {
-        const flashcardResponse = await llm.invoke([
-          ["system", FLASHCARD_SYSTEM_MESSAGE],
-          [
-            "human",
-            `Generate a flashcard for the subtopic: "${subtopic.topic}" in the context of the main topic: "${topic}". The definition and example should be specific to how "${subtopic.topic}" relates to "${topic}". Do NOT give a generic definition, always use the main topic as context.`,
-          ],
-        ]);
-
-        const responseText = String(flashcardResponse.content);
-        const jsonMatch =
-          responseText.match(/```json\n([\s\S]*?)\n```/) ||
-          responseText.match(/{[\s\S]*}/);
-
-        const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText;
-        const parsedData = JSON.parse(jsonStr) as FlashCard;
-
-        // Validate required fields
-        const requiredFields = [
-          "term",
-          "definition",
-          "example",
-        ] as (keyof FlashCard)[];
-
-        const missingFields = requiredFields.filter(
-          (field) => !parsedData[field]
-        );
-
-        if (missingFields.length > 0) {
-          console.warn(
-            `Skipping card due to missing fields: ${missingFields.join(", ")}`
-          );
-          continue;
-        }
-
-        // Prepare flashcard data
-        const flashCardData: {
-          userId: string;
-          term: string;
-          translation: string | null;
-          partOfSpeech: string | null;
-          definition: string;
-          example: string;
-          folderId?: string;
-        } = {
-          userId: session.user.id,
-          term: parsedData.term,
-          translation: parsedData.translation,
-          partOfSpeech: parsedData.partOfSpeech,
-          definition: parsedData.definition,
-          example: parsedData.example,
+    const stream = new ReadableStream({
+      async start(controller) {
+        // Helper to send a JSON object as NDJSON
+        const send = (obj: any) => {
+          controller.enqueue(new TextEncoder().encode(JSON.stringify(obj) + "\n"));
         };
 
-        // Add folder ID if it exists
-        if (folderId) {
-          flashCardData.folderId = folderId;
+        // Create a folder for the flashcards if requested
+        if (createFolder) {
+          try {
+            if (!session.user) throw new Error('No user in session');
+            const folder = await prisma.flashCardFolder.create({
+              data: {
+                name: folderName,
+                userId: session.user.id,
+              },
+            });
+            folderId = folder.id;
+            folderSent = true;
+            send({ folder: { id: folderId, name: folderName, cardIds: [] } });
+          } catch (folderError) {
+            console.error("Error creating folder:", folderError);
+            // Continue without folder if creation fails
+          }
         }
 
-        // Save the flash card to the database
-        const savedFlashCard = await prisma.flashCard.create({
-          data: flashCardData,
-        });
+        // Step 2: Generate a flashcard for each subtopic
+        for (const subtopic of subtopics) {
+          try {
+            if (!session.user) throw new Error('No user in session');
+            const flashcardResponse = await llm.invoke([
+              ["system", FLASHCARD_SYSTEM_MESSAGE],
+              [
+                "human",
+                `Generate a flashcard for the subtopic: \"${subtopic.topic}\" in the context of the main topic: \"${topic}\". The definition and example should be specific to how \"${subtopic.topic}\" relates to \"${topic}\". Do NOT give a generic definition, always use the main topic as context.`,
+              ],
+            ]);
 
-        flashCards.push(savedFlashCard);
-      } catch (cardError) {
-        console.error(
-          `Error generating flashcard for subtopic ${subtopic.topic}:`,
-          cardError
-        );
-        // Continue with next subtopic even if one fails
-      }
-    }
+            const responseText = String(flashcardResponse.content);
+            const jsonMatch =
+              responseText.match(/```json\n([\s\S]*?)\n```/) ||
+              responseText.match(/{[\s\S]*}/);
 
-    // Prepare the response
-    const response: {
-      flashCards: any[];
-      folder?: { id: string; name: string; cardIds: string[] };
-    } = {
-      flashCards,
-    };
+            const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText;
+            const parsedData = JSON.parse(jsonStr) as FlashCard;
 
-    // If a folder was created, add it to the response
-    if (folderId) {
-      response.folder = {
-        id: folderId,
-        name: topic,
-        cardIds: flashCards.map((card) => card.id),
-      };
-    }
+            // Validate required fields
+            const requiredFields = [
+              "term",
+              "definition",
+              "example",
+            ] as (keyof FlashCard)[];
 
-    return NextResponse.json(response);
+            const missingFields = requiredFields.filter(
+              (field) => !parsedData[field]
+            );
+
+            if (missingFields.length > 0) {
+              console.warn(
+                `Skipping card due to missing fields: ${missingFields.join(", ")}`
+              );
+              continue;
+            }
+
+            // Prepare flashcard data
+            const flashCardData: {
+              userId: string;
+              term: string;
+              translation: string | null;
+              partOfSpeech: string | null;
+              definition: string;
+              example: string;
+              folderId?: string;
+            } = {
+              userId: session.user.id,
+              term: parsedData.term,
+              translation: parsedData.translation,
+              partOfSpeech: parsedData.partOfSpeech,
+              definition: parsedData.definition,
+              example: parsedData.example,
+            };
+
+            // Add folder ID if it exists
+            if (folderId) {
+              flashCardData.folderId = folderId;
+            }
+
+            // Save the flash card to the database
+            const savedFlashCard = await prisma.flashCard.create({
+              data: flashCardData,
+            });
+
+            // Track card IDs for folder
+            if (folderId) {
+              folderCardIds.push(savedFlashCard.id);
+              // Send updated folder cardIds only once (on first card)
+              if (folderSent && folderCardIds.length === 1) {
+                send({ folder: { id: folderId, name: folderName, cardIds: [savedFlashCard.id] } });
+              }
+            }
+
+            // Send the flashcard as soon as it's ready
+            send({ flashCard: savedFlashCard });
+          } catch (cardError) {
+            console.error(
+              `Error generating flashcard for subtopic ${subtopic.topic}:`,
+              cardError
+            );
+            // Continue with next subtopic even if one fails
+          }
+        }
+        controller.close();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-store",
+        "Connection": "keep-alive",
+        "Transfer-Encoding": "chunked",
+      },
+      status: 200,
+    });
   } catch (error) {
     console.error("Error in bulk flashcard generation:", error);
     return NextResponse.json(

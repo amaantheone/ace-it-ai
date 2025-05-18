@@ -87,53 +87,72 @@ function FlashCardPageContent() {
     setBulkCardsGenerated(0);
 
     try {
-      // Use the updated bulk API with folder creation
-      const bulkResponse = await fetch('/api/flashcard/bulk', {
+      // Streaming bulk API: expects NDJSON (one card per line)
+      const response = await fetch('/api/flashcard/bulk', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/x-ndjson',
         },
         body: JSON.stringify({ 
           topic,
           count: bulkCount,
-          createFolder: true // Create a folder for these cards
+          createFolder: true
         }),
       });
-      
-      if (!bulkResponse.ok) {
-        const errorData = await bulkResponse.json();
+
+      if (!response.ok || !response.body) {
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to generate flashcards');
       }
-      
-      const bulkData = await bulkResponse.json();
-      const { flashCards: newCards, folder } = bulkData;
-      
-      if (!newCards || newCards.length === 0) {
-        throw new Error('No flashcards were generated');
-      }
-      
-      // Add the folder to the context if it was created
-      if (folder) {
-        // Update local state with the folder from the API
-        setFolders([...folders, folder]);
-      }
-      
-      // Add all cards to the context and update the count
-      setFlashCards([...flashCards, ...newCards]);
-      setBulkCardsGenerated(newCards.length);
-      
-      // Set the current card to the first generated card
-      if (newCards.length > 0) {
-        setCurrentCard(newCards[0]);
-        
-        // Update the URL with the first card's id
-        if (newCards[0].id) {
-          router.push(`/flashcard?id=${newCards[0].id}`);
+
+      let folderAdded = false;
+      let firstCard: any = null;
+      let cards: any[] = [];
+      let folder: any = null;
+      const reader = response.body.getReader();
+      let buffer = '';
+      let cardsGenerated = 0;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += new TextDecoder().decode(value);
+        let lines = buffer.split('\n');
+        buffer = lines.pop()!; // last line may be incomplete
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let data;
+          try {
+            data = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (data.folder && !folderAdded) {
+            folder = data.folder;
+            setFolders(prev => [...prev, folder]);
+            folderAdded = true;
+          }
+          if (data.flashCard) {
+            cards.push(data.flashCard);
+            setFlashCards(prev => [...prev, data.flashCard]);
+            cardsGenerated++;
+            setBulkCardsGenerated(cardsGenerated);
+            if (!firstCard) {
+              firstCard = data.flashCard;
+              setCurrentCard(firstCard);
+              if (firstCard.id) {
+                router.push(`/flashcard?id=${firstCard.id}`);
+              }
+            }
+          }
         }
       }
-      
-      setTopic(''); // Clear input after successful generation
-      
+      // If no cards were generated
+      if (cards.length === 0) {
+        throw new Error('No flashcards were generated');
+      }
+      setTopic('');
     } catch (err: any) {
       console.error('Error generating flashcards:', err);
       setError(err.message || 'Failed to generate flashcards');
