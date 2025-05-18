@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronDown, ChevronRight, FolderIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { FlashCardFolder, useFlashCards } from '@/contexts/FlashCardContext';
+import { useFlashCards } from '@/contexts/FlashCardContext';
 
 export function FlashCardSidebar() {
   const { 
@@ -16,7 +16,6 @@ export function FlashCardSidebar() {
     deleteFlashCard,
     deleteFolder,
     getFolderCards,
-    getCurrentFolder,
     setCurrentFolder
   } = useFlashCards();
 

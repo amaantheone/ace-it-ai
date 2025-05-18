@@ -138,7 +138,10 @@ export async function POST(req: Request) {
       try {
         const flashcardResponse = await llm.invoke([
           ["system", FLASHCARD_SYSTEM_MESSAGE],
-          ["human", `Generate a flashcard for: ${subtopic.topic}`],
+          [
+            "human",
+            `Generate a flashcard for the subtopic: "${subtopic.topic}" in the context of the main topic: "${topic}". The definition and example should be specific to how "${subtopic.topic}" relates to "${topic}". Do NOT give a generic definition, always use the main topic as context.`,
+          ],
         ]);
 
         const responseText = String(flashcardResponse.content);

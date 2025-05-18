@@ -14,7 +14,7 @@ export default function Home() {
       <main className="container mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <div className="space-y-2">
-            <h1 className="scroll-m-20 text-4xl font-bold tracking-tight">Welcome to Ace-it AI</h1>
+            <h1 className="scroll-m-20 text-4xl font-bold tracking-tight">Welcome to Ace It AI</h1>
             <p className="text-lg text-muted-foreground">Your personal AI tutor for personalized learning</p>
           </div>
           <div className="flex items-center gap-4">
