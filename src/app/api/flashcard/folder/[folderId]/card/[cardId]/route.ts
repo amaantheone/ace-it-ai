@@ -11,8 +11,9 @@ interface Params {
 }
 
 // Add card to folder
-export async function PUT(req: NextRequest, { params }: Params) {
+export async function PUT(req: NextRequest, context: Params) {
   try {
+    const params = await context.params;
     const { folderId, cardId } = params;
     const session = await getServerSession(authOptions);
 
@@ -69,8 +70,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 // Remove card from folder
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(req: NextRequest, context: Params) {
   try {
+    const params = await context.params;
     const { folderId, cardId } = params;
     const session = await getServerSession(authOptions);
 

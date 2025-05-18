@@ -15,15 +15,11 @@ function FlashCardPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { 
-    flashCards,
-    folders,
     setFlashCards, 
     setFolders,
     addFlashCard, 
     updateFlashCard, 
     deleteFlashCard,
-    addFolder,
-    addCardToFolder
   } = useFlashCards();
   
   const [topic, setTopic] = useState('');
