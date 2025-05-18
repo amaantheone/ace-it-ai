@@ -136,6 +136,14 @@ function FlashCardPageContent() {
           if (data.flashCard) {
             cards.push(data.flashCard);
             setFlashCards(prev => [...prev, data.flashCard]);
+            // If we have a folder, add this card's id to its cardIds (avoid duplicates)
+            if (folder && data.flashCard.id) {
+              setFolders(prev => prev.map(f =>
+                f.id === folder.id && !f.cardIds.includes(data.flashCard.id)
+                  ? { ...f, cardIds: [...f.cardIds, data.flashCard.id] }
+                  : f
+              ));
+            }
             cardsGenerated++;
             setBulkCardsGenerated(cardsGenerated);
             if (!firstCard) {
@@ -254,8 +262,11 @@ function FlashCardPageContent() {
 
       deleteFlashCard(id);
       setCurrentCard(null);
-      // Force reload the sidebar
-      window.location.href = '/flashcard';
+      // If the deleted card is in the URL, redirect to /flashcard
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('id') === id) {
+        router.replace('/flashcard');
+      }
     } catch (error: any) {
       console.error('Error deleting flashcard:', error);
       setError(error.message || 'Failed to delete flashcard');

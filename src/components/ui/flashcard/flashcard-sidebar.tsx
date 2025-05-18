@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronDown, ChevronRight, FolderIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFlashCards } from '@/contexts/FlashCardContext';
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export function FlashCardSidebar() {
   const { 
@@ -19,6 +20,7 @@ export function FlashCardSidebar() {
     getFolderCards,
     setCurrentFolder
   } = useFlashCards();
+  const router = useRouter();
 
   const [error, setError] = useState('');
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -84,20 +86,6 @@ export function FlashCardSidebar() {
     } catch (error) {
       console.error('Error deleting flash card:', error);
       setError(error instanceof Error ? error.message : 'Failed to delete flash card');
-    }
-  };
-
-  const handleDeleteFolder = async (folderId: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (confirm('Are you sure you want to delete this folder? The flashcards will not be deleted.')) {
-      try {
-        await deleteFolder(folderId);
-      } catch (error) {
-        console.error('Error deleting folder:', error);
-        setError('Failed to delete folder');
-      }
     }
   };
 
@@ -317,28 +305,45 @@ export function FlashCardSidebar() {
       </ScrollArea>
 
       {/* ConfirmDialog for folder deletion */}
-      <ConfirmDialog
-        open={!!showConfirm}
-        title="Delete Folder?"
-        description="Are you sure you want to delete this folder and all its flashcards? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={async () => {
-          const folderId = showConfirm;
-          setShowConfirm(null);
-          if (folderId) {
-            // Delete folder and its flashcards
-            await fetch(`/api/flashcard/folder/${folderId}`, { method: 'DELETE' });
-            setFolders(folders.filter(f => f.id !== folderId));
-            // Remove all cards that were in this folder from local state
-            const folder = folders.find(f => f.id === folderId);
-            if (folder) {
-              setFlashCards(flashCards.filter(card => !folder.cardIds.includes(card.id!)));
+      {showConfirm && (
+        <ConfirmDialog
+          open={!!showConfirm}
+          title="Delete Folder?"
+          description="Are you sure you want to delete this folder and all its flashcards? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          onConfirm={async () => {
+            const folderId = showConfirm;
+            setShowConfirm(null);
+            if (folderId) {
+              try {
+                // Find all card ids in this folder
+                const folder = folders.find(f => f.id === folderId);
+                const cardIds = folder ? folder.cardIds.map(String) : [];
+                const urlParams = new URLSearchParams(window.location.search);
+                const currentId = urlParams.get('id');
+                await fetch(`/api/flashcard/folder/${folderId}`, { method: 'DELETE' });
+                setFolders(folders.filter(f => f.id !== folderId));
+                // Remove all cards that were in this folder from local state
+                if (folder) {
+                  setFlashCards(flashCards.filter(card => !folder.cardIds.includes(card.id!)));
+                }
+                // If the currentId is in the deleted folder, redirect to /flashcard
+                if (currentId && cardIds.includes(String(currentId))) {
+                  window.location.href = '/flashcard';
+                  return;
+                } else if (!currentId) {
+                  window.location.reload();
+                }
+              } catch (error) {
+                console.error('Error deleting folder:', error);
+                setError('Failed to delete folder');
+              }
             }
-          }
-        }}
-        onCancel={() => setShowConfirm(null)}
-      />
+          }}
+          onCancel={() => setShowConfirm(null)}
+        />
+      )}
     </aside>
   );
 }
