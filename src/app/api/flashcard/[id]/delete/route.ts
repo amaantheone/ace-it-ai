@@ -19,7 +19,10 @@ export async function DELETE(
     // Check if the flashcard exists before attempting to delete
     const existingCard = await prisma.flashCard.findUnique({ where: { id } });
     if (!existingCard) {
-      return NextResponse.json({ error: "Flash card not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Flash card not found" },
+        { status: 404 }
+      );
     }
     const deletedFlashCard = await prisma.flashCard.delete({
       where: { id },

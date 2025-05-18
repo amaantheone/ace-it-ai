@@ -124,13 +124,15 @@ export async function POST(req: Request) {
       async start(controller) {
         // Helper to send a JSON object as NDJSON
         const send = (obj: any) => {
-          controller.enqueue(new TextEncoder().encode(JSON.stringify(obj) + "\n"));
+          controller.enqueue(
+            new TextEncoder().encode(JSON.stringify(obj) + "\n")
+          );
         };
 
         // Create a folder for the flashcards if requested
         if (createFolder) {
           try {
-            if (!session.user) throw new Error('No user in session');
+            if (!session.user) throw new Error("No user in session");
             const folder = await prisma.flashCardFolder.create({
               data: {
                 name: folderName,
@@ -149,7 +151,7 @@ export async function POST(req: Request) {
         // Step 2: Generate a flashcard for each subtopic
         for (const subtopic of subtopics) {
           try {
-            if (!session.user) throw new Error('No user in session');
+            if (!session.user) throw new Error("No user in session");
             const flashcardResponse = await llm.invoke([
               ["system", FLASHCARD_SYSTEM_MESSAGE],
               [
@@ -163,7 +165,9 @@ export async function POST(req: Request) {
               responseText.match(/```json\n([\s\S]*?)\n```/) ||
               responseText.match(/{[\s\S]*}/);
 
-            const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText;
+            const jsonStr = jsonMatch
+              ? jsonMatch[1] || jsonMatch[0]
+              : responseText;
             const parsedData = JSON.parse(jsonStr) as FlashCard;
 
             // Validate required fields
@@ -179,7 +183,9 @@ export async function POST(req: Request) {
 
             if (missingFields.length > 0) {
               console.warn(
-                `Skipping card due to missing fields: ${missingFields.join(", ")}`
+                `Skipping card due to missing fields: ${missingFields.join(
+                  ", "
+                )}`
               );
               continue;
             }
@@ -217,7 +223,13 @@ export async function POST(req: Request) {
               folderCardIds.push(savedFlashCard.id);
               // Send updated folder cardIds only once (on first card)
               if (folderSent && folderCardIds.length === 1) {
-                send({ folder: { id: folderId, name: folderName, cardIds: [savedFlashCard.id] } });
+                send({
+                  folder: {
+                    id: folderId,
+                    name: folderName,
+                    cardIds: [savedFlashCard.id],
+                  },
+                });
               }
             }
 
@@ -239,7 +251,7 @@ export async function POST(req: Request) {
       headers: {
         "Content-Type": "application/x-ndjson; charset=utf-8",
         "Cache-Control": "no-store",
-        "Connection": "keep-alive",
+        Connection: "keep-alive",
         "Transfer-Encoding": "chunked",
       },
       status: 200,
