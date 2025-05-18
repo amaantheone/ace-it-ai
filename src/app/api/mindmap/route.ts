@@ -9,24 +9,28 @@ Return a JSON structure with the following format:
 {
   "root": {
     "text": "Main Topic",
+    "definition": "Definition of the main topic in the context of the mindmap.",
     "children": [
       {
         "text": "Subtopic 1",
+        "definition": "Definition of Subtopic 1 in the context of the main topic.",
         "children": [
-          {"text": "Detail 1.1"},
-          {"text": "Detail 1.2"}
+          {"text": "Detail 1.1", "definition": "Definition of Detail 1.1 in the context of Subtopic 1."},
+          {"text": "Detail 1.2", "definition": "Definition of Detail 1.2 in the context of Subtopic 1."}
         ]
       },
       {
         "text": "Subtopic 2",
+        "definition": "Definition of Subtopic 2 in the context of the main topic.",
         "children": [
-          {"text": "Detail 2.1"},
-          {"text": "Detail 2.2"}
+          {"text": "Detail 2.1", "definition": "Definition of Detail 2.1 in the context of Subtopic 2."},
+          {"text": "Detail 2.2", "definition": "Definition of Detail 2.2 in the context of Subtopic 2."}
         ]
       }
     ]
   }
 }
+Each node (root, subtopic, detail) must have a 'definition' field that is concise and contextual.
 Keep the structure concise and focused.
 Limit to max 3 levels deep.
 Use clear and concise labels.`;
@@ -56,7 +60,7 @@ export async function POST(req: Request) {
       ["human", `Generate a mindmap for: ${topic}`],
     ]);
 
-    // Parse the response to ensure it's valid JSON
+    // Parse the response to ensure it's valid JSON with definitions at each node
     let mindmapData;
     try {
       const responseText = String(response.content);

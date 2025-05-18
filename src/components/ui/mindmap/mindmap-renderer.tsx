@@ -23,20 +23,16 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
   const mermaidRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{ open: boolean; word: string; definition: string | null; x: number; y: number }>({ open: false, word: '', definition: null, x: 0, y: 0 });
 
-  // Fetch definition from API
-  async function fetchDefinition(word: string) {
-    setPopover((prev) => ({ ...prev, definition: null }));
-    try {
-      const res = await fetch('/api/definition', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word }),
-      });
-      const data = await res.json();
-      setPopover((prev) => ({ ...prev, definition: data.definition || 'No definition found.' }));
-    } catch {
-      setPopover((prev) => ({ ...prev, definition: 'Failed to fetch definition.' }));
+  // Helper to find definition by node text
+  function findDefinition(node: any, word: string): string | null {
+    if (node.text === word) return node.definition || null;
+    if (node.children) {
+      for (const child of node.children) {
+        const def = findDefinition(child, word);
+        if (def) return def;
+      }
     }
+    return null;
   }
 
   useEffect(() => {
@@ -51,8 +47,8 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
           x = evt.clientX;
           y = evt.clientY;
         }
-        setPopover({ open: true, word, definition: null, x, y });
-        fetchDefinition(word);
+        const definition = findDefinition(mindmapData.root, word) || 'No definition found.';
+        setPopover({ open: true, word, definition, x, y });
       },
     });
   }, [mindmapData]);
@@ -74,7 +70,7 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
             <CardHeader>
               <CardTitle>{popover.word}</CardTitle>
               <CardDescription>
-                {popover.definition === null ? 'Loading...' : popover.definition}
+                {popover.definition}
               </CardDescription>
             </CardHeader>
             <Button variant="outline" size="sm" onClick={() => setPopover((prev) => ({ ...prev, open: false }))}>
