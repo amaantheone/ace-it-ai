@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { getOrCreateGuestUser } from "@/lib/guestUser";
 
 interface FlashCard {
   term: string;
@@ -37,11 +38,17 @@ const llm = new ChatGoogleGenerativeAI({
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-
+  let user;
   if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    user = await getOrCreateGuestUser();
+  } else {
+    user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
   }
-
   try {
     const { topic, folderId } = await req.json();
 
@@ -88,7 +95,7 @@ export async function POST(req: Request) {
 
     // Prepare the data for creating the flash card
     const flashCardData: any = {
-      userId: session.user.id,
+      userId: user.id,
       term: flashCard.term,
       translation: flashCard.translation,
       partOfSpeech: flashCard.partOfSpeech,
@@ -100,7 +107,7 @@ export async function POST(req: Request) {
     // Find or create the 'Uncategorized' folder for this user
     let uncategorizedFolder = await prisma.flashCardFolder.findFirst({
       where: {
-        userId: session.user.id,
+        userId: user.id,
         name: "Uncategorized",
       },
     });
@@ -108,7 +115,7 @@ export async function POST(req: Request) {
       uncategorizedFolder = await prisma.flashCardFolder.create({
         data: {
           name: "Uncategorized",
-          userId: session.user.id,
+          userId: user.id,
         },
       });
     }
@@ -131,19 +138,21 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
-
+  let user;
   if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    user = await getOrCreateGuestUser();
+  } else {
+    user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
   }
-
   try {
     const flashCards = await prisma.flashCard.findMany({
-      where: {
-        userId: session.user.id,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json({ flashCards });

@@ -93,10 +93,17 @@ export const useSessionStore = create<SessionState & SessionActions>(
       if (!currentSessionId) return;
 
       const messages = state.messages[currentSessionId] || [];
-      const lastUserMessage = [...messages]
+      // Find the last user message
+      const lastUserIndex = [...messages]
         .reverse()
-        .find((m) => m.role === "user");
+        .findIndex((m) => m.role === "user");
+      if (lastUserIndex === -1) return;
+      const userMsgIdx = messages.length - 1 - lastUserIndex;
+      const lastUserMessage = messages[userMsgIdx];
       if (!lastUserMessage?.message) return;
+
+      // Remove all AI messages after the last user message
+      const newMessages = messages.slice(0, userMsgIdx + 1);
 
       // Add new loading message
       const loadingMessage: Message = {
@@ -109,7 +116,7 @@ export const useSessionStore = create<SessionState & SessionActions>(
       set((state) => ({
         messages: {
           ...state.messages,
-          [currentSessionId]: [...messages, loadingMessage],
+          [currentSessionId]: [...newMessages, loadingMessage],
         },
       }));
 
@@ -127,7 +134,7 @@ export const useSessionStore = create<SessionState & SessionActions>(
 
         const data = await response.json();
 
-        // Update the loading message with the actual response
+        // Replace the loading message with the actual response
         set((state) => ({
           messages: {
             ...state.messages,

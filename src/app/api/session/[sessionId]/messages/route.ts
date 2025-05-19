@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
+import { getOrCreateGuestUser } from "@/lib/guestUser";
 
 interface MessageWithUser {
   id: string;
@@ -20,27 +21,26 @@ export async function GET(
 ) {
   const session = await getServerSession(authOptions);
   const { sessionId } = await context.params;
-
+  let user;
   if (!session?.user?.email) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    user = await getOrCreateGuestUser();
+  } else {
+    const email =
+      typeof session.user.email === "string" ? session.user.email : undefined;
+    if (email) {
+      user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        return new NextResponse("User not found", { status: 404 });
+      }
+    } else {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
   }
-
   try {
     const messages: MessageWithUser[] = await prisma.message.findMany({
-      where: {
-        sessionId: sessionId,
-      },
-      orderBy: {
-        createdAt: "asc",
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            image: true,
-          },
-        },
-      },
+      where: { sessionId: sessionId },
+      orderBy: { createdAt: "asc" },
+      include: { user: { select: { name: true, image: true } } },
     });
 
     // Transform messages to match frontend format
@@ -65,23 +65,24 @@ export async function POST(
 ) {
   const session = await getServerSession(authOptions);
   const { sessionId } = await context.params;
-
+  let user;
   if (!session?.user?.email) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    user = await getOrCreateGuestUser();
+  } else {
+    const email =
+      typeof session.user.email === "string" ? session.user.email : undefined;
+    if (email) {
+      user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        return new NextResponse("User not found", { status: 404 });
+      }
+    } else {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
   }
 
   try {
-    const [user, { content, role }] = await Promise.all([
-      prisma.user.findUnique({
-        where: { email: session.user.email },
-      }),
-      request.json(),
-    ]);
-
-    if (!user) {
-      return new NextResponse("User not found", { status: 404 });
-    }
-
+    const { content, role } = await request.json();
     const message = await prisma.message.create({
       data: {
         content,
