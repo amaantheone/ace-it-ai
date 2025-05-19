@@ -16,6 +16,8 @@ interface FlashCard {
   example: string;
 }
 
+const MAIN_TOPIC_SYSTEM_MESSAGE = `You are an education expert. Given a user query, return a short, clear main topic (1-3 words maximum) that best represents the subject for flashcard generation. Only return the topic string, no extra text or formatting.`;
+
 const SUBTOPICS_SYSTEM_MESSAGE = `You are an education expert specializing in breaking down topics into subtopics.
 Given a main topic, generate a list of related subtopics to create flashcards for.
 Return a JSON array containing subtopics related to the main topic.
@@ -75,12 +77,23 @@ export async function POST(req: Request) {
     // Limit maximum count
     const adjustedCount = Math.min(count, 50);
 
+    // Step 0: Get a short main topic from the LLM
+    const mainTopicResponse = await llm.invoke([
+      ["system", MAIN_TOPIC_SYSTEM_MESSAGE],
+      ["human", `User query: ${topic}`],
+    ]);
+    let mainTopic = String(mainTopicResponse.content)
+      .replace(/\n/g, "")
+      .replace(/^"|"$/g, "")
+      .trim();
+    if (!mainTopic) mainTopic = topic;
+
     // Step 1: Generate subtopics based on the main topic
     const subtopicsResponse = await llm.invoke([
       ["system", SUBTOPICS_SYSTEM_MESSAGE],
       [
         "human",
-        `Generate ${adjustedCount} subtopics for the main topic: ${topic}`,
+        `Generate ${adjustedCount} subtopics for the main topic: ${mainTopic}`,
       ],
     ]);
 
@@ -118,7 +131,7 @@ export async function POST(req: Request) {
     let folderId: string | null = null;
     let folderSent = false;
     let folderCardIds: string[] = [];
-    let folderName = topic;
+    let folderName = mainTopic;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -156,7 +169,7 @@ export async function POST(req: Request) {
               ["system", FLASHCARD_SYSTEM_MESSAGE],
               [
                 "human",
-                `Generate a flashcard for the subtopic: \"${subtopic.topic}\" in the context of the main topic: \"${topic}\". The definition and example should be specific to how \"${subtopic.topic}\" relates to \"${topic}\". Do NOT give a generic definition, always use the main topic as context.`,
+                `Generate a flashcard for the subtopic: \"${subtopic.topic}\" in the context of the main topic: \"${mainTopic}\". The definition and example should be specific to how \"${subtopic.topic}\" relates to \"${mainTopic}\". Do NOT give a generic definition, always use the main topic as context.`,
               ],
             ]);
 
@@ -199,6 +212,7 @@ export async function POST(req: Request) {
               definition: string;
               example: string;
               folderId?: string;
+              tag?: string;
             } = {
               userId: session.user.id,
               term: parsedData.term,
@@ -206,6 +220,7 @@ export async function POST(req: Request) {
               partOfSpeech: parsedData.partOfSpeech,
               definition: parsedData.definition,
               example: parsedData.example,
+              tag: mainTopic, // Use main topic as tag for all generated cards
             };
 
             // Add folder ID if it exists

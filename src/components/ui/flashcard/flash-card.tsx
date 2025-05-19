@@ -15,6 +15,7 @@ interface FlashCardProps {
   partOfSpeech?: string | null;
   definition: string;
   example: string;
+  tag?: string | null;
   onEdit?: (card: FlashCardData) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
 }
@@ -26,6 +27,7 @@ export interface FlashCardData {
   partOfSpeech: string | null;
   definition: string;
   example: string;
+  tag?: string | null;
 }
 
 export function FlashCard({
@@ -35,6 +37,7 @@ export function FlashCard({
   partOfSpeech,
   definition,
   example,
+  tag,
   onEdit,
   onDelete,
 }: FlashCardProps) {
@@ -47,6 +50,7 @@ export function FlashCard({
     partOfSpeech: partOfSpeech || null,
     definition,
     example,
+    tag: tag || '',
   });
 
   const handleFlip = () => {
@@ -74,6 +78,7 @@ export function FlashCard({
       partOfSpeech: partOfSpeech || null,
       definition,
       example,
+      tag: tag || '',
     });
     setIsEditing(false);
   };
@@ -134,6 +139,15 @@ export function FlashCard({
                 }
               />
             </div>
+            <div>
+              <label className="text-sm font-medium">Tag (subject)</label>
+              <Input
+                value={editData.tag || ''}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setEditData({ ...editData, tag: e.target.value })
+                }
+              />
+            </div>
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
@@ -188,6 +202,9 @@ export function FlashCard({
           <h2 className="text-2xl font-bold mb-2">{term}</h2>
           {translation && (
             <p className="text-sm text-muted-foreground">{translation}</p>
+          )}
+          {tag && (
+            <span className="inline-block mt-2 px-2 py-1 text-xs rounded bg-accent text-accent-foreground">Tag: {tag}</span>
           )}
         </Card>
 

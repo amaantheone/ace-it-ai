@@ -299,6 +299,9 @@ export function FlashCardSidebar() {
                                     {card.translation}
                                   </div>
                                 )}
+                                {card.tag && (
+                                  <div className="text-xs text-primary/80 truncate mt-0.5">Tag: {card.tag}</div>
+                                )}
                               </div>
                               <div
                                 role="button"
@@ -343,6 +346,9 @@ export function FlashCardSidebar() {
                           <div className="text-sm text-muted-foreground truncate">
                             {card.translation}
                           </div>
+                        )}
+                        {card.tag && (
+                          <div className="text-xs text-primary/80 truncate mt-0.5">Tag: {card.tag}</div>
                         )}
                       </div>
                       <div

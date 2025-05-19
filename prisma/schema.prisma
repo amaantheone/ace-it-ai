@@ -81,6 +81,7 @@ model FlashCard {
   folder       FlashCardFolder? @relation(fields: [folderId], references: [id])
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
+  tag          String? // Subject or topic tag for the flashcard
 }
 
 model FlashCardFolder {

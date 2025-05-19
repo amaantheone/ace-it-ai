@@ -10,6 +10,7 @@ interface FlashCard {
   partOfSpeech: string | null;
   definition: string;
   example: string;
+  tag?: string | null;
 }
 
 const FLASHCARD_SYSTEM_MESSAGE = `You are a flashcard generator specializing in educational content.
@@ -20,7 +21,8 @@ Return a JSON structure with exactly this format:
   "translation": "Translation or alternate name (or null if not applicable)",
   "partOfSpeech": "Part of speech for words (or null for concepts)",
   "definition": "A clear, concise definition",
-  "example": "A practical example using the term"
+  "example": "A practical example using the term",
+  "tag": "A generic subject for this flashcard, such as 'Maths', 'Science', 'English', 'Geography', etc. (1-2 words, Title Case, do not use subtopics or specific terms)"
 }
 Keep the content educational and accurate.
 Ensure definitions are clear and examples are practical.
@@ -61,67 +63,63 @@ export async function POST(req: Request) {
         responseText.match(/{[\s\S]*}/);
 
       const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText;
-      const parsedData = JSON.parse(jsonStr) as FlashCard;
-
-      // Validate required fields
-      const requiredFields = [
-        "term",
-        "definition",
-        "example",
-      ] as (keyof FlashCard)[];
-      const missingFields = requiredFields.filter(
-        (field) => !parsedData[field]
-      );
-
-      if (missingFields.length > 0) {
-        throw new Error(`Missing required fields: ${missingFields.join(", ")}`);
-      }
-
-      flashCard = parsedData;
-
-      // Prepare the data for creating the flash card
-      const flashCardData: {
-        userId: string;
-        term: string;
-        translation: string | null;
-        partOfSpeech: string | null;
-        definition: string;
-        example: string;
-        folderId?: string;
-      } = {
-        userId: session.user.id,
-        term: flashCard.term,
-        translation: flashCard.translation,
-        partOfSpeech: flashCard.partOfSpeech,
-        definition: flashCard.definition,
-        example: flashCard.example,
-      };
-
-      // If a folder ID is provided, check if it exists and belongs to the user
-      if (folderId) {
-        const folder = await prisma.flashCardFolder.findUnique({
-          where: { id: folderId },
-        });
-
-        if (folder && folder.userId === session.user.id) {
-          // Add the folder ID to the flashcard data
-          flashCardData.folderId = folderId;
-        }
-      }
-
-      // Save the flash card to the database
-      const savedFlashCard = await prisma.flashCard.create({
-        data: flashCardData,
-      });
-
-      return NextResponse.json({ flashCard: savedFlashCard });
+      flashCard = JSON.parse(jsonStr);
     } catch (parseError) {
-      console.error("Failed to parse flashcard data:", parseError);
       return NextResponse.json(
-        { error: "Failed to generate valid flashcard structure" },
+        { error: "Failed to parse flashcard data" },
         { status: 500 }
       );
     }
+
+    // Validate required fields
+    const requiredFields = [
+      "term",
+      "definition",
+      "example",
+    ] as (keyof FlashCard)[];
+    const missingFields = requiredFields.filter((field) => !flashCard[field]);
+
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        { error: `Missing required fields: ${missingFields.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    // Prepare the data for creating the flash card
+    const flashCardData: any = {
+      userId: session.user.id,
+      term: flashCard.term,
+      translation: flashCard.translation,
+      partOfSpeech: flashCard.partOfSpeech,
+      definition: flashCard.definition,
+      example: flashCard.example,
+      tag: flashCard.tag || null, // Use the LLM-provided tag (subject)
+    };
+
+    // Find or create the 'Uncategorized' folder for this user
+    let uncategorizedFolder = await prisma.flashCardFolder.findFirst({
+      where: {
+        userId: session.user.id,
+        name: "Uncategorized",
+      },
+    });
+    if (!uncategorizedFolder) {
+      uncategorizedFolder = await prisma.flashCardFolder.create({
+        data: {
+          name: "Uncategorized",
+          userId: session.user.id,
+        },
+      });
+    }
+    flashCardData.folderId = uncategorizedFolder.id;
+
+    // Save the flash card to the database
+    const savedFlashCard = await prisma.flashCard.create({
+      data: flashCardData,
+    });
+
+    return NextResponse.json({ flashCard: savedFlashCard });
   } catch (error) {
     console.error("Error generating flashcard:", error);
     return NextResponse.json(

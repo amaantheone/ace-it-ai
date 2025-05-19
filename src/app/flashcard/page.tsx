@@ -198,8 +198,27 @@ function FlashCardPageContent() {
       const data = await response.json();
       setCurrentCard(data.flashCard);
       await addFlashCard(data.flashCard);
+      // Ensure 'Uncategorized' folder is in state and updated
+      if (data.flashCard.folderId) {
+        setFolders(prev => {
+          // If folder already exists, add cardId if not present
+          const exists = prev.find(f => f.id === data.flashCard.folderId);
+          if (exists) {
+            return prev.map(f =>
+              f.id === data.flashCard.folderId && !f.cardIds.includes(data.flashCard.id)
+                ? { ...f, cardIds: [...f.cardIds, data.flashCard.id] }
+                : f
+            );
+          } else {
+            // If folder does not exist, add it
+            return [
+              { id: data.flashCard.folderId, name: 'Uncategorized', cardIds: [data.flashCard.id] },
+              ...prev,
+            ];
+          }
+        });
+      }
       setTopic(''); // Clear input after successful generation
-      
       // Update the URL with the new card's id
       if (data.flashCard && data.flashCard.id) {
         router.push(`/flashcard?id=${data.flashCard.id}`);

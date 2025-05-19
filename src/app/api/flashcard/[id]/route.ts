@@ -89,6 +89,7 @@ export async function PUT(
         partOfSpeech: flashCardData.partOfSpeech,
         definition: flashCardData.definition,
         example: flashCardData.example,
+        tag: flashCardData.tag ?? null,
       },
     });
 
