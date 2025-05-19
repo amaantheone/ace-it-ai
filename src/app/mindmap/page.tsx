@@ -9,8 +9,12 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { MindmapRenderer } from '@/components/ui/mindmap/mindmap-renderer';
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import { MindmapSidebar } from '@/components/ui/mindmap/mindmap-sidebar';
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function MindmapPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const { theme, toggleTheme } = useTheme();
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -18,6 +22,13 @@ export default function MindmapPage() {
   const [mindmapData, setMindmapData] = useState(null);
   const [mindmaps, setMindmaps] = useState<any[]>([]);
   const [currentMindmapId, setCurrentMindmapId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Redirect to login if not authenticated
+    if (status === "unauthenticated") {
+      router.replace("/auth/login");
+    }
+  }, [status, router]);
 
   useEffect(() => {
     // Fetch all mindmaps on mount

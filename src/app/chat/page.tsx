@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useSessionStore, Message } from "@/hooks/useSessionStore";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/ui/chat/sidebar";
 import { ChatHeader } from "@/components/ui/chat/chat-header";
 import { ChatInputArea } from "@/components/ui/chat/chat-input-area";
@@ -12,6 +13,16 @@ import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyD
 import { generateTitle as generateTitleUtil, createNewSession as createNewSessionUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil } from "@/utils/chatFunctions/sessionHandlers";
 
 export default function ChatPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/auth/login");
+    }
+  }, [status, router]);
+
   const {
     sessions,
     currentSessionId,
@@ -35,7 +46,6 @@ export default function ChatPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const { data: session } = useSession();
   const username = session?.user?.name || "Guest";
   const avatar = session?.user?.image;
 

@@ -10,6 +10,7 @@ import { FlashCard, FlashCardData } from '@/components/ui/flashcard/flash-card';
 import { FlashCardSidebar } from '@/components/ui/flashcard/flashcard-sidebar';
 import { FlashCardProvider, useFlashCards } from '@/contexts/FlashCardContext';
 import { ChatInput } from '@/components/ui/chat/chat-input';
+import { useSession } from "next-auth/react";
 
 function FlashCardPageContent() {
   const searchParams = useSearchParams();
@@ -21,6 +22,7 @@ function FlashCardPageContent() {
     updateFlashCard, 
     deleteFlashCard,
   } = useFlashCards();
+  const { data: session, status } = useSession();
   
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +61,13 @@ function FlashCardPageContent() {
       fetchCard(cardId);
     }
   }, [searchParams]);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/auth/login");
+    }
+  }, [status, router]);
 
   const fetchCard = async (id: string) => {
     try {
@@ -408,6 +417,16 @@ function FlashCardPageContent() {
 }
 
 export default function FlashCardPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/auth/login");
+    }
+  }, [status, router]);
+
   return (
     <FlashCardProvider>
       <FlashCardPageContent />
