@@ -3,19 +3,16 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
-interface Params {
-  params: {
-    folderId: string;
-  };
-}
+// PATCH and DELETE handlers for /api/flashcard/folder/[folderId]
+// Fix: context.params should not be a Promise, but a plain object
 
 // Update folder
 export async function PATCH(
   req: NextRequest,
-  context: { params: Promise<{ folderId: string }> }
+  context: { params: { folderId: string } }
 ) {
   try {
-    const { folderId } = await context.params;
+    const { folderId } = context.params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
@@ -75,10 +72,10 @@ export async function PATCH(
 // Delete folder
 export async function DELETE(
   req: NextRequest,
-  context: { params: Promise<{ folderId: string }> }
+  context: { params: { folderId: string } }
 ) {
   try {
-    const { folderId } = await context.params;
+    const { folderId } = context.params;
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {

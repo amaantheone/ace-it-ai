@@ -16,7 +16,15 @@ export async function renderMindmap({
     };
   };
   mermaidRef: React.RefObject<HTMLDivElement>;
-  generateMindmapSyntax: (data: any) => string;
+  generateMindmapSyntax: (data: {
+    root: {
+      text: string;
+      children?: Array<{
+        text: string;
+        children?: Array<{ text: string }>;
+      }>;
+    };
+  }) => string;
   onNodeClick?: (word: string, evt?: MouseEvent) => void;
 }) {
   if (!mermaidRef.current) return;

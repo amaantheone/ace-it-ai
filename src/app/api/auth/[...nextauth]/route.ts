@@ -12,7 +12,7 @@ declare module "next-auth" {
   }
 }
 
-export const authOptions: NextAuthOptions = {
+const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     GoogleProvider({
@@ -43,4 +43,5 @@ export const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions);
 
+// Only export the handler as GET and POST for Next.js route compliance. Do NOT export authOptions from this file.
 export { handler as GET, handler as POST };

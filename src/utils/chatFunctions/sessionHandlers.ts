@@ -1,10 +1,17 @@
 import { Message } from "@/hooks/useSessionStore";
 
+// Define a Session type for strong typing
+interface Session {
+  id: string;
+  topic?: string;
+  [key: string]: unknown;
+}
+
 export const generateTitle = async (
   sessionId: string,
   message: string,
-  sessions: any[],
-  setSessions: (sessions: any[]) => void
+  sessions: Session[],
+  setSessions: (sessions: Session[]) => void
 ) => {
   try {
     const response = await fetch("/api/session/title", {
@@ -33,8 +40,8 @@ export const createNewSession = async ({
   setSessions,
   setCurrentSessionId,
 }: {
-  sessions: any[];
-  setSessions: (sessions: any[]) => void;
+  sessions: Session[];
+  setSessions: (sessions: Session[]) => void;
   setCurrentSessionId: (id: string) => void;
 }) => {
   try {
@@ -65,8 +72,8 @@ export const handleNewChat = async ({
   isMobileView,
   setIsSidebarOpen,
 }: {
-  sessions: any[];
-  setSessions: (sessions: any[]) => void;
+  sessions: Session[];
+  setSessions: (sessions: Session[]) => void;
   setCurrentSessionId: (id: string) => void;
   setMessages: (sessionId: string, messages: Message[]) => void;
   isMobileView: boolean;

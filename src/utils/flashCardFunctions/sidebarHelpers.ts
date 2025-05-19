@@ -3,10 +3,27 @@
 
 import { useEffect } from "react";
 
+// Define types for FlashCardData and Folder
+export interface FlashCardData {
+  id: string;
+  term: string;
+  translation?: string;
+  partOfSpeech?: string;
+  definition?: string;
+  example?: string;
+  tag?: string;
+  folderId?: string;
+}
+export interface Folder {
+  id: string;
+  name: string;
+  cardIds: string[];
+}
+
 // Fetch flashcards and folders
 export const useFlashCardData = (
-  setFlashCards: (cards: any[]) => void,
-  setFolders: (folders: any[]) => void,
+  setFlashCards: (cards: FlashCardData[]) => void,
+  setFolders: (folders: Folder[]) => void,
   setError: (err: string) => void,
   setCurrentId: (id: string | null) => void
 ) => {
@@ -19,11 +36,11 @@ export const useFlashCardData = (
           throw new Error(errorData.error || "Failed to fetch flash cards");
         }
         const cardsData = await cardsResponse.json();
-        setFlashCards(cardsData.flashCards);
+        setFlashCards(cardsData.flashCards as FlashCardData[]);
         const foldersResponse = await fetch("/api/flashcard/folder");
         if (foldersResponse.ok) {
           const foldersData = await foldersResponse.json();
-          setFolders(foldersData.folders);
+          setFolders(foldersData.folders as Folder[]);
         }
         const urlParams = new URLSearchParams(window.location.search);
         setCurrentId(urlParams.get("id"));
@@ -80,16 +97,19 @@ export const handleDragStart = (
   dragIcon.style.left = "-9999px"; // Move off-screen
   dragIcon.innerHTML = `<svg width='18' height='18' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' style='margin-right:6px;vertical-align:middle;' viewBox='0 0 24 24'><path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/><polyline points='14 2 14 8 20 8'/></svg>${cardTerm}`;
   document.body.appendChild(dragIcon);
-  (window as any)[DRAG_ICON_KEY] = dragIcon;
+  // Use window as unknown as Record<string, unknown> to avoid TS error
+  (window as unknown as Record<string, unknown>)[DRAG_ICON_KEY] = dragIcon;
   return dragIcon;
 };
 
 export const handleDragEnd = (setDraggedCardId: SetDraggedCardId) => {
   setDraggedCardId(null);
-  const dragIcon = (window as any)[DRAG_ICON_KEY];
+  const dragIcon = (window as unknown as Record<string, unknown>)[
+    DRAG_ICON_KEY
+  ] as HTMLDivElement | undefined;
   if (dragIcon) {
     document.body.removeChild(dragIcon);
-    (window as any)[DRAG_ICON_KEY] = null;
+    (window as unknown as Record<string, unknown>)[DRAG_ICON_KEY] = null;
   }
 };
 

@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { topic, folderId } = await req.json();
+    const { topic } = await req.json(); // removed folderId since it's unused
 
     if (!topic) {
       return NextResponse.json({ error: "Topic is required" }, { status: 400 });
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 
       const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText;
       flashCard = JSON.parse(jsonStr);
-    } catch (parseError) {
+    } catch {
       return NextResponse.json(
         { error: "Failed to parse flashcard data" },
         { status: 500 }
@@ -86,17 +86,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Prepare the data for creating the flash card
-    const flashCardData: any = {
-      userId: session.user.id,
-      term: flashCard.term,
-      translation: flashCard.translation,
-      partOfSpeech: flashCard.partOfSpeech,
-      definition: flashCard.definition,
-      example: flashCard.example,
-      tag: flashCard.tag || null, // Use the LLM-provided tag (subject)
-    };
-
     // Find or create the 'Uncategorized' folder for this user
     let uncategorizedFolder = await prisma.flashCardFolder.findFirst({
       where: {
@@ -112,7 +101,17 @@ export async function POST(req: Request) {
         },
       });
     }
-    flashCardData.folderId = uncategorizedFolder.id;
+
+    const flashCardData = {
+      userId: session.user.id,
+      term: flashCard.term,
+      translation: flashCard.translation,
+      partOfSpeech: flashCard.partOfSpeech,
+      definition: flashCard.definition,
+      example: flashCard.example,
+      tag: flashCard.tag || null, // Use the LLM-provided tag (subject)
+      folderId: uncategorizedFolder.id,
+    };
 
     // Save the flash card to the database
     const savedFlashCard = await prisma.flashCard.create({
@@ -129,7 +128,7 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {

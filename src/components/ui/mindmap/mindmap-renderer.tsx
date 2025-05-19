@@ -1,21 +1,22 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { renderMindmap } from '@/utils/mindmapFunctions/mindmapRenderer';
 import { generateMindmapSyntax } from '@/utils/mindmapFunctions/mindmapUtils';
 import { Popover, PopoverContent } from '@/components/ui/popover';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
+// Define a MindmapNode type for strong typing
+interface MindmapNode {
+  text: string;
+  definition?: string;
+  children?: MindmapNode[];
+}
+
 interface MindmapRendererProps {
   mindmapData: {
-    root: {
-      text: string;
-      children?: Array<{
-        text: string;
-        children?: Array<{ text: string }>;
-      }>;
-    };
+    root: MindmapNode;
   };
 }
 
@@ -24,7 +25,7 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
   const [popover, setPopover] = useState<{ open: boolean; word: string; definition: string | null; x: number; y: number }>({ open: false, word: '', definition: null, x: 0, y: 0 });
 
   // Helper to find definition by node text
-  function findDefinition(node: any, word: string): string | null {
+  const findDefinition = useCallback((node: MindmapNode, word: string): string | null => {
     if (node.text === word) return node.definition || null;
     if (node.children) {
       for (const child of node.children) {
@@ -33,7 +34,7 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
       }
     }
     return null;
-  }
+  }, []);
 
   useEffect(() => {
     renderMindmap({
@@ -51,7 +52,7 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
         setPopover({ open: true, word, definition, x, y });
       },
     });
-  }, [mindmapData]);
+  }, [mindmapData, findDefinition]);
 
   return (
     <>

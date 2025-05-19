@@ -58,7 +58,7 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const { sessionId, message, topic } = await req.json();
+    const { sessionId, message } = await req.json();
 
     if (!sessionId || !message) {
       return NextResponse.json(

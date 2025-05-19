@@ -28,8 +28,6 @@ export function FlashCardSidebar() {
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState<string | null>(null);
-  const [newFolderNamePopover, setNewFolderNamePopover] = useState('');
-  const [addFolderErrorPopover, setAddFolderErrorPopover] = useState('');
   const menuButtonRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // Drag and drop state
@@ -73,37 +71,10 @@ export function FlashCardSidebar() {
     }
   };
 
-  // Fix: Show all folders, empty or not, and always update the list
-  const handleAddFolderPopover = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newFolderNamePopover.trim()) {
-      setAddFolderErrorPopover('Folder name is required');
-      return;
-    }
-    setAddFolderErrorPopover('');
-    try {
-      const response = await fetch('/api/flashcard/folder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newFolderNamePopover }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to add folder');
-      }
-      const newFolder = await response.json();
-      setFolders(folders => [newFolder, ...folders]);
-      setNewFolderNamePopover('');
-    } catch (error) {
-      console.error('Error adding folder:', error);
-      setAddFolderErrorPopover(error instanceof Error ? error.message : 'Failed to add folder');
-    }
-  };
-
   // Close menu on click outside
   useEffect(() => {
     if (!menuOpen) return;
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = () => {
       setMenuOpen(null);
     };
     window.addEventListener('click', handleClick);
@@ -262,7 +233,7 @@ export function FlashCardSidebar() {
                         <button
                           type="button"
                           className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent rounded-b text-destructive"
-                          onClick={e => {
+                          onClick={() => {
                             setMenuOpen(null);
                             setShowConfirm(folder.id);
                           }}

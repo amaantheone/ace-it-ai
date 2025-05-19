@@ -12,15 +12,25 @@ import { MindmapSidebar } from '@/components/ui/mindmap/mindmap-sidebar';
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
+// Define a MindmapNode and MindmapData type for strong typing
+interface MindmapNode {
+  text: string;
+  definition?: string;
+  children?: MindmapNode[];
+}
+interface MindmapData {
+  root: MindmapNode;
+}
+
 export default function MindmapPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession(); // remove 'session' as it's unused
   const { theme, toggleTheme } = useTheme();
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [mindmapData, setMindmapData] = useState(null);
-  const [mindmaps, setMindmaps] = useState<any[]>([]);
+  const [mindmapData, setMindmapData] = useState<MindmapData | null>(null);
+  const [mindmaps, setMindmaps] = useState<{ id: string; topic: string; createdAt: string; data?: MindmapData }[]>([]);
   const [currentMindmapId, setCurrentMindmapId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,15 +71,15 @@ export default function MindmapPage() {
       }
       
       const data = await response.json();
-      setMindmapData(data.mindmap);
+      setMindmapData(data.mindmap as MindmapData);
       setCurrentMindmapId(data.id);
       // Refetch mindmaps
       fetch('/api/mindmap')
         .then(res => res.json())
         .then(data => setMindmaps(data.mindmaps || []));
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error generating mindmap:', err);
-      setError(err.message || 'Failed to generate mindmap');
+      setError(err instanceof Error ? err.message : 'Failed to generate mindmap');
     } finally {
       setIsLoading(false);
       setTopic('');
@@ -87,9 +97,9 @@ export default function MindmapPage() {
         throw new Error(errorData.error || 'Failed to fetch mindmap');
       }
       const data = await response.json();
-      setMindmapData(data.mindmap.data); // .data is the JSON field
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch mindmap');
+      setMindmapData(data.mindmap.data as MindmapData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch mindmap');
     } finally {
       setIsLoading(false);
     }

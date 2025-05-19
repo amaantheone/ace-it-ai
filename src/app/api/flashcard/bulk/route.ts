@@ -16,6 +16,14 @@ interface FlashCard {
   example: string;
 }
 
+interface FlashCardFolder {
+  folder: {
+    id: string;
+    name: string;
+    cardIds: string[];
+  };
+}
+
 const MAIN_TOPIC_SYSTEM_MESSAGE = `You are an education expert. Given a user query, return a short, clear main topic (1-3 words maximum) that best represents the subject for flashcard generation. Only return the topic string, no extra text or formatting.`;
 
 const SUBTOPICS_SYSTEM_MESSAGE = `You are an education expert specializing in breaking down topics into subtopics.
@@ -130,13 +138,13 @@ export async function POST(req: Request) {
     // --- Streaming response starts here ---
     let folderId: string | null = null;
     let folderSent = false;
-    let folderCardIds: string[] = [];
-    let folderName = mainTopic;
+    const folderCardIds: string[] = [];
+    const folderName = mainTopic;
 
     const stream = new ReadableStream({
       async start(controller) {
         // Helper to send a JSON object as NDJSON
-        const send = (obj: any) => {
+        const send = (obj: FlashCardFolder | { flashCard: FlashCard }) => {
           controller.enqueue(
             new TextEncoder().encode(JSON.stringify(obj) + "\n")
           );

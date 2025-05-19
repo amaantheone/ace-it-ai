@@ -21,8 +21,8 @@ export const handleSendMessage = async (
     messages: Record<string, Message[]>;
     setInput: (input: string) => void;
     setMessages: (sessionId: string, messages: Message[]) => void;
-    setSessions: (sessions: any[]) => void;
-    sessions: any[];
+    setSessions: (sessions: { id: string; topic?: string }[]) => void;
+    sessions: { id: string; topic?: string }[];
     formRef: React.RefObject<HTMLFormElement>;
   }
 ) => {
@@ -82,11 +82,7 @@ export const handleSendMessage = async (
       name: "AI Tutor",
       isLoading: false,
     };
-    setMessages(currentSessionId, [
-      ...currentMessages,
-      userMessage,
-      aiMessage,
-    ]);
+    setMessages(currentSessionId, [...currentMessages, userMessage, aiMessage]);
 
     // Generate title for new sessions without a topic
     const currentSession = sessions.find((s) => s.id === currentSessionId);

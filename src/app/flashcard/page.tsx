@@ -15,15 +15,15 @@ import { useSession } from "next-auth/react";
 function FlashCardPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { 
-    setFlashCards, 
+  const {
+    setFlashCards,
     setFolders,
-    addFlashCard, 
-    updateFlashCard, 
+    addFlashCard,
+    updateFlashCard,
     deleteFlashCard,
   } = useFlashCards();
-  const { data: session, status } = useSession();
-  
+  const { status } = useSession();
+
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +33,7 @@ function FlashCardPageContent() {
   const [isBulk, setIsBulk] = useState(false);
   const [bulkCount, setBulkCount] = useState(10);
   const [bulkCardsGenerated, setBulkCardsGenerated] = useState(0);
-  
+
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
@@ -58,7 +58,7 @@ function FlashCardPageContent() {
   useEffect(() => {
     const cardId = searchParams.get('id');
     if (cardId) {
-      fetchCard(cardId);
+      void fetchCard(cardId);
     }
   }, [searchParams]);
 
@@ -77,11 +77,13 @@ function FlashCardPageContent() {
       }
       const data = await response.json();
       setCurrentCard(data.flashCard);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching flash card:', err);
-      setError(err.message || 'Failed to fetch flash card');
+      setError(err instanceof Error ? err.message : 'Failed to fetch flash card');
     }
-  };  const generateBulkFlashCards = async () => {
+  };
+
+  const generateBulkFlashCards = async () => {
     if (!topic.trim()) {
       setError('Please enter a topic');
       return;
@@ -99,7 +101,7 @@ function FlashCardPageContent() {
           'Content-Type': 'application/json',
           'Accept': 'application/x-ndjson',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           topic,
           count: bulkCount,
           createFolder: true
@@ -111,10 +113,10 @@ function FlashCardPageContent() {
         throw new Error(errorData.error || 'Failed to generate flashcards');
       }
 
+      let folder: { id: string; name: string; cardIds: string[] } | undefined;
       let folderAdded = false;
-      let firstCard: any = null;
-      let cards: any[] = [];
-      let folder: any = null;
+      let firstCard: FlashCardData | undefined;
+      const cards: FlashCardData[] = [];
       const reader = response.body.getReader();
       let buffer = '';
       let cardsGenerated = 0;
@@ -123,7 +125,7 @@ function FlashCardPageContent() {
         const { value, done } = await reader.read();
         if (done) break;
         buffer += new TextDecoder().decode(value);
-        let lines = buffer.split('\n');
+        const lines = buffer.split('\n');
         buffer = lines.pop()!; // last line may be incomplete
         for (const line of lines) {
           if (!line.trim()) continue;
@@ -135,7 +137,7 @@ function FlashCardPageContent() {
           }
           if (data.folder && !folderAdded) {
             folder = data.folder;
-            setFolders(prev => [...prev, folder]);
+            setFolders(prev => [...prev, folder!]);
             folderAdded = true;
           }
           if (data.flashCard) {
@@ -144,7 +146,7 @@ function FlashCardPageContent() {
             // If we have a folder, add this card's id to its cardIds (avoid duplicates)
             if (folder && data.flashCard.id) {
               setFolders(prev => prev.map(f =>
-                f.id === folder.id && !f.cardIds.includes(data.flashCard.id)
+                f.id === folder!.id && !f.cardIds.includes(data.flashCard.id)
                   ? { ...f, cardIds: [...f.cardIds, data.flashCard.id] }
                   : f
               ));
@@ -153,8 +155,8 @@ function FlashCardPageContent() {
             setBulkCardsGenerated(cardsGenerated);
             if (!firstCard) {
               firstCard = data.flashCard;
-              setCurrentCard(firstCard);
-              if (firstCard.id) {
+              setCurrentCard(firstCard ?? null);
+              if (firstCard && firstCard.id) {
                 router.push(`/flashcard?id=${firstCard.id}`);
               }
             }
@@ -166,9 +168,9 @@ function FlashCardPageContent() {
         throw new Error('No flashcards were generated');
       }
       setTopic('');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error generating flashcards:', err);
-      setError(err.message || 'Failed to generate flashcards');
+      setError(err instanceof Error ? err.message : 'Failed to generate flashcards');
     } finally {
       setIsLoading(false);
     }
@@ -189,7 +191,7 @@ function FlashCardPageContent() {
         await generateBulkFlashCards();
         return;
       }
-      
+
       // Individual card generation logic
       const response = await fetch('/api/flashcard', {
         method: 'POST',
@@ -218,13 +220,12 @@ function FlashCardPageContent() {
                 ? { ...f, cardIds: [...f.cardIds, data.flashCard.id] }
                 : f
             );
-          } else {
-            // If folder does not exist, add it
-            return [
-              { id: data.flashCard.folderId, name: 'Uncategorized', cardIds: [data.flashCard.id] },
-              ...prev,
-            ];
           }
+          // If folder does not exist, add it
+          return [
+            { id: data.flashCard.folderId, name: 'Uncategorized', cardIds: [data.flashCard.id] },
+            ...prev,
+          ];
         });
       }
       setTopic(''); // Clear input after successful generation
@@ -232,9 +233,9 @@ function FlashCardPageContent() {
       if (data.flashCard && data.flashCard.id) {
         router.push(`/flashcard?id=${data.flashCard.id}`);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error generating flashcard:', err);
-      setError(err.message || 'Failed to generate flashcard');
+      setError(err instanceof Error ? err.message : 'Failed to generate flashcard');
     } finally {
       setIsLoading(false);
     }
@@ -263,14 +264,14 @@ function FlashCardPageContent() {
       const { flashCard } = await response.json();
       setCurrentCard(flashCard);
       updateFlashCard(flashCard);
-      
+
       // Update URL if the ID has changed
       if (flashCard.id && flashCard.id !== currentCard.id) {
         router.push(`/flashcard?id=${flashCard.id}`);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating flashcard:', error);
-      setError(error.message || 'Failed to update flashcard');
+      setError(error instanceof Error ? error.message : 'Failed to update flashcard');
     }
   };
 
@@ -291,9 +292,9 @@ function FlashCardPageContent() {
       if (urlParams.get('id') === id) {
         router.replace('/flashcard');
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting flashcard:', error);
-      setError(error.message || 'Failed to delete flashcard');
+      setError(error instanceof Error ? error.message : 'Failed to delete flashcard');
     }
   };
 
@@ -418,7 +419,7 @@ function FlashCardPageContent() {
 
 export default function FlashCardPage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
   // Redirect to login if not authenticated
   useEffect(() => {
