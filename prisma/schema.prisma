@@ -24,6 +24,7 @@ model User {
   messages         Message[]
   flashCards       FlashCard[]
   flashCardFolders FlashCardFolder[]
+  mindmaps         Mindmap[]
 }
 
 model Session {
@@ -81,7 +82,7 @@ model FlashCard {
   folder       FlashCardFolder? @relation(fields: [folderId], references: [id])
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
-  tag          String? // Subject or topic tag for the flashcard
+  tag          String?
 }
 
 model FlashCardFolder {
@@ -92,4 +93,14 @@ model FlashCardFolder {
   cards     FlashCard[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
+}
+
+model Mindmap {
+  id        String   @id @default(cuid())
+  topic     String
+  data      Json
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
