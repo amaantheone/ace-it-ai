@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { ArrowLeft, Moon, Sun } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { MindmapRenderer } from '@/components/ui/mindmap/mindmap-renderer';
 import { ChatInput } from "@/components/ui/chat/chat-input";
+import { MindmapSidebar } from '@/components/ui/mindmap/mindmap-sidebar';
 
 export default function MindmapPage() {
   const { theme, toggleTheme } = useTheme();
@@ -15,6 +16,15 @@ export default function MindmapPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [mindmapData, setMindmapData] = useState(null);
+  const [mindmaps, setMindmaps] = useState<any[]>([]);
+  const [currentMindmapId, setCurrentMindmapId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Fetch all mindmaps on mount
+    fetch('/api/mindmap')
+      .then(res => res.json())
+      .then(data => setMindmaps(data.mindmaps || []));
+  }, []);
 
   const handleGenerateMindmap = async () => {
     if (!topic.trim()) {
@@ -41,17 +51,47 @@ export default function MindmapPage() {
       
       const data = await response.json();
       setMindmapData(data.mindmap);
+      setCurrentMindmapId(data.id);
+      // Refetch mindmaps
+      fetch('/api/mindmap')
+        .then(res => res.json())
+        .then(data => setMindmaps(data.mindmaps || []));
     } catch (err: any) {
       console.error('Error generating mindmap:', err);
       setError(err.message || 'Failed to generate mindmap');
+    } finally {
+      setIsLoading(false);
+      setTopic('');
+    }
+  };
+
+  const handleSelectMindmap = async (id: string) => {
+    setCurrentMindmapId(id);
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/mindmap/${id}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch mindmap');
+      }
+      const data = await response.json();
+      setMindmapData(data.mindmap.data); // .data is the JSON field
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch mindmap');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4">
+    <div className="min-h-screen bg-background flex">
+      <MindmapSidebar
+        mindmaps={mindmaps}
+        currentMindmapId={currentMindmapId || undefined}
+        onSelectMindmap={handleSelectMindmap}
+      />
+      <div className="flex-1 container mx-auto p-4">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <Link href="/">

@@ -2,6 +2,8 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
+import { prisma } from "@/lib/prisma";
+import { NextRequest } from "next/server";
 
 const MINDMAP_SYSTEM_MESSAGE = `You are a mindmap generator. 
 Create a structured mindmap on the given topic.
@@ -78,7 +80,22 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ mindmap: mindmapData });
+    // Save mindmap to database
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! },
+    });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    const savedMindmap = await prisma.mindmap.create({
+      data: {
+        data: mindmapData,
+        topic,
+        userId: user.id,
+      },
+    });
+
+    return NextResponse.json({ mindmap: mindmapData, id: savedMindmap.id });
   } catch (error) {
     console.error("Error generating mindmap:", error);
     return NextResponse.json(
@@ -86,4 +103,22 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email! },
+  });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  const mindmaps = await prisma.mindmap.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: "desc" },
+  });
+  return NextResponse.json({ mindmaps });
 }
