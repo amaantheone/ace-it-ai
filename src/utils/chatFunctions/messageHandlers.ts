@@ -46,15 +46,7 @@ export const handleSendMessage = async (
     const currentMessages = messages[currentSessionId] || [];
     setMessages(currentSessionId, [...currentMessages, userMessage]);
 
-    await fetch(`/api/session/${currentSessionId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        content: currentInput,
-        role: "user",
-      }),
-    });
-
+    // Add loading state for AI response
     const aiMessageId = crypto.randomUUID();
     const aiLoadingMessage: Message = {
       id: aiMessageId,
@@ -63,76 +55,61 @@ export const handleSendMessage = async (
       name: "AI Tutor",
       isLoading: true,
     };
-
     setMessages(currentSessionId, [
       ...currentMessages,
       userMessage,
       aiLoadingMessage,
     ]);
 
+    // Single API call to /api/chat for both saving and AI response
     const aiResponse = await fetch("/api/chat", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: currentInput,
         sessionId: currentSessionId,
       }),
     });
-
+    const data = await aiResponse.json();
     if (!aiResponse.ok) {
-      throw new Error("Failed to get AI response");
+      throw new Error(data.error || "Failed to get AI response");
     }
 
-    const data = await aiResponse.json();
-    const aiMessage = data.message;
-
-    const updatedMessage: Message = {
+    const aiMessage: Message = {
       id: aiMessageId,
-      message: aiMessage,
-      role: "ai" as const,
+      message: data.message,
+      role: "ai",
       name: "AI Tutor",
       isLoading: false,
     };
-
     setMessages(currentSessionId, [
       ...currentMessages,
       userMessage,
-      updatedMessage,
+      aiMessage,
     ]);
 
-    await fetch(`/api/session/${currentSessionId}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        content: aiMessage,
-        role: "ai",
-      }),
-    });
-
+    // Generate title for new sessions without a topic
     const currentSession = sessions.find((s) => s.id === currentSessionId);
     if (currentSession && !currentSession.topic) {
-      const response = await fetch("/api/session/title", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionId: currentSessionId,
-          message: currentInput,
-        }),
-      });
-
-      if (response.ok) {
-        const { title } = await response.json();
-        setSessions(
-          sessions.map((s) =>
-            s.id === currentSessionId ? { ...s, topic: title } : s
-          )
-        );
+      try {
+        const response = await fetch("/api/session/title", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: currentSessionId,
+            message: currentInput,
+          }),
+        });
+        if (response.ok) {
+          const { title } = await response.json();
+          setSessions(
+            sessions.map((s) =>
+              s.id === currentSessionId ? { ...s, topic: title } : s
+            )
+          );
+        }
+      } catch (titleError) {
+        console.error("Failed to generate title:", titleError);
       }
     }
   } catch (error) {
@@ -140,13 +117,12 @@ export const handleSendMessage = async (
     const errorMessage: Message = {
       id: crypto.randomUUID(),
       message: "Sorry, there was an error. Please try again.",
-      role: "ai" as const,
+      role: "ai",
       name: "AI Tutor",
     };
     const currentMessages = messages[currentSessionId] || [];
     setMessages(currentSessionId, [
-      ...currentMessages,
-      userMessage,
+      ...currentMessages.filter((msg) => !msg.isLoading),
       errorMessage,
     ]);
   }

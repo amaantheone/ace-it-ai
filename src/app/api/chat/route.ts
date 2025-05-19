@@ -2,6 +2,8 @@ import "dotenv/config";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const SYSTEM_MESSAGE = `You are an expert study assistant and tutor. Your goal is to help the user learn and understand concepts clearly and patiently.
   - Provide detailed explanations with examples when asked.
@@ -42,6 +44,18 @@ export async function POST(req: Request) {
     const { message, sessionId } = await req.json();
     if (!sessionId) throw new Error("Session ID is required");
 
+    // Only allow authenticated users
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+    if (!user) throw new Error("User not found");
+
     // Retrieve previous messages from the database for this session
     const prevMessages = await prisma.message.findMany({
       where: { sessionId },
@@ -50,54 +64,36 @@ export async function POST(req: Request) {
     });
 
     // Build conversation history for the LLM
-    // Start with the system message
     const messages: [string, string][] = [["system", SYSTEM_MESSAGE]];
-
-    // Add previous messages from the database
     for (const msg of prevMessages) {
-      // Convert database role format to LLM expected format
       const role = msg.role === "user" ? "human" : "ai";
       messages.push([role, msg.content]);
     }
-
-    // Add the current user message
     messages.push(["human", message]);
 
     // Call the LLM with the conversation history
     const response = await llm.invoke(messages);
     const responseText = String(response.content);
 
-    // Save the user message to the database
-    await prisma.message.create({
-      data: {
-        role: "user",
-        content: message,
-        sessionId,
-        userId:
-          (
-            await prisma.session.findUnique({
-              where: { id: sessionId },
-              select: { userId: true },
-            })
-          )?.userId || "",
-      },
-    });
-
-    // Save the AI response to the database
-    await prisma.message.create({
-      data: {
-        role: "ai",
-        content: responseText,
-        sessionId,
-        userId:
-          (
-            await prisma.session.findUnique({
-              where: { id: sessionId },
-              select: { userId: true },
-            })
-          )?.userId || "",
-      },
-    });
+    // Save both user and AI messages in a transaction
+    await prisma.$transaction([
+      prisma.message.create({
+        data: {
+          role: "user",
+          content: message,
+          sessionId,
+          userId: user.id,
+        },
+      }),
+      prisma.message.create({
+        data: {
+          role: "ai",
+          content: responseText,
+          sessionId,
+          userId: user.id,
+        },
+      }),
+    ]);
 
     return NextResponse.json({ message: responseText });
   } catch (error) {
