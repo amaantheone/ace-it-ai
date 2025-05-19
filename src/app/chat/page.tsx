@@ -90,19 +90,22 @@ export default function ChatPage() {
         }
         const data = await response.json();
         setSessions(data);
+        
         // If there are no sessions, create one
         if (data.length === 0) {
           const newSessionResponse = await fetch('/api/session', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
           });
+
           if (!newSessionResponse.ok) {
             throw new Error('Failed to create session');
           }
+
           const newSession = await newSessionResponse.json();
           setSessions([newSession]);
           setCurrentSessionId(newSession.id);
-          // Only set initialConversation for a new session
+
           const initialConversation: Message[] = [
             {
               id: crypto.randomUUID(),
@@ -113,6 +116,7 @@ export default function ChatPage() {
               className: "text-zinc-100"
             }
           ];
+
           setIsLoading(true);
           setMessages(newSession.id, initialConversation);
           setIsLoading(false);
@@ -139,7 +143,6 @@ export default function ChatPage() {
           throw new Error('Failed to load messages');
         }
         const data = await response.json();
-        // Always REPLACE messages for the session, never append
         setMessages(currentSessionId, data);
       } catch (error) {
         console.error('Error loading messages:', error);

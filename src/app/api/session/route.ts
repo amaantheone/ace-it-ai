@@ -2,32 +2,36 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "../auth/[...nextauth]/route";
-import { getOrCreateGuestUser } from "@/lib/guestUser";
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  let user;
+
   if (!session?.user?.email) {
-    user = await getOrCreateGuestUser();
-  } else {
-    user = await prisma.user.findUnique({
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    // Get the user from the database
+    const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     });
+
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-  }
-  try {
+
     const { topic } = await req.json().catch(() => ({}));
+
     const newSession = await prisma.session.create({
       data: {
         userId: user.id,
         sessionToken: crypto.randomUUID(),
         topic: topic || null,
-        expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         startedAt: new Date(),
       },
     });
+
     return NextResponse.json(newSession);
   } catch (error) {
     console.error("Error creating session:", error);
@@ -40,16 +44,17 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   const session = await getServerSession(authOptions);
-  let user;
+
   if (!session?.user?.email) {
-    user = await getOrCreateGuestUser();
-  } else {
-    user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   try {
@@ -96,22 +101,29 @@ export async function PUT(req: Request) {
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  let user;
+
   if (!session?.user?.email) {
-    user = await getOrCreateGuestUser();
-  } else {
-    user = await prisma.user.findUnique({
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
       where: { email: session.user.email },
     });
+
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
-  }
-  try {
+
     const sessions = await prisma.session.findMany({
-      where: { userId: user.id },
-      orderBy: { startedAt: "desc" },
+      where: {
+        userId: user.id,
+      },
+      orderBy: {
+        startedAt: "desc",
+      },
     });
+
     return NextResponse.json(sessions);
   } catch (error) {
     console.error("Error fetching sessions:", error);

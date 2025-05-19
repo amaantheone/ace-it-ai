@@ -2,9 +2,6 @@ import "dotenv/config";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getOrCreateGuestUser } from "@/lib/guestUser";
 
 const SYSTEM_MESSAGE = `You are an expert study assistant and tutor. Your goal is to help the user learn and understand concepts clearly and patiently.
   - Provide detailed explanations with examples when asked.
@@ -44,18 +41,6 @@ export async function POST(req: Request) {
   try {
     const { message, sessionId } = await req.json();
     if (!sessionId) throw new Error("Session ID is required");
-
-    // Get user (auth or guest)
-    let user;
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      user = await getOrCreateGuestUser();
-    } else {
-      user = await prisma.user.findUnique({
-        where: { email: session.user.email },
-      });
-      if (!user) throw new Error("User not found");
-    }
 
     // Retrieve previous messages from the database for this session
     const prevMessages = await prisma.message.findMany({

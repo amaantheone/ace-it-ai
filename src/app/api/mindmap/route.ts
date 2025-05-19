@@ -4,7 +4,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
-import { getOrCreateGuestUser } from "@/lib/guestUser";
 
 const MINDMAP_SYSTEM_MESSAGE = `You are a mindmap generator. 
 Create a structured mindmap on the given topic.
@@ -46,19 +45,14 @@ const llm = new ChatGoogleGenerativeAI({
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-  let user;
+
   if (!session?.user?.email) {
-    user = await getOrCreateGuestUser();
-  } else {
-    user = await prisma.user.findUnique({
-      where: { email: session.user.email! },
-    });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    return NextResponse.json({ error: "Unauthorize" }, { status: 401 });
   }
+
   try {
     const { topic } = await req.json();
+
     if (!topic) {
       return NextResponse.json({ error: "Topic is required" }, { status: 400 });
     }
@@ -87,6 +81,12 @@ export async function POST(req: Request) {
     }
 
     // Save mindmap to database
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! },
+    });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
     const savedMindmap = await prisma.mindmap.create({
       data: {
         data: mindmapData,
@@ -107,16 +107,14 @@ export async function POST(req: Request) {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  let user;
   if (!session?.user?.email) {
-    user = await getOrCreateGuestUser();
-  } else {
-    user = await prisma.user.findUnique({
-      where: { email: session.user.email! },
-    });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email! },
+  });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
   const mindmaps = await prisma.mindmap.findMany({
     where: { userId: user.id },
