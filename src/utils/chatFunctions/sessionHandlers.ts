@@ -1,11 +1,4 @@
-import { Message } from "@/hooks/useSessionStore";
-
-// Define a Session type for strong typing
-interface Session {
-  id: string;
-  topic?: string;
-  [key: string]: unknown;
-}
+import { Message, Session } from "@/hooks/useSessionStore";
 
 export const generateTitle = async (
   sessionId: string,

@@ -1,21 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
-interface Params {
-  params: {
-    folderId: string;
-    cardId: string;
-  };
-}
-
 // Add card to folder
-export async function PUT(req: NextRequest, context: Params) {
+export async function PUT(req: NextRequest, context: unknown) {
+  const { folderId, cardId } = (context as {
+    params: { folderId: string; cardId: string };
+  }).params;
+
   try {
-    const params = await context.params;
-    const { folderId, cardId } = params;
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -70,11 +64,13 @@ export async function PUT(req: NextRequest, context: Params) {
 }
 
 // Remove card from folder
-export async function DELETE(req: NextRequest, context: Params) {
+export async function DELETE(req: NextRequest, context: unknown) {
+  const { folderId, cardId } = (context as {
+    params: { folderId: string; cardId: string };
+  }).params;
+
   try {
-    const params = await context.params;
-    const { folderId, cardId } = params;
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

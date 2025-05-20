@@ -7,11 +7,11 @@ import { useEffect } from "react";
 export interface FlashCardData {
   id: string;
   term: string;
-  translation?: string;
-  partOfSpeech?: string;
-  definition?: string;
-  example?: string;
-  tag?: string;
+  translation: string | null;
+  partOfSpeech: string | null;
+  definition: string;
+  example: string;
+  tag?: string | null;
   folderId?: string;
 }
 export interface Folder {
@@ -36,7 +36,17 @@ export const useFlashCardData = (
           throw new Error(errorData.error || "Failed to fetch flash cards");
         }
         const cardsData = await cardsResponse.json();
-        setFlashCards(cardsData.flashCards as FlashCardData[]);
+        // Map all cards to ensure null for missing fields
+        setFlashCards(
+          (cardsData.flashCards as Partial<FlashCardData>[]).map((card) => ({
+            ...card,
+            translation: card.translation ?? null,
+            partOfSpeech: card.partOfSpeech ?? null,
+            definition: card.definition ?? "",
+            example: card.example ?? "",
+            tag: card.tag ?? null,
+          }) as FlashCardData)
+        );
         const foldersResponse = await fetch("/api/flashcard/folder");
         if (foldersResponse.ok) {
           const foldersData = await foldersResponse.json();

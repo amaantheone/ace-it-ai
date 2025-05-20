@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useSessionStore, Message } from "@/hooks/useSessionStore";
+import { useSessionStore, Message, Session } from "@/hooks/useSessionStore";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/ui/chat/sidebar";
@@ -162,7 +162,7 @@ export default function ChatPage() {
   }, [currentSessionId, setMessages]);
 
   const generateTitle = useCallback(async (sessionId: string, message: string) => {
-    await generateTitleUtil(sessionId, message, sessions, setSessions);
+    await generateTitleUtil(sessionId, message, sessions as Session[], setSessions);
   }, [sessions, setSessions]);
 
   const getCurrentSessionMessages = useCallback(() => {
@@ -195,7 +195,7 @@ export default function ChatPage() {
       setInput,
       setMessages,
       setSessions,
-      sessions,
+      sessions: sessions as Session[],
       formRef: formRef as React.RefObject<HTMLFormElement>
     });
   };

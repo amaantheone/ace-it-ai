@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -430,7 +430,9 @@ export default function FlashCardPage() {
 
   return (
     <FlashCardProvider>
-      <FlashCardPageContent />
+      <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+        <FlashCardPageContent />
+      </Suspense>
     </FlashCardProvider>
   );
 }

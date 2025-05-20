@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { prisma } from "@/lib/prisma";
 
-interface Params {
-  params: {
-    id: string;
-  };
-}
-
-// Update flashcard folder association
-export async function PATCH(req: NextRequest, { params }: Params) {
+export async function PATCH(
+  req: NextRequest,
+  context: unknown
+): Promise<Response> {
+    const { id } = (context as { params: Record<string, string> }).params;
   try {
-    const { id } = params;
     const { folderId } = await req.json();
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession();
 
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,4 +1,4 @@
-import { Message } from "@/hooks/useSessionStore";
+import { Message, Session } from "@/hooks/useSessionStore";
 
 export const handleSendMessage = async (
   e: React.FormEvent<HTMLFormElement>,
@@ -21,8 +21,8 @@ export const handleSendMessage = async (
     messages: Record<string, Message[]>;
     setInput: (input: string) => void;
     setMessages: (sessionId: string, messages: Message[]) => void;
-    setSessions: (sessions: { id: string; topic?: string }[]) => void;
-    sessions: { id: string; topic?: string }[];
+    setSessions: (sessions: Session[]) => void;
+    sessions: Session[];
     formRef: React.RefObject<HTMLFormElement>;
   }
 ) => {
