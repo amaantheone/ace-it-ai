@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useTheme } from "@/contexts/ThemeContext";
-import { useSessionStore, Message, Session } from "@/hooks/useSessionStore";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useSessionStore, Message, Session } from "../../hooks/useSessionStore";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Sidebar } from "@/components/ui/chat/sidebar";
-import { ChatHeader } from "@/components/ui/chat/chat-header";
-import { ChatInputArea } from "@/components/ui/chat/chat-input-area";
-import { ChatMessages } from "@/components/ui/chat/chat-messages";
-import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil } from "@/utils/chatFunctions/messageHandlers";
-import { generateTitle as generateTitleUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil } from "@/utils/chatFunctions/sessionHandlers";
+import { Sidebar } from "../../components/ui/chat/sidebar";
+import { ChatHeader } from "../../components/ui/chat/chat-header";
+import { ChatInputArea } from "../../components/ui/chat/chat-input-area";
+import { ChatMessages } from "../../components/ui/chat/chat-messages";
+import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil } from "../../utils/chatFunctions/messageHandlers";
+import { generateTitle as generateTitleUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil } from "../../utils/chatFunctions/sessionHandlers";
 
 export default function ChatPage() {
   const router = useRouter();

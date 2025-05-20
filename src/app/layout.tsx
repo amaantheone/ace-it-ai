@@ -1,20 +1,11 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/contexts/ThemeContext";
-import { SessionProviderWrapper } from "@/contexts/SessionContext";
-import { NextAuthProvider } from "@/components/providers/NextAuthProvider";
-import { FlashCardProvider } from "@/contexts/FlashCardContext";
+import { ThemeProvider } from "../contexts/ThemeContext";
+import { SessionProviderWrapper } from "../contexts/SessionContext";
+import { NextAuthProvider } from "../components/providers/NextAuthProvider";
+import { FlashCardProvider } from "../contexts/FlashCardContext";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+// Remove unused import if not needed
 
 export const metadata: Metadata = {
   title: "Ace It AI",
@@ -29,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`antialiased`}
       >
           <ThemeProvider>
             <SessionProviderWrapper>
