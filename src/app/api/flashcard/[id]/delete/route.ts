@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/config/auth";
 
 export async function DELETE(_req: Request, context: unknown) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   const { id } = (context as { params: { id: string } }).params;
 
   if (!session?.user?.email) {

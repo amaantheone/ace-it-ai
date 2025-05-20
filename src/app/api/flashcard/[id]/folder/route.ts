@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/config/auth";
 
 export async function PATCH(
   req: NextRequest,
@@ -9,7 +10,7 @@ export async function PATCH(
     const { id } = (context as { params: Record<string, string> }).params;
   try {
     const { folderId } = await req.json();
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

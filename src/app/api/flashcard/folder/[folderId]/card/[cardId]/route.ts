@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/config/auth";
 
 // Add card to folder
 export async function PUT(req: NextRequest, context: unknown) {
@@ -9,7 +10,7 @@ export async function PUT(req: NextRequest, context: unknown) {
   }).params;
 
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -70,7 +71,7 @@ export async function DELETE(req: NextRequest, context: unknown) {
   }).params;
 
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

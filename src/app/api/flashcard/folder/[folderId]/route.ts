@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/config/auth";
 
 // PATCH and DELETE handlers for /api/flashcard/folder/[folderId]
 // Fix: context.params should not be a Promise, but a plain object
@@ -9,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 export async function PATCH(req: NextRequest, context: unknown) {
   const { folderId } = (context as { params: { folderId: string } }).params;
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -66,10 +67,11 @@ export async function PATCH(req: NextRequest, context: unknown) {
 }
 
 // Delete folder
-export async function DELETE(req: NextRequest, context: unknown) {
+export async function DELETE(context: unknown) {
   const { folderId } = (context as { params: { folderId: string } }).params;
   try {
-    const session = await getServerSession();
+    // Fix: use getServerSession(authOptions) for proper authentication
+    const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

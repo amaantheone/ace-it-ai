@@ -2,6 +2,7 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/config/auth";
 
 interface FlashCard {
   term: string;
@@ -35,7 +36,7 @@ const llm = new ChatGoogleGenerativeAI({
 });
 
 export async function POST(req: Request) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -128,7 +129,7 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

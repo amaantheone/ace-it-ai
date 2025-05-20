@@ -3,6 +3,8 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/config/auth";
+
 
 const SYSTEM_MESSAGE = `You are an expert study assistant and tutor. Your goal is to help the user learn and understand concepts clearly and patiently.
   - Provide detailed explanations with examples when asked.
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
     if (!sessionId) throw new Error("Session ID is required");
 
     // Only allow authenticated users
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

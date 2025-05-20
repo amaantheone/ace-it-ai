@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/config/auth";
 
 interface MessageWithUser {
   id: string;
@@ -14,7 +15,7 @@ interface MessageWithUser {
 }
 
 export async function GET(request: Request, context: unknown) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   const { sessionId } = (context as { params: { sessionId: string } }).params;
 
   if (!session?.user?.email) {
@@ -56,7 +57,7 @@ export async function GET(request: Request, context: unknown) {
 }
 
 export async function POST(request: Request, context: unknown) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   const { sessionId } = (context as { params: { sessionId: string } }).params;
 
   if (!session?.user?.email) {
