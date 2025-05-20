@@ -28,6 +28,7 @@ export interface FlashCardData {
   definition: string;
   example: string;
   tag?: string | null;
+  folderId?: string;
 }
 
 export function FlashCard({

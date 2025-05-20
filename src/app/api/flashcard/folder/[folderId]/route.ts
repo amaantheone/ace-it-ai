@@ -3,8 +3,61 @@ import { getServerSession } from "next-auth/next";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/config/auth";
 
-// PATCH and DELETE handlers for /api/flashcard/folder/[folderId]
-// Fix: context.params should not be a Promise, but a plain object
+// GET, PATCH and DELETE handlers for /api/flashcard/folder/[folderId]
+
+// Get all cards in a folder
+export async function GET(req: NextRequest, context: unknown) {
+  const { folderId } = (context as { params: { folderId: string } }).params;
+
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Fetch the folder and its cards
+    const folder = await prisma.flashCardFolder.findFirst({
+      where: {
+        id: folderId,
+        userId: user.id, // Ensure the folder belongs to the user
+      },
+      include: {
+        cards: {
+          orderBy: {
+            createdAt: "asc", // Order by creation date
+          },
+        },
+      },
+    });
+
+    if (!folder) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      folder: {
+        id: folder.id,
+        name: folder.name,
+      },
+      flashCards: folder.cards,
+    });
+  } catch (error) {
+    console.error("Error fetching folder cards:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch folder cards" },
+      { status: 500 }
+    );
+  }
+}
 
 // Update folder
 export async function PATCH(req: NextRequest, context: unknown) {

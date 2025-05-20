@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, PanelLeft } from 'lucide-react';
+import { ArrowLeft, PanelLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FlashCard, FlashCardData } from '@/components/ui/flashcard/flash-card';
 import { FlashCardSidebar } from '@/components/ui/flashcard/flashcard-sidebar';
 import { FlashCardProvider, useFlashCards } from '@/contexts/FlashCardContext';
@@ -33,6 +33,8 @@ function FlashCardPageContent() {
   const [isBulk, setIsBulk] = useState(false);
   const [bulkCount, setBulkCount] = useState(10);
   const [bulkCardsGenerated, setBulkCardsGenerated] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [cardsInFolder, setCardsInFolder] = useState<FlashCardData[]>([]);
 
   // Handle window resize
   useEffect(() => {
@@ -69,6 +71,40 @@ function FlashCardPageContent() {
     }
   }, [status, router]);
 
+  const fetchCardsInFolder = async (folderId: string) => {
+    try {
+      const response = await fetch(`/api/flashcard/folder/${folderId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch cards in folder');
+      }
+      const data = await response.json();
+      return data.flashCards || [];  // Ensure we always return an array
+    } catch (err) {
+      console.error('Error fetching cards in folder:', err);
+      return [];
+    }
+  };
+
+  const goToNextCard = () => {
+    if (currentIndex > 0) {
+      const nextCard = cardsInFolder[currentIndex - 1];
+      router.push(`/flashcard?id=${nextCard.id}`);
+    }
+  };
+
+  const goToPreviousCard = () => {
+    if (currentIndex < cardsInFolder.length - 1) {
+      const prevCard = cardsInFolder[currentIndex + 1];
+      router.push(`/flashcard?id=${prevCard.id}`);
+    }
+  };
+
+  // Fetch the specific card and its folder's cards
   const fetchCard = async (id: string) => {
     try {
       const response = await fetch(`/api/flashcard/${id}`);
@@ -77,6 +113,15 @@ function FlashCardPageContent() {
       }
       const data = await response.json();
       setCurrentCard(data.flashCard);
+
+      // If the card has a folderId, fetch all cards in that folder
+      if (data.flashCard.folderId) {
+        const folderCards = await fetchCardsInFolder(data.flashCard.folderId);
+        setCardsInFolder(folderCards);
+        // Find the index of the current card in the folder
+        const index = folderCards.findIndex((card: FlashCardData) => card.id === id);
+        setCurrentIndex(index);
+      }
     } catch (err) {
       console.error('Error fetching flash card:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch flash card');
@@ -403,14 +448,38 @@ function FlashCardPageContent() {
           </Card>
           
           {currentCard && (
-            <div className="flex justify-center">
+          <div className="relative w-full flex justify-center">
+            <div className="relative flex items-center gap-4">
+              {currentCard.folderId && currentIndex < cardsInFolder.length - 1 && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToPreviousCard}
+                  className="hover:bg-accent h-12 w-12"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </Button>
+              )}
+
               <FlashCard 
                 {...currentCard}
                 onEdit={handleEditCard}
                 onDelete={handleDeleteCard}
               />
+
+              {currentCard.folderId && currentIndex > 0 && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={goToNextCard}
+                  className="hover:bg-accent h-12 w-12"
+                >
+                  <ChevronRight className="h-6 w-6" />
+                </Button>
+              )}
             </div>
-          )}
+          </div>
+        )}
         </div>
       </div>
     </div>
