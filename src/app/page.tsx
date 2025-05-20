@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, LogOut, LogIn } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useSession, signOut } from "next-auth/react";
 
 export default function Home() {
   const { theme, toggleTheme } = useTheme();
+  const { data: session } = useSession();
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -23,9 +25,7 @@ export default function Home() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                toggleTheme();
-              }}
+              onClick={toggleTheme}
               className="rounded-full"
             >
               {theme === 'dark' ? (
@@ -34,11 +34,28 @@ export default function Home() {
                 <Moon className="h-5 w-5 text-primary" />
               )}
             </Button>
-            <Link href="/auth/login">
-              <Button variant="outline" size="sm" className="hover:cursor-pointer">
+            {session ? (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => signOut()}
+                className="hover:cursor-pointer flex gap-2 items-center"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            ) : (
+              <Link href="/auth/login">
+                <Button 
+                variant="outline" 
+                size="sm" 
+                className="hover:cursor-pointer flex gap-2 items-center"
+              >
+                <LogIn className="h-4 w-4" />
                 Sign In
               </Button>
-            </Link>
+              </Link>
+            )}
           </div>
         </div>
 
