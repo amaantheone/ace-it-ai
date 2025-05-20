@@ -83,7 +83,7 @@ function FlashCardPageContent() {
         throw new Error('Failed to fetch cards in folder');
       }
       const data = await response.json();
-      return data.flashCards || [];  // Ensure we always return an array
+      return data.flashCards || [];
     } catch (err) {
       console.error('Error fetching cards in folder:', err);
       return [];
@@ -104,7 +104,7 @@ function FlashCardPageContent() {
     }
   };
 
-  // Fetch the specific card and its folder's cards
+  // Update fetchCard to handle folder cards
   const fetchCard = async (id: string) => {
     try {
       const response = await fetch(`/api/flashcard/${id}`);
@@ -448,8 +448,7 @@ function FlashCardPageContent() {
           </Card>
           
           {currentCard && (
-          <div className="relative w-full flex justify-center">
-            <div className="relative flex items-center gap-4">
+            <div className="flex justify-center items-center space-x-4">
               {currentCard.folderId && currentIndex < cardsInFolder.length - 1 && (
                 <Button
                   variant="outline"
@@ -461,11 +460,13 @@ function FlashCardPageContent() {
                 </Button>
               )}
 
-              <FlashCard 
-                {...currentCard}
-                onEdit={handleEditCard}
-                onDelete={handleDeleteCard}
-              />
+              <div className="w-[600px]">
+                <FlashCard 
+                  {...currentCard}
+                  onEdit={handleEditCard}
+                  onDelete={handleDeleteCard}
+                />
+              </div>
 
               {currentCard.folderId && currentIndex > 0 && (
                 <Button
@@ -478,8 +479,7 @@ function FlashCardPageContent() {
                 </Button>
               )}
             </div>
-          </div>
-        )}
+          )}
         </div>
       </div>
     </div>
