@@ -221,7 +221,6 @@ export default function ChatPage() {
           onNewChat={handleNewChat}
           onToggleTheme={() => {
             toggleTheme();
-            document.documentElement.classList.toggle('dark');
           }}
           onToggleUserMenu={() => setIsUserMenuOpen(!isUserMenuOpen)}
           menuRef={menuRef}

@@ -25,7 +25,6 @@ export default function Home() {
               size="icon"
               onClick={() => {
                 toggleTheme();
-                document.documentElement.classList.toggle('dark');
               }}
               className="rounded-full"
             >

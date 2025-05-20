@@ -4,6 +4,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { SessionProviderWrapper } from "../contexts/SessionContext";
 import { NextAuthProvider } from "../components/providers/NextAuthProvider";
 import { FlashCardProvider } from "../contexts/FlashCardContext";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 // Remove unused import if not needed
 
@@ -27,6 +28,7 @@ export default function RootLayout({
               <NextAuthProvider>
                 <FlashCardProvider>
                   {children}
+                  <SpeedInsights />
                 </FlashCardProvider>
               </NextAuthProvider>
             </SessionProviderWrapper>

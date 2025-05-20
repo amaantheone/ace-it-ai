@@ -19,6 +19,7 @@
     "@radix-ui/react-popover": "^1.1.13",
     "@radix-ui/react-scroll-area": "^1.2.8",
     "@radix-ui/react-slot": "^1.2.2",
+    "@vercel/speed-insights": "^1.2.0",
     "autoprefixer": "^10.4.21",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

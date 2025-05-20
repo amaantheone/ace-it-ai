@@ -128,7 +128,6 @@ export default function MindmapPage() {
             size="icon"
             onClick={() => {
               toggleTheme();
-              document.documentElement.classList.toggle('dark');
             }}
             className="rounded-full"
           >
