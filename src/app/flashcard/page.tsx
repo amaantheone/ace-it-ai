@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,49 @@ function FlashCardPageContent() {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [cardsInFolder, setCardsInFolder] = useState<FlashCardData[]>([]);
 
+  const fetchCardsInFolder = useCallback(async (folderId: string) => {
+    try {
+      const response = await fetch(`/api/flashcard/folder/${folderId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch cards in folder');
+      }
+      const data = await response.json();
+      return data.flashCards || [];
+    } catch (err) {
+      console.error('Error fetching cards in folder:', err);
+      return [];
+    }
+  }, []);
+  
+  // Update fetchCard to handle folder cards
+  const fetchCard = useCallback(async (id: string) => {
+    try {
+      const response = await fetch(`/api/flashcard/${id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch flash card');
+      }
+      const data = await response.json();
+      setCurrentCard(data.flashCard);
+
+      // If the card has a folderId, fetch all cards in that folder
+      if (data.flashCard.folderId) {
+        const folderCards = await fetchCardsInFolder(data.flashCard.folderId);
+        setCardsInFolder(folderCards);
+        // Find the index of the current card in the folder
+        const index = folderCards.findIndex((card: FlashCardData) => card.id === id);
+        setCurrentIndex(index);
+      }
+    } catch (err) {
+      console.error('Error fetching flash card:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch flash card');
+    }
+  }, [fetchCardsInFolder, setCurrentCard, setCardsInFolder, setCurrentIndex, setError]);
+
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
@@ -62,7 +105,7 @@ function FlashCardPageContent() {
     if (cardId) {
       void fetchCard(cardId);
     }
-  }, [searchParams]);
+  }, [searchParams, fetchCard]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -70,25 +113,6 @@ function FlashCardPageContent() {
       router.replace("/auth/login");
     }
   }, [status, router]);
-
-  const fetchCardsInFolder = async (folderId: string) => {
-    try {
-      const response = await fetch(`/api/flashcard/folder/${folderId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch cards in folder');
-      }
-      const data = await response.json();
-      return data.flashCards || [];
-    } catch (err) {
-      console.error('Error fetching cards in folder:', err);
-      return [];
-    }
-  };
 
   const goToNextCard = () => {
     if (currentIndex > 0) {
@@ -101,30 +125,6 @@ function FlashCardPageContent() {
     if (currentIndex < cardsInFolder.length - 1) {
       const prevCard = cardsInFolder[currentIndex + 1];
       router.push(`/flashcard?id=${prevCard.id}`);
-    }
-  };
-
-  // Update fetchCard to handle folder cards
-  const fetchCard = async (id: string) => {
-    try {
-      const response = await fetch(`/api/flashcard/${id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch flash card');
-      }
-      const data = await response.json();
-      setCurrentCard(data.flashCard);
-
-      // If the card has a folderId, fetch all cards in that folder
-      if (data.flashCard.folderId) {
-        const folderCards = await fetchCardsInFolder(data.flashCard.folderId);
-        setCardsInFolder(folderCards);
-        // Find the index of the current card in the folder
-        const index = folderCards.findIndex((card: FlashCardData) => card.id === id);
-        setCurrentIndex(index);
-      }
-    } catch (err) {
-      console.error('Error fetching flash card:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch flash card');
     }
   };
 
