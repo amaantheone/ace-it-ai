@@ -36,48 +36,127 @@ function FlashCardPageContent() {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [cardsInFolder, setCardsInFolder] = useState<FlashCardData[]>([]);
 
-  const fetchCardsInFolder = useCallback(async (folderId: string) => {
+  // --- LocalStorage Caching Helpers ---
+  const FLASHCARD_LIST_KEY = 'flashcard_list';
+  const FLASHCARD_FOLDERS_KEY = 'flashcard_folders';
+  const getFlashCardKey = (id: string) => `flashcard_${id}`;
+
+  // Load flashcard list from localStorage
+  const loadFlashCardListFromCache = useCallback((): FlashCardData[] | null => {
     try {
-      const response = await fetch(`/api/flashcard/folder/${folderId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch cards in folder');
-      }
-      const data = await response.json();
-      return data.flashCards || [];
-    } catch (err) {
-      console.error('Error fetching cards in folder:', err);
-      return [];
-    }
+      const cached = localStorage.getItem(FLASHCARD_LIST_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return null;
   }, []);
-  
-  // Update fetchCard to handle folder cards
+
+  // Save flashcard list to localStorage
+  const saveFlashCardListToCache = useCallback((list: FlashCardData[]) => {
+    try {
+      localStorage.setItem(FLASHCARD_LIST_KEY, JSON.stringify(list));
+    } catch {}
+  }, []);
+
+  // Load folders from localStorage
+  const loadFoldersFromCache = useCallback((): { id: string; name: string; cardIds: string[] }[] | null => {
+    try {
+      const cached = localStorage.getItem(FLASHCARD_FOLDERS_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return null;
+  }, []);
+
+  // Save folders to localStorage
+  const saveFoldersToCache = useCallback((folders: { id: string; name: string; cardIds: string[] }[]) => {
+    try {
+      localStorage.setItem(FLASHCARD_FOLDERS_KEY, JSON.stringify(folders));
+    } catch {}
+  }, []);
+
+  // Load individual flashcard from localStorage
+  const loadFlashCardFromCache = useCallback((id: string): FlashCardData | null => {
+    try {
+      const cached = localStorage.getItem(getFlashCardKey(id));
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return null;
+  }, []);
+
+  // Save individual flashcard to localStorage
+  const saveFlashCardToCache = useCallback((id: string, data: FlashCardData) => {
+    try {
+      localStorage.setItem(getFlashCardKey(id), JSON.stringify(data));
+    } catch {}
+  }, []);
+
+  // Remove individual flashcard from localStorage
+  const removeFlashCardFromCache = useCallback((id: string) => {
+    try {
+      localStorage.removeItem(getFlashCardKey(id));
+    } catch {}
+  }, []);
+
+  // --- Fetch flashcard list and folders: cache first, then API ---
+  useEffect(() => {
+    const cachedList = loadFlashCardListFromCache();
+    if (cachedList) setFlashCards(cachedList);
+    const cachedFolders = loadFoldersFromCache();
+    if (cachedFolders) setFolders(cachedFolders);
+    // Always update from API
+    fetch('/api/flashcard')
+      .then(res => res.json())
+      .then(data => {
+        setFlashCards(data.flashCards || []);
+        saveFlashCardListToCache(data.flashCards || []);
+      });
+    fetch('/api/flashcard/folder')
+      .then(res => res.json())
+      .then(data => {
+        setFolders(data.folders || []);
+        saveFoldersToCache(data.folders || []);
+      });
+  }, [loadFlashCardListFromCache, saveFlashCardListToCache, loadFoldersFromCache, saveFoldersToCache, setFlashCards, setFolders]);
+
+  // Update fetchCard to use cache
   const fetchCard = useCallback(async (id: string) => {
+    // Try cache first
+    const cached = loadFlashCardFromCache(id);
+    if (cached) {
+      setCurrentCard(cached);
+      // If the card has a folderId, fetch all cards in that folder (from state or cache)
+      if (cached.folderId) {
+        const folder = (loadFoldersFromCache() || []).find(f => f.id === cached.folderId);
+        if (folder) {
+          const folderCards = (loadFlashCardListFromCache() || []).filter(card => folder.cardIds.includes(card.id!));
+          setCardsInFolder(folderCards);
+          const index = folderCards.findIndex((card: FlashCardData) => card.id === id);
+          setCurrentIndex(index);
+        }
+      }
+      return;
+    }
+    // Fallback to API
     try {
       const response = await fetch(`/api/flashcard/${id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch flash card');
-      }
+      if (!response.ok) throw new Error('Failed to fetch flash card');
       const data = await response.json();
       setCurrentCard(data.flashCard);
-
-      // If the card has a folderId, fetch all cards in that folder
+      saveFlashCardToCache(id, data.flashCard);
+      // If the card has a folderId, try to get folder cards from cache
       if (data.flashCard.folderId) {
-        const folderCards = await fetchCardsInFolder(data.flashCard.folderId);
-        setCardsInFolder(folderCards);
-        // Find the index of the current card in the folder
-        const index = folderCards.findIndex((card: FlashCardData) => card.id === id);
-        setCurrentIndex(index);
+        const folder = (loadFoldersFromCache() || []).find(f => f.id === data.flashCard.folderId);
+        if (folder) {
+          const folderCards = (loadFlashCardListFromCache() || []).filter(card => folder.cardIds.includes(card.id!));
+          setCardsInFolder(folderCards);
+          const index = folderCards.findIndex((card: FlashCardData) => card.id === id);
+          setCurrentIndex(index);
+        }
       }
     } catch (err) {
       console.error('Error fetching flash card:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch flash card');
     }
-  }, [fetchCardsInFolder, setCurrentCard, setCardsInFolder, setCurrentIndex, setError]);
+  }, [loadFlashCardFromCache, setCurrentCard, loadFoldersFromCache, loadFlashCardListFromCache, setCardsInFolder, setCurrentIndex, setError, saveFlashCardToCache]);
 
   // Handle window resize
   useEffect(() => {
@@ -115,16 +194,16 @@ function FlashCardPageContent() {
   }, [status, router]);
 
   const goToNextCard = () => {
-    if (currentIndex > 0) {
-      const nextCard = cardsInFolder[currentIndex - 1];
-      router.push(`/flashcard?id=${nextCard.id}`);
+    if (currentIndex < cardsInFolder.length - 1) {
+      const prevCard = cardsInFolder[currentIndex + 1];
+      router.push(`/flashcard?id=${prevCard.id}`);
     }
   };
 
   const goToPreviousCard = () => {
-    if (currentIndex < cardsInFolder.length - 1) {
-      const prevCard = cardsInFolder[currentIndex + 1];
-      router.push(`/flashcard?id=${prevCard.id}`);
+    if (currentIndex > 0) {
+      const nextCard = cardsInFolder[currentIndex - 1];
+      router.push(`/flashcard?id=${nextCard.id}`);
     }
   };
 
@@ -331,6 +410,7 @@ function FlashCardPageContent() {
       }
 
       deleteFlashCard(id);
+      removeFlashCardFromCache(id); // Remove from localStorage
       setCurrentCard(null);
       // If the deleted card is in the URL, redirect to /flashcard
       const urlParams = new URLSearchParams(window.location.search);
@@ -449,7 +529,7 @@ function FlashCardPageContent() {
           
           {currentCard && (
             <div className="flex justify-center items-center space-x-4">
-              {currentCard.folderId && currentIndex < cardsInFolder.length - 1 && (
+              {currentCard.folderId && currentIndex > 0 && (
                 <Button
                   variant="outline"
                   size="icon"
@@ -468,7 +548,7 @@ function FlashCardPageContent() {
                 />
               </div>
 
-              {currentCard.folderId && currentIndex > 0 && (
+              {currentCard.folderId && currentIndex < cardsInFolder.length - 1 && (
                 <Button
                   variant="outline"
                   size="icon"
