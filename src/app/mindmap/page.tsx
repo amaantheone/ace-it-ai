@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,49 @@ export default function MindmapPage() {
   const [mindmaps, setMindmaps] = useState<{ id: string; topic: string; createdAt: string; data?: MindmapData }[]>([]);
   const [currentMindmapId, setCurrentMindmapId] = useState<string | null>(null);
 
+  // --- LocalStorage Caching Helpers ---
+  const MINDMAP_LIST_KEY = 'mindmap_list';
+  const getMindmapKey = (id: string) => `mindmap_${id}`;
+
+  type MindmapListItem = { id: string; topic: string; createdAt: string; data?: MindmapData }[];
+
+  // Load mindmap list from localStorage
+  const loadMindmapListFromCache = useCallback((): MindmapListItem | null => {
+    try {
+      const cached = localStorage.getItem(MINDMAP_LIST_KEY);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch {}
+    return null;
+  }, []);
+
+  // Save mindmap list to localStorage
+  const saveMindmapListToCache = useCallback((list: MindmapListItem) => {
+    try {
+      localStorage.setItem(MINDMAP_LIST_KEY, JSON.stringify(list));
+    } catch {}
+  }, []);
+
+  // Load individual mindmap from localStorage
+  const loadMindmapFromCache = useCallback((id: string): MindmapData | null => {
+    try {
+      const cached = localStorage.getItem(getMindmapKey(id));
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch {}
+    return null;
+  }, []);
+
+  // Save individual mindmap to localStorage
+  const saveMindmapToCache = useCallback((id: string, data: MindmapData) => {
+    try {
+      localStorage.setItem(getMindmapKey(id), JSON.stringify(data));
+    } catch {}
+  }, []);
+
+  // --- Fetch mindmap list: cache first, then API ---
   useEffect(() => {
     // Redirect to login if not authenticated
     if (status === "unauthenticated") {
@@ -41,21 +84,28 @@ export default function MindmapPage() {
   }, [status, router]);
 
   useEffect(() => {
-    // Fetch all mindmaps on mount
+    // Try to load from cache first
+    const cachedList = loadMindmapListFromCache();
+    if (cachedList) {
+      setMindmaps(cachedList);
+    }
+    // Always update from API
     fetch('/api/mindmap')
       .then(res => res.json())
-      .then(data => setMindmaps(data.mindmaps || []));
-  }, []);
+      .then(data => {
+        setMindmaps(data.mindmaps || []);
+        saveMindmapListToCache(data.mindmaps || []);
+      });
+  }, [loadMindmapListFromCache, saveMindmapListToCache]);
 
+  // --- Generate mindmap: update cache ---
   const handleGenerateMindmap = async () => {
     if (!topic.trim()) {
       setError('Please enter a topic');
       return;
     }
-    
     setIsLoading(true);
     setError('');
-    
     try {
       const response = await fetch('/api/mindmap', {
         method: 'POST',
@@ -64,19 +114,22 @@ export default function MindmapPage() {
         },
         body: JSON.stringify({ topic }),
       });
-      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to generate mindmap');
       }
-      
       const data = await response.json();
       setMindmapData(data.mindmap as MindmapData);
       setCurrentMindmapId(data.id);
-      // Refetch mindmaps
+      // Save to cache
+      saveMindmapToCache(data.id, data.mindmap);
+      // Refetch mindmaps and update cache
       fetch('/api/mindmap')
         .then(res => res.json())
-        .then(data => setMindmaps(data.mindmaps || []));
+        .then(data => {
+          setMindmaps(data.mindmaps || []);
+          saveMindmapListToCache(data.mindmaps || []);
+        });
     } catch (err) {
       console.error('Error generating mindmap:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate mindmap');
@@ -86,10 +139,16 @@ export default function MindmapPage() {
     }
   };
 
+  // --- Select mindmap: load from cache first, then API ---
   const handleSelectMindmap = async (id: string) => {
     setCurrentMindmapId(id);
     setIsLoading(true);
     setError('');
+    // Try cache first
+    const cached = loadMindmapFromCache(id);
+    if (cached) {
+      setMindmapData(cached as MindmapData);
+    }
     try {
       const response = await fetch(`/api/mindmap/${id}`);
       if (!response.ok) {
@@ -98,6 +157,8 @@ export default function MindmapPage() {
       }
       const data = await response.json();
       setMindmapData(data.mindmap.data as MindmapData);
+      // Update cache
+      saveMindmapToCache(id, data.mindmap.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch mindmap');
     } finally {
