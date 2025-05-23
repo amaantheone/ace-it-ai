@@ -148,6 +148,8 @@ export default function MindmapPage() {
     const cached = loadMindmapFromCache(id);
     if (cached) {
       setMindmapData(cached as MindmapData);
+      setIsLoading(false);
+      return; // Do not fetch from API if found in cache
     }
     try {
       const response = await fetch(`/api/mindmap/${id}`);
