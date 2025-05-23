@@ -11,6 +11,8 @@ import { ChatInputArea } from "../../components/ui/chat/chat-input-area";
 import { ChatMessages } from "../../components/ui/chat/chat-messages";
 import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil } from "../../utils/chatFunctions/messageHandlers";
 import { generateTitle as generateTitleUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil } from "../../utils/chatFunctions/sessionHandlers";
+import { Button } from "../../components/ui/button";
+import { Card } from "../../components/ui/card";
 
 export default function ChatPage() {
   const router = useRouter();
@@ -115,20 +117,8 @@ export default function ChatPage() {
           const newSession = await newSessionResponse.json();
           setSessions([newSession]);
           setCurrentSessionId(newSession.id);
-
-          const initialConversation: Message[] = [
-            {
-              id: crypto.randomUUID(),
-              avatar: "",
-              name: "AI Tutor",
-              role: "ai" as const,
-              message: "Hi! 👋 I'm your AI tutor. Ask me anything you'd like to learn about!",
-              className: "text-zinc-100"
-            }
-          ];
-
           setIsLoading(true);
-          setMessages(newSession.id, initialConversation);
+          setMessages(newSession.id, []);
           setIsLoading(false);
         } else {
           // Set the most recent session as current if none is selected
@@ -200,6 +190,43 @@ export default function ChatPage() {
     });
   };
 
+  // Handler to send a suggestion as a user message
+  const handleSuggestionClick = async (text: string) => {
+    if (!currentSessionId) return;
+    // Optimistically add the user message to the chat
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      avatar: avatar || '',
+      name: username,
+      role: 'user',
+      message: text,
+      className: ''
+    };
+    setMessages(currentSessionId, [
+      ...(messages[currentSessionId] || []),
+      userMessage
+    ]);
+    setInput('');
+    setIsLoading(true);
+    // Call the same logic as handleSendMessageUtil for AI response
+    await handleSendMessageUtil({
+      preventDefault: () => {},
+      target: formRef.current as HTMLFormElement
+    } as unknown as React.FormEvent<HTMLFormElement>, {
+      input: text,
+      currentSessionId,
+      username,
+      avatar,
+      messages,
+      setInput,
+      setMessages,
+      setSessions,
+      sessions: sessions as Session[],
+      formRef: formRef as React.RefObject<HTMLFormElement>
+    });
+    setIsLoading(false);
+  };
+
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
@@ -250,6 +277,54 @@ export default function ChatPage() {
             messagesContainerRef={messagesContainerRef}
           />
         </div>
+
+        {/* Suggestions Grid (only if user has sent 0 messages in this session) */}
+        {getCurrentSessionMessages().filter(m => m.role === "user").length === 0 && (
+          <div className="w-full flex justify-center mt-6 mb-4">
+            <div className="grid grid-cols-2 gap-4 w-full max-w-2xl">
+              <Card className="p-0 shadow-none border-none bg-transparent">
+                <Button
+                  variant="outline"
+                  className="w-full h-24 px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer"
+                  onClick={() => handleSuggestionClick('Explain the concept of photosynthesis')}
+                >
+                  <span className="font-semibold text-lg leading-tight pl-5 pt-4">Explain the concept</span>
+                  <span className="text-muted-foreground text-sm font-normal pl-5 pb-4 pt-1 group-hover:text-foreground transition-colors">of photosynthesis</span>
+                </Button>
+              </Card>
+              <Card className="p-0 shadow-none border-none bg-transparent">
+                <Button
+                  variant="outline"
+                  className="w-full h-24 px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer"
+                  onClick={() => handleSuggestionClick('What is the difference between mitosis and meiosis?')}
+                >
+                  <span className="font-semibold text-lg leading-tight pl-5 pt-4">What is the difference</span>
+                  <span className="text-muted-foreground text-sm font-normal pl-5 pb-4 pt-1 group-hover:text-foreground transition-colors">between mitosis and meiosis?</span>
+                </Button>
+              </Card>
+              <Card className="p-0 shadow-none border-none bg-transparent">
+                <Button
+                  variant="outline"
+                  className="w-full h-24 px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer"
+                  onClick={() => handleSuggestionClick('Help me write an essay about silicon valley')}
+                >
+                  <span className="font-semibold text-lg leading-tight pl-5 pt-4">Help me write an essay</span>
+                  <span className="text-muted-foreground text-sm font-normal pl-5 pb-4 pt-1 group-hover:text-foreground transition-colors">about silicon valley</span>
+                </Button>
+              </Card>
+              <Card className="p-0 shadow-none border-none bg-transparent">
+                <Button
+                  variant="outline"
+                  className="w-full h-24 px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer"
+                  onClick={() => handleSuggestionClick('What is the weather in San Francisco?')}
+                >
+                  <span className="font-semibold text-lg leading-tight pl-5 pt-4">What is the weather</span>
+                  <span className="text-muted-foreground text-sm font-normal pl-5 pb-4 pt-1 group-hover:text-foreground transition-colors">in San Francisco?</span>
+                </Button>
+              </Card>
+            </div>
+          </div>
+        )}
 
         <ChatInputArea
           input={input}
