@@ -5,7 +5,6 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/config/auth";
 
-
 const SYSTEM_MESSAGE = `You are an expert study assistant and tutor. Your goal is to help the user learn and understand concepts clearly and patiently.
   - Provide detailed explanations with examples when asked.
   - Ask clarifying questions if the user's query is ambiguous.
@@ -43,7 +42,7 @@ const MAX_HISTORY = 10;
 
 export async function POST(req: Request) {
   try {
-    const { message, sessionId } = await req.json();
+    const { message, sessionId, userMessageId } = await req.json();
     if (!sessionId) throw new Error("Session ID is required");
 
     // Only allow authenticated users
@@ -77,25 +76,102 @@ export async function POST(req: Request) {
     const response = await llm.invoke(messages);
     const responseText = String(response.content);
 
-    // Save both user and AI messages in a transaction
-    await prisma.$transaction([
-      prisma.message.create({
-        data: {
-          role: "user",
-          content: message,
-          sessionId,
-          userId: user.id,
-        },
-      }),
-      prisma.message.create({
+    // (Removed unused lastUserMsg logic; handled by userMessageId and message scan above)
+
+    if (req.headers.get("x-regenerate") === "true") {
+      // Regenerate: delete the AI message after the specified user message (or last if not provided), then create a new one
+      const messages = await prisma.message.findMany({
+        where: { sessionId },
+        orderBy: { createdAt: "asc" },
+      });
+      let userIdx = -1;
+      if (userMessageId) {
+        userIdx = messages.findIndex(
+          (m) => m.id === userMessageId && m.role === "user"
+        );
+      } else {
+        // Default to last user message
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === "user") {
+            userIdx = i;
+            break;
+          }
+        }
+      }
+      let aiToDeleteId: string | null = null;
+      if (
+        userIdx !== -1 &&
+        userIdx + 1 < messages.length &&
+        messages[userIdx + 1].role === "ai"
+      ) {
+        aiToDeleteId = messages[userIdx + 1].id;
+      }
+      if (aiToDeleteId) {
+        await prisma.message.delete({ where: { id: aiToDeleteId } });
+      }
+      // Build conversation history for the LLM up to and including the user message
+      const messagesForLLM = [["system", SYSTEM_MESSAGE]];
+      for (let i = 0; i <= userIdx; i++) {
+        const msg = messages[i];
+        messagesForLLM.push([
+          msg.role === "user" ? "human" : "ai",
+          msg.content,
+        ]);
+      }
+      // Add the new user message content if not already present (for UI-initiated regeneration)
+      if (
+        !userMessageId &&
+        message &&
+        (!messages[userIdx] || messages[userIdx].content !== message)
+      ) {
+        messagesForLLM.push(["human", message]);
+      }
+      const llmMessages = messagesForLLM.map(([role, content]) => {
+        if (role === "system") return { role: "system", content };
+        if (role === "human") return { role: "user", content };
+        return { role: "assistant", content };
+      });
+      const response = await llm.invoke(llmMessages);
+      const responseText = String(response.content);
+      // Insert the new AI message with a createdAt just after the user message
+      let createdAt = new Date();
+      if (userIdx !== -1 && messages[userIdx]?.createdAt) {
+        // Add 1 millisecond to the user message's createdAt to ensure correct order
+        createdAt = new Date(
+          new Date(messages[userIdx].createdAt).getTime() + 1
+        );
+      }
+      await prisma.message.create({
         data: {
           role: "ai",
           content: responseText,
           sessionId,
           userId: user.id,
+          createdAt,
         },
-      }),
-    ]);
+      });
+      return NextResponse.json({ message: responseText });
+    } else {
+      // Normal: create both user and AI messages
+      await prisma.$transaction([
+        prisma.message.create({
+          data: {
+            role: "user",
+            content: message,
+            sessionId,
+            userId: user.id,
+          },
+        }),
+        prisma.message.create({
+          data: {
+            role: "ai",
+            content: responseText,
+            sessionId,
+            userId: user.id,
+          },
+        }),
+      ]);
+    }
 
     return NextResponse.json({ message: responseText });
   } catch (error) {

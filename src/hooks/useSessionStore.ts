@@ -93,33 +93,50 @@ export const useSessionStore = create<SessionState & SessionActions>(
       if (!currentSessionId) return;
 
       const messages = state.messages[currentSessionId] || [];
-      const lastUserMessage = [...messages]
+      // Find the last user message and its index
+      const lastUserIndex = [...messages]
+        .map((m, i) => ({ ...m, i }))
         .reverse()
         .find((m) => m.role === "user");
-      if (!lastUserMessage?.message) return;
+      if (!lastUserIndex?.message) return;
+      const userIdx = lastUserIndex.i;
+      // Find the last AI message after the last user message
+      const aiIdx = messages
+        .slice(userIdx + 1)
+        .findIndex((m) => m.role === "ai");
+      const aiMessageIdx = aiIdx !== -1 ? userIdx + 1 + aiIdx : -1;
 
-      // Add new loading message
+      // Remove the last AI message (and optionally duplicate user message)
+      let newMessages = messages.slice(
+        0,
+        aiMessageIdx !== -1 ? aiMessageIdx : messages.length
+      );
+
+      // Add loading message
       const loadingMessage: Message = {
         id: crypto.randomUUID(),
         role: "ai",
         message: "",
         isLoading: true,
       };
-
+      newMessages = [...newMessages, loadingMessage];
       set((state) => ({
         messages: {
           ...state.messages,
-          [currentSessionId]: [...messages, loadingMessage],
+          [currentSessionId]: newMessages,
         },
       }));
 
       try {
         const response = await fetch("/api/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-regenerate": "true",
+          },
           body: JSON.stringify({
             sessionId: currentSessionId,
-            message: lastUserMessage.message,
+            message: lastUserIndex.message,
           }),
         });
 
@@ -127,20 +144,19 @@ export const useSessionStore = create<SessionState & SessionActions>(
 
         const data = await response.json();
 
-        // Update the loading message with the actual response
+        // Replace the loading message with the actual response
         set((state) => ({
           messages: {
             ...state.messages,
-            [currentSessionId]: (state.messages[currentSessionId] || []).map(
-              (msg) =>
-                msg.id === loadingMessage.id
-                  ? {
-                      ...msg,
-                      message: data.message,
-                      isLoading: false,
-                      name: "AI Tutor",
-                    }
-                  : msg
+            [currentSessionId]: state.messages[currentSessionId].map((msg) =>
+              msg.id === loadingMessage.id
+                ? {
+                    ...msg,
+                    message: data.message,
+                    isLoading: false,
+                    name: "AI Tutor",
+                  }
+                : msg
             ),
           },
         }));

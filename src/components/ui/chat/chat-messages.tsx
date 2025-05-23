@@ -28,19 +28,12 @@ interface ChatMessagesProps {
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
 }
 
-const ChatAiIcons = [
-  {
-    icon: CopyIcon,
-    label: "Save Note",
-  },
-  {
-    icon: RefreshCcw,
-    label: "Explain Again",
-  }
-];
-
 export function ChatMessages({ messages, messagesContainerRef }: ChatMessagesProps) {
   const getMessageVariant = (role?: string) => role === "ai" ? "received" : "sent";
+
+  // Find the index of the last AI message
+  const lastAiIndex = [...messages].reverse().findIndex(m => m.role === "ai");
+  const lastAiMessageIndex = lastAiIndex === -1 ? -1 : messages.length - 1 - lastAiIndex;
 
   if (messages.length === 0) {
     return (
@@ -126,24 +119,27 @@ export function ChatMessages({ messages, messagesContainerRef }: ChatMessagesPro
                       <div className="flex items-center mt-1.5 gap-1">
                         {!message.isLoading && (
                           <>
-                            {ChatAiIcons.map((icon, index) => {
-                              const Icon = icon.icon;
-                              return (
-                                <ChatBubbleAction
-                                  key={index}
-                                  variant="outline"
-                                  className="size-6 bg-background border-border hover:bg-foreground transition-colors group cursor-pointer"
-                                  icon={<Icon className="size-3 text-foreground group-hover:text-background transition-colors" />}
-                                  onClick={() => {
-                                    if (icon.label === "Save Note") {
-                                      navigator.clipboard.writeText(message.message || "");
-                                    } else if (icon.label === "Explain Again") {
-                                      useSessionStore.getState().regenerateResponse();
-                                    }
-                                  }}
-                                />
-                              );
-                            })}
+                            {/* Only show Save Note for all AI, but Explain Again only for latest AI */}
+                            <ChatBubbleAction
+                              key="save-note"
+                              variant="outline"
+                              className="size-6 bg-background border-border hover:bg-foreground transition-colors group cursor-pointer"
+                              icon={<CopyIcon className="size-3 text-foreground group-hover:text-background transition-colors" />}
+                              onClick={() => {
+                                navigator.clipboard.writeText(message.message || "");
+                              }}
+                            />
+                            {index === lastAiMessageIndex && (
+                              <ChatBubbleAction
+                                key="explain-again"
+                                variant="outline"
+                                className="size-6 bg-background border-border hover:bg-foreground transition-colors group cursor-pointer"
+                                icon={<RefreshCcw className="size-3 text-foreground group-hover:text-background transition-colors" />}
+                                onClick={() => {
+                                  useSessionStore.getState().regenerateResponse();
+                                }}
+                              />
+                            )}
                           </>
                         )}
                       </div>
