@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import ReactCardFlip from 'react-card-flip';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -194,35 +194,48 @@ export function FlashCard({
           </Button>
         )}
       </div>
-      <ReactCardFlip isFlipped={isFlipped} flipDirection="horizontal">
-        {/* Front of card */}
-        <Card
-          className="min-h-[200px] flex flex-col items-center justify-center p-6 cursor-pointer hover:shadow-lg transition-shadow"
+      <div className="relative min-h-[200px]" style={{ perspective: 1000, height: 250 }}>
+        <motion.div
+          className="w-full h-full relative"
+          style={{ transformStyle: 'preserve-3d', width: '100%', height: '100%' }}
+          animate={{ rotateY: isFlipped ? 180 : 0 }}
+          transition={{ duration: 0.5 }}
           onClick={handleFlip}
         >
-          <h2 className="text-2xl font-bold mb-2">{term}</h2>
-          {translation && (
-            <p className="text-sm text-muted-foreground">{translation}</p>
-          )}
-          {tag && (
-            <span className="inline-block mt-2 px-2 py-1 text-xs rounded bg-accent text-accent-foreground">Tag: {tag}</span>
-          )}
-        </Card>
-
-        {/* Back of card */}
-        <Card
-          className="min-h-[200px] flex flex-col gap-4 p-6 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={handleFlip}
-        >
-          {partOfSpeech && (
-            <p className="text-sm text-muted-foreground italic">{partOfSpeech}</p>
-          )}
-          <p className="text-base">{definition}</p>
-          <p className="text-sm text-muted-foreground">
-            Example: &quot;{example}&quot;
-          </p>
-        </Card>
-      </ReactCardFlip>
+          {/* Front of card */}
+          <div
+            className="absolute w-full h-full flex flex-col items-center justify-center p-6 cursor-pointer hover:shadow-lg transition-shadow bg-background text-foreground rounded-3xl border border-border"
+            style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', zIndex: isFlipped ? 1 : 2, borderRadius: 'inherit' }}
+          >
+            <h2 className="text-2xl font-bold mb-2">{term}</h2>
+            {translation && (
+              <p className="text-sm text-muted-foreground">{translation}</p>
+            )}
+            {tag && (
+              <span className="inline-block mt-2 px-2 py-1 text-xs rounded bg-accent text-accent-foreground">Tag: {tag}</span>
+            )}
+          </div>
+          {/* Back of card */}
+          <div
+            className="absolute w-full h-full flex flex-col gap-4 p-6 cursor-pointer hover:shadow-lg transition-shadow bg-background text-foreground rounded-3xl border border-border"
+            style={{
+              transform: 'rotateY(180deg)',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              zIndex: isFlipped ? 2 : 1,
+              borderRadius: 'inherit',
+            }}
+          >
+            {partOfSpeech && (
+              <p className="text-sm text-muted-foreground italic">{partOfSpeech}</p>
+            )}
+            <p className="text-base">{definition}</p>
+            <p className="text-sm text-muted-foreground">
+              Example: &quot;{example}&quot;
+            </p>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 }
