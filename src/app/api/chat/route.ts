@@ -5,6 +5,9 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/config/auth";
 import { processPDF } from "@/utils/chatFunctions/pdf-utils";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import { MemoryVectorStore } from "langchain/vectorstores/memory";
+import { Document } from "@langchain/core/documents";
 
 const SYSTEM_MESSAGE = `You are an expert study assistant and tutor. Your goal is to help the user learn and understand concepts clearly and patiently.
   - Provide detailed explanations with examples when asked.
@@ -17,6 +20,12 @@ const SYSTEM_MESSAGE = `You are an expert study assistant and tutor. Your goal i
   - Avoid using jargon or overly technical terms unless necessary, and always explain them.
   - When asked for your identity, respond with "I am your AI study assistant designed by Ace it AI here to help you learn!".
   - when asked "What is the weather in San Francisco?", tell accurate weather of San Francisco.
+
+PDF_CONTEXT:
+  - If a PDF is provided, you will receive relevant context chunks from the PDF below.
+  - Reference specific pages or sections when answering questions about the PDF.
+  - If the user asks about a table or diagram, describe it textually as best as possible.
+  - Always cite the PDF context you use in your answer (e.g., "According to page X...").
 
 RULES:
   - You are not allowed to provide any medical, legal, or financial advice.
@@ -59,7 +68,10 @@ export async function POST(req: Request) {
       const file = formData.get("pdf") as File | null;
       if (file) {
         if (file.size > 10 * 1024 * 1024) {
-          return NextResponse.json({ error: "PDF file too large (max 10MB)" }, { status: 400 });
+          return NextResponse.json(
+            { error: "PDF file too large (max 10MB)" },
+            { status: 400 }
+          );
         }
         // Read file into buffer
         const arrayBuffer = await file.arrayBuffer();
@@ -99,18 +111,54 @@ export async function POST(req: Request) {
       const role = msg.role === "user" ? "human" : "ai";
       messages.push([role, msg.content]);
     }
+    let pdfContext = "";
     if (pdfBuffer) {
       try {
+        // Process PDF and split into chunks
         const pdfText = await processPDF(pdfBuffer);
-        messages.push(["human", `Here is the content of the uploaded PDF:\n\n${pdfText}`]);
+        // Split into chunks for vector storage
+        const chunks = pdfText
+          .split(/\n{2,}/)
+          .map(
+            (chunk, idx) =>
+              new Document({ pageContent: chunk, metadata: { page: idx + 1 } })
+          );
+        // Create embeddings and vector store
+        const embeddings = new GoogleGenerativeAIEmbeddings({
+          model: "embedding-001",
+        });
+        const vectorStore = await MemoryVectorStore.fromDocuments(
+          chunks,
+          embeddings
+        );
+        // Perform similarity search with user's message
+        const topChunks = await vectorStore.similaritySearch(message, 4);
+        pdfContext = topChunks
+          .map(
+            (doc) =>
+              `--- PDF Chunk #${doc.metadata.page} ---\n${doc.pageContent}`
+          )
+          .join("\n\n");
       } catch {
-        return NextResponse.json({ error: "Failed to process PDF" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Failed to process PDF" },
+          { status: 400 }
+        );
       }
     }
-    messages.push(["human", message]);
-
-    // Call the LLM with the conversation history
-    const response = await llm.invoke(messages);
+    // Inject PDF context into the system prompt if available
+    let systemPrompt = SYSTEM_MESSAGE;
+    if (pdfContext) {
+      systemPrompt += `\n\nRelevant PDF Chunks:\n${pdfContext}`;
+    }
+    // Compose messages for LLM
+    const llmMessages: [string, string][] = [
+      ["system", systemPrompt],
+      ...messages.slice(1),
+      ["human", message],
+    ];
+    // Call the LLM with the conversation history and PDF context
+    const response = await llm.invoke(llmMessages);
     const responseText = String(response.content);
 
     // (Removed unused lastUserMsg logic; handled by userMessageId and message scan above)
