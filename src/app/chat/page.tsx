@@ -240,9 +240,9 @@ export default function ChatPage() {
   return (
     <div className="flex h-screen w-screen bg-background text-foreground">
       {/* Sidebar for desktop (flex child) */}
-      <div className="hidden md:block w-64 flex-shrink-0">
+      <div className={`hidden md:block w-64 flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? '' : 'md:-ml-64'}`}> 
         <Sidebar 
-          isSidebarOpen={true}
+          isSidebarOpen={isSidebarOpen}
           isMobileView={false}
           isUserMenuOpen={isUserMenuOpen}
           theme={theme}
@@ -259,7 +259,7 @@ export default function ChatPage() {
           currentSessionId={currentSessionId}
           onSelectSession={setCurrentSessionId}
           generateTitle={generateTitle}
-          onCloseSidebar={() => {}}
+          onCloseSidebar={() => setIsSidebarOpen(false)}
         />
       </div>
 
