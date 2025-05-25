@@ -32,6 +32,8 @@ export default function MindmapPage() {
   const [mindmapData, setMindmapData] = useState<MindmapData | null>(null);
   const [mindmaps, setMindmaps] = useState<{ id: string; topic: string; createdAt: string; data?: MindmapData }[]>([]);
   const [currentMindmapId, setCurrentMindmapId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
 
   // --- LocalStorage Caching Helpers ---
   const MINDMAP_LIST_KEY = 'mindmap_list';
@@ -168,16 +170,59 @@ export default function MindmapPage() {
     }
   };
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setIsSidebarOpen(true);
+      } else {
+        setIsSidebarOpen(false);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background flex">
-      <MindmapSidebar
-        mindmaps={mindmaps}
-        currentMindmapId={currentMindmapId || undefined}
-        onSelectMindmap={handleSelectMindmap}
-      />
-      <div className="flex-1 container mx-auto p-4">
+    <div className="min-h-screen bg-background flex relative">
+      {/* Sidebar for desktop (flex child) */}
+      <div className={`hidden md:block w-64 flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? '' : 'md:-ml-64'}`}> 
+        <MindmapSidebar
+          mindmaps={mindmaps}
+          currentMindmapId={currentMindmapId || undefined}
+          onSelectMindmap={handleSelectMindmap}
+          onCloseSidebar={() => setIsSidebarOpen(false)}
+        />
+      </div>
+      {/* Sidebar for mobile (fixed overlay) */}
+      {isMobileView && isSidebarOpen && (
+        <>
+          <div 
+            className="fixed inset-0 z-40 bg-black/30"
+            onClick={() => setIsSidebarOpen(false)}
+            style={{ pointerEvents: 'auto' }}
+          />
+          <div className="fixed left-0 top-0 h-full w-[75vw] z-50 bg-background shadow-lg transition-transform duration-300">
+            <MindmapSidebar
+              mindmaps={mindmaps}
+              currentMindmapId={currentMindmapId || undefined}
+              onSelectMindmap={handleSelectMindmap}
+              onCloseSidebar={() => setIsSidebarOpen(false)}
+            />
+          </div>
+        </>
+      )}
+      {/* Main Content */}
+      <div className={
+        `flex-1 ${isMobileView ? 'w-full h-full p-1' : isSidebarOpen ? 'container mx-auto p-4' : 'w-full h-full p-4'} flex flex-col`
+      }>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
+            {/* Sidebar toggle button for both mobile and desktop */}
+            <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+              <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-menu"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            </Button>
             <Link href="/">
               <Button variant="ghost" size="icon">
                 <ArrowLeft className="h-5 w-5" />
@@ -185,7 +230,6 @@ export default function MindmapPage() {
             </Link>
             <h1 className="text-2xl font-bold">Mindmap Generator</h1>
           </div>
-          
           <Button
             variant="ghost"
             size="icon"
@@ -201,7 +245,6 @@ export default function MindmapPage() {
             )}
           </Button>
         </div>
-        
         <Card className="mb-6">
           <CardHeader>
             <CardTitle>Generate a Mindmap</CardTitle>
@@ -232,13 +275,16 @@ export default function MindmapPage() {
             {error && <p className="text-destructive mt-2">{error}</p>}
           </CardContent>
         </Card>
-        
         {mindmapData && (
-          <Card>
-            <CardContent className="pt-6">
-              <MindmapRenderer mindmapData={mindmapData} />
-            </CardContent>
-          </Card>
+          <div className={`flex-1 flex ${isMobileView ? 'min-h-0 min-w-0' : ''}`}>
+            <Card className="w-full h-full flex-1 flex flex-col">
+              <CardContent className={`flex-1 pt-6 ${isMobileView ? 'p-1' : ''} flex flex-col`} style={isMobileView ? {height: '100%', minHeight: 0, minWidth: 0} : {}}>
+                <div className="flex-1 w-full h-full min-h-0 min-w-0">
+                  <MindmapRenderer mindmapData={mindmapData} />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>
