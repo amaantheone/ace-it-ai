@@ -239,11 +239,11 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen w-screen bg-background text-foreground">
-      {/* Sidebar Container */}
-      <div className={`${isSidebarOpen ? 'w-64 md:w-64' : 'w-0'} flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden`}>
+      {/* Sidebar for desktop (flex child) */}
+      <div className="hidden md:block w-64 flex-shrink-0">
         <Sidebar 
-          isSidebarOpen={isSidebarOpen}
-          isMobileView={isMobileView}
+          isSidebarOpen={true}
+          isMobileView={false}
           isUserMenuOpen={isUserMenuOpen}
           theme={theme}
           selectedUser={undefined}
@@ -259,29 +259,53 @@ export default function ChatPage() {
           currentSessionId={currentSessionId}
           onSelectSession={setCurrentSessionId}
           generateTitle={generateTitle}
+          onCloseSidebar={() => {}}
         />
       </div>
 
-      {/* Overlay for mobile */}
+      {/* Sidebar for mobile (fixed overlay) */}
       {isMobileView && isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-background/50 z-40"
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <>
+          <div 
+            className="fixed inset-0 z-40 bg-black/30"
+            onClick={() => setIsSidebarOpen(false)}
+            style={{ pointerEvents: 'auto' }}
+          />
+          <div className="fixed left-0 top-0 h-full w-[75vw] z-50 bg-background shadow-lg transition-transform duration-300">
+            <Sidebar 
+              isSidebarOpen={isSidebarOpen}
+              isMobileView={isMobileView}
+              isUserMenuOpen={isUserMenuOpen}
+              theme={theme}
+              selectedUser={undefined}
+              username={username}
+              avatar={avatar}
+              onNewChat={handleNewChat}
+              onToggleTheme={() => {
+                toggleTheme();
+              }}
+              onToggleUserMenu={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              menuRef={menuRef}
+              sessions={sessions}
+              currentSessionId={currentSessionId}
+              onSelectSession={setCurrentSessionId}
+              generateTitle={generateTitle}
+              onCloseSidebar={() => setIsSidebarOpen(false)}
+            />
+          </div>
+        </>
       )}
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col h-screen bg-background relative">
         <ChatHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-        
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto flex flex-col">
+        <div className="flex-1 overflow-y-auto flex flex-col relative">
           <ChatMessages
             messages={getCurrentSessionMessages()}
             messagesContainerRef={messagesContainerRef}
           />
         </div>
-
         {/* Suggestions Grid (only if user has sent 0 messages in this session) */}
         {getCurrentSessionMessages().filter(m => m.role === "user").length === 0 && (
           <div className="w-full flex justify-center mt-6 mb-4">
@@ -329,7 +353,6 @@ export default function ChatPage() {
             </div>
           </div>
         )}
-
         <ChatInputArea
           input={input}
           isLoading={isLoading}
