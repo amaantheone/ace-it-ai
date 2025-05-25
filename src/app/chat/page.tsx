@@ -51,6 +51,8 @@ export default function ChatPage() {
   const username = session?.user?.name || "Guest";
   const avatar = session?.user?.image;
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobileView(window.innerWidth < 768);
@@ -186,7 +188,9 @@ export default function ChatPage() {
       setMessages,
       setSessions,
       sessions: sessions as Session[],
-      formRef: formRef as React.RefObject<HTMLFormElement>
+      formRef: formRef as React.RefObject<HTMLFormElement>,
+      selectedFile,
+      setSelectedFile,
     });
   };
 
@@ -332,6 +336,9 @@ export default function ChatPage() {
           onSubmit={handleSendMessage}
           onKeyDown={handleKeyDown}
           onChange={(e) => setInput(e.target.value)}
+          selectedFile={selectedFile}
+          onFileChange={setSelectedFile}
+          onRemoveFile={() => setSelectedFile(null)}
         />
       </div>
     </div>

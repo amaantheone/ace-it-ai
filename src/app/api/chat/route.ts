@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/config/auth";
+import { processPDF } from "@/lib/pdf-utils";
 
 const SYSTEM_MESSAGE = `You are an expert study assistant and tutor. Your goal is to help the user learn and understand concepts clearly and patiently.
   - Provide detailed explanations with examples when asked.
@@ -42,7 +43,35 @@ const MAX_HISTORY = 10;
 
 export async function POST(req: Request) {
   try {
-    const { message, sessionId, userMessageId } = await req.json();
+    // Check if the request is multipart/form-data
+    const contentType = req.headers.get("content-type") || "";
+    let message: string = "";
+    let pdfBuffer: Buffer | null = null;
+    let sessionId: string = "";
+    let userMessageId: string | undefined;
+
+    if (contentType.includes("multipart/form-data")) {
+      // Parse multipart form data
+      const formData = await req.formData();
+      message = formData.get("message") as string;
+      sessionId = formData.get("sessionId") as string;
+      userMessageId = formData.get("userMessageId") as string | undefined;
+      const file = formData.get("pdf") as File | null;
+      if (file) {
+        if (file.size > 10 * 1024 * 1024) {
+          return NextResponse.json({ error: "PDF file too large (max 10MB)" }, { status: 400 });
+        }
+        // Read file into buffer
+        const arrayBuffer = await file.arrayBuffer();
+        pdfBuffer = Buffer.from(arrayBuffer);
+      }
+    } else {
+      // Fallback to JSON body
+      const body = await req.json();
+      message = body.message;
+      sessionId = body.sessionId;
+      userMessageId = body.userMessageId;
+    }
     if (!sessionId) throw new Error("Session ID is required");
 
     // Only allow authenticated users
@@ -69,6 +98,14 @@ export async function POST(req: Request) {
     for (const msg of prevMessages) {
       const role = msg.role === "user" ? "human" : "ai";
       messages.push([role, msg.content]);
+    }
+    if (pdfBuffer) {
+      try {
+        const pdfText = await processPDF(pdfBuffer);
+        messages.push(["human", `Here is the content of the uploaded PDF:\n\n${pdfText}`]);
+      } catch {
+        return NextResponse.json({ error: "Failed to process PDF" }, { status: 400 });
+      }
     }
     messages.push(["human", message]);
 

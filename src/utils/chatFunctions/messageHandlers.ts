@@ -13,6 +13,8 @@ export const handleSendMessage = async (
     setSessions,
     sessions,
     formRef,
+    selectedFile,
+    setSelectedFile,
   }: {
     input: string;
     currentSessionId: string;
@@ -24,6 +26,8 @@ export const handleSendMessage = async (
     setSessions: (sessions: Session[]) => void;
     sessions: Session[];
     formRef: React.RefObject<HTMLFormElement>;
+    selectedFile?: File | null;
+    setSelectedFile?: (file: File | null) => void;
   }
 ) => {
   e.preventDefault();
@@ -41,6 +45,7 @@ export const handleSendMessage = async (
   const currentInput = input;
   setInput("");
   formRef.current?.reset();
+  if (setSelectedFile) setSelectedFile(null);
 
   try {
     const currentMessages = messages[currentSessionId] || [];
@@ -61,15 +66,28 @@ export const handleSendMessage = async (
       aiLoadingMessage,
     ]);
 
-    // Single API call to /api/chat for both saving and AI response
-    const aiResponse = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: currentInput,
-        sessionId: currentSessionId,
-      }),
-    });
+    let aiResponse;
+    if (selectedFile) {
+      // Send as multipart/form-data
+      const formData = new FormData();
+      formData.append("message", currentInput);
+      formData.append("sessionId", currentSessionId);
+      formData.append("pdf", selectedFile);
+      aiResponse = await fetch("/api/chat", {
+        method: "POST",
+        body: formData,
+      });
+    } else {
+      // Send as JSON
+      aiResponse = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: currentInput,
+          sessionId: currentSessionId,
+        }),
+      });
+    }
     const data = await aiResponse.json();
     if (!aiResponse.ok) {
       throw new Error(data.error || "Failed to get AI response");

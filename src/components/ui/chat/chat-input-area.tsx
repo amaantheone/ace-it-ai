@@ -12,6 +12,9 @@ interface ChatInputAreaProps {
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  selectedFile: File | null;
+  onFileChange: (file: File | null) => void;
+  onRemoveFile: () => void;
 }
 
 export function ChatInputArea({
@@ -20,27 +23,23 @@ export function ChatInputArea({
   onSubmit,
   onKeyDown,
   onChange,
+  selectedFile,
+  onFileChange,
+  onRemoveFile,
 }: ChatInputAreaProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSelectedFile(file);
-    if (file.type.startsWith("image/")) {
+    const file = e.target.files?.[0] || null;
+    onFileChange(file);
+    if (file && file.type.startsWith("image/")) {
       setPreviewUrl(URL.createObjectURL(file));
-    } else if (file.type === "application/pdf") {
-      setPreviewUrl(null); // No preview, just show filename/icon
+    } else {
+      setPreviewUrl(null);
     }
-  };
-
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    setPreviewUrl(null);
   };
 
   return (
@@ -81,7 +80,7 @@ export function ChatInputArea({
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={handleRemoveFile}
+                onClick={onRemoveFile}
                 aria-label="Remove file"
               >
                 ✕
@@ -103,7 +102,7 @@ export function ChatInputArea({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,application/pdf"
+                accept="application/pdf"
                 className="hidden"
                 onChange={handleFileChange}
               />
