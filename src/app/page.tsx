@@ -117,6 +117,25 @@ export default function Home() {
               </CardContent>
             </Card>
           </Link>
+
+          <Link href="/quiz" className="block">
+            <Card className="transition-all hover:shadow-md hover:border-primary/50">
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div className="rounded-full bg-primary/10 p-2.5 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                      <rect x="4" y="4" width="16" height="16" rx="2" />
+                      <path d="M8 10h8M8 14h5" />
+                    </svg>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-semibold">Quiz Generator</h3>
+                    <p className="text-sm text-muted-foreground">Test your knowledge with AI quizzes</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
