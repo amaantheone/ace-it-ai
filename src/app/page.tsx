@@ -18,7 +18,7 @@ export default function Home() {
           <div className="space-y-2">
             <h1 className="scroll-m-20 text-4xl font-bold tracking-tight">Welcome to Ace It AI</h1>
             <p className="text-lg text-muted-foreground">
-              Chat, Mindmaps, Flashcards and progress - all in one AI tutor.
+              Chat, Mindmaps, Flashcards, Quizzes and progress - all in one AI tutor.
             </p>
           </div>
           <div className="flex items-center gap-4">

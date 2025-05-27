@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { ChatInput as BaseChatInput } from "./chat-input";
 import { useRef, useState } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
+
+// Dynamically import VoiceInput to avoid SSR issues
+const VoiceInput = dynamic(() => import("@/components/VoiceInput"), { ssr: false });
 
 interface ChatInputAreaProps {
   input: string;
@@ -31,6 +35,7 @@ export function ChatInputArea({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -42,6 +47,21 @@ export function ChatInputArea({
     }
   };
 
+  // Combine typed and voice input
+  const combinedInput = input + (voiceTranscript ? (input ? " " : "") + voiceTranscript : "");
+
+  // When voice input is sent, append to input and clear transcript
+  const handleVoiceTranscription = (text: string) => {
+    setVoiceTranscript("");
+    if (text) {
+      // If there's already typed input, add a space
+      onChange({
+        target: { value: (input ? input + " " : "") + text },
+      } as React.ChangeEvent<HTMLTextAreaElement>);
+      // Optionally, auto-submit here if desired
+    }
+  };
+
   return (
     <div className="p-2 md:p-4 bg-background">
       <div className="max-w-3xl mx-auto">
@@ -50,14 +70,20 @@ export function ChatInputArea({
           onSubmit={onSubmit}
           className="relative flex flex-col gap-2"
         >
-          <BaseChatInput
-            ref={inputRef}
-            value={input}
-            onKeyDown={onKeyDown}
-            onChange={onChange}
-            placeholder="Ask anything..."
-            className="min-h-[60px] md:min-h-[80px] resize-none rounded-lg bg-muted border-border p-3 text-foreground placeholder:text-muted-foreground"
-          />
+          <div className="flex items-center gap-2">
+            <BaseChatInput
+              ref={inputRef}
+              value={combinedInput}
+              onKeyDown={onKeyDown}
+              onChange={onChange}
+              placeholder="Ask anything..."
+              className="min-h-[60px] md:min-h-[80px] resize-none rounded-lg bg-muted border-border p-3 text-foreground placeholder:text-muted-foreground"
+            />
+            <VoiceInput
+              onTranscription={handleVoiceTranscription}
+              disabled={isLoading}
+            />
+          </div>
           {selectedFile && (
             <div className="flex items-center gap-2 mt-2">
               {previewUrl ? (
