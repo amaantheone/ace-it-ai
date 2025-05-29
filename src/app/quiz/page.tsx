@@ -244,18 +244,20 @@ export default function QuizPage() {
                   );
                 })}
               </div>
-              <Button
-                onClick={handleNext}
-                disabled={
-                  !answered[current] ||
-                  (current === quiz.length - 1 && answered.filter(Boolean).length < quiz.length) ||
-                  (current === quiz.length - 1 && answered.slice(0, quiz.length - 1).some(a => !a))
-                }
-                className="w-full max-w-lg text-base py-3 rounded-lg shadow-md bg-primary text-white hover:bg-primary/90 focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors dark:bg-white dark:text-black dark:hover:bg-neutral-100 hover:cursor-pointer"
-                variant="default"
-              >
-                {current === quiz.length - 1 ? "Finish" : "Next Question"}
-              </Button>
+              <div className="flex justify-center w-full">
+                <Button
+                  onClick={handleNext}
+                  disabled={
+                    !answered[current] ||
+                    (current === quiz.length - 1 && answered.filter(Boolean).length < quiz.length) ||
+                    (current === quiz.length - 1 && answered.slice(0, quiz.length - 1).some(a => !a))
+                  }
+                  className="w-full max-w-lg text-base py-3 rounded-lg shadow-md bg-primary text-white hover:bg-primary/90 focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors dark:bg-white dark:text-black dark:hover:bg-neutral-100 hover:cursor-pointer"
+                  variant="default"
+                >
+                  {current === quiz.length - 1 ? "Finish" : "Next Question"}
+                </Button>
+              </div>
             </div>
           )}
           {quiz.length > 0 && finished && quizStarted && (
