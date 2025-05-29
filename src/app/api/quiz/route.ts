@@ -2,26 +2,26 @@ import { NextResponse } from "next/server";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/config/auth";
+import { processPDF } from "@/utils/chatFunctions/pdf-utils";
 
-const QUIZ_SYSTEM_MESSAGE = `You are a quiz generator. Generate 10 multiple-choice quiz questions on the given topic. Each question should have 4 options and specify the correct answer. For each question, also provide:
+const SUBTOPIC_SYSTEM_MESSAGE = `You are a helpful assistant. Given a topic and optional context, generate a list of 10 diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at a high-school level. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
+
+const QUIZ_SYSTEM_MESSAGE = `You are a quiz generator. Generate a single multiple-choice quiz question on the given subtopic. The question should have strictly 4 options and specify the correct answer. For the question, also provide:
 - an 'explanation' field: a concise explanation for the correct answer (1-2 sentences)
 - a 'wrongExplanation' field: an object mapping each wrong option to a short explanation of why it is incorrect (1-2 sentences)
-Return a JSON structure with exactly this format:
+- Each option must be concise (ideally under 8 words) and short enough to fit comfortably in a single line in a quiz UI.
+Use the provided context if available.
+Return a JSON object with exactly this format:
 {
-  "questions": [
-    {
-      "question": "Question text",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "answer": "Correct option text",
-      "explanation": "Explanation for the correct answer.",
-      "wrongExplanation": {
-        "Option A": "Why A is wrong.",
-        "Option B": "Why B is wrong.",
-        ...
-      }
-    },
-    ... (total 10 questions)
-  ]
+  "question": "Question text",
+  "options": ["Option A", "Option B", "Option C", "Option D"],
+  "answer": "Correct option text",
+  "explanation": "Explanation for the correct answer.",
+  "wrongExplanation": {
+    "Option A": "Why A is wrong.",
+    "Option B": "Why B is wrong.",
+    ...
+  }
 }
 Keep the questions clear, relevant, and at a high-school level. Always return valid JSON format.`;
 
@@ -37,26 +37,118 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   try {
-    const { topic = "General Knowledge" } = await req.json();
-    const response = await llm.invoke([
-      ["system", QUIZ_SYSTEM_MESSAGE],
-      ["human", `Generate a quiz on: ${topic}`],
-    ]);
-    const responseText = String(response.content);
-    const jsonMatch =
-      responseText.match(/```json\n([\s\S]*?)\n```/) ||
-      responseText.match(/{[\s\S]*}/);
-    const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText;
-    let quiz;
-    try {
-      quiz = JSON.parse(jsonStr);
-    } catch {
-      return NextResponse.json(
-        { error: "Failed to parse quiz output." },
-        { status: 500 }
-      );
+    let topic = "General Knowledge";
+    let pdfText = "";
+    let context = "";
+    // Check if the request is multipart (PDF upload)
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.startsWith("multipart/form-data")) {
+      const formData = await req.formData();
+      topic = formData.get("topic")?.toString() || topic;
+      const pdfFile = formData.get("pdf");
+      if (pdfFile && typeof pdfFile === "object" && "arrayBuffer" in pdfFile) {
+        const buffer = Buffer.from(await pdfFile.arrayBuffer());
+        pdfText = await processPDF(buffer);
+        context = pdfText.slice(0, 8000); // Limit context for LLM input
+      }
+    } else {
+      // JSON body
+      const body = await req.json();
+      topic = body.topic || topic;
+      if (body.pdfText) {
+        context = body.pdfText.slice(0, 8000);
+      }
     }
-    return NextResponse.json(quiz);
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Step 1: Generate 10 diverse subtopics
+          const subtopicPrompt = context
+            ? `Topic: ${topic}\nContext: ${context}`
+            : `Topic: ${topic}`;
+          const subtopicRes = await llm.invoke([
+            ["system", SUBTOPIC_SYSTEM_MESSAGE],
+            ["human", subtopicPrompt],
+          ]);
+          let subtopics: string[] = [];
+          try {
+            const contentStr = String(subtopicRes.content);
+            const match = contentStr.match(/\[([\s\S]*?)\]/);
+            const jsonStr = match ? match[0] : contentStr;
+            subtopics = JSON.parse(jsonStr);
+          } catch {
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({ error: "Failed to parse subtopics." }) + "\n"
+              )
+            );
+            controller.close();
+            return;
+          }
+          if (!Array.isArray(subtopics) || subtopics.length !== 10) {
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({ error: "Failed to generate 10 subtopics." }) +
+                  "\n"
+              )
+            );
+            controller.close();
+            return;
+          }
+          // Step 2: For each subtopic, generate and stream a quiz question
+          for (const subtopic of subtopics) {
+            const questionPrompt = context
+              ? `Subtopic: ${subtopic}\nContext: ${context}`
+              : `Subtopic: ${subtopic}`;
+            const response = await llm.invoke([
+              ["system", QUIZ_SYSTEM_MESSAGE],
+              ["human", questionPrompt],
+            ]);
+            const responseText = String(response.content);
+            const jsonMatch =
+              responseText.match(/```json\n([\s\S]*?)\n```/) ||
+              responseText.match(/{[\s\S]*}/);
+            const jsonStr = jsonMatch
+              ? jsonMatch[1] || jsonMatch[0]
+              : responseText;
+            let questionObj;
+            try {
+              questionObj = JSON.parse(jsonStr);
+            } catch {
+              controller.enqueue(
+                encoder.encode(
+                  JSON.stringify({
+                    error: `Failed to parse question for subtopic: ${subtopic}`,
+                  }) + "\n"
+                )
+              );
+              controller.close();
+              return;
+            }
+            controller.enqueue(
+              encoder.encode(JSON.stringify({ question: questionObj }) + "\n")
+            );
+            // Optionally, add a small delay to simulate streaming
+            // await new Promise((res) => setTimeout(res, 100));
+          }
+          controller.close();
+        } catch {
+          controller.enqueue(
+            encoder.encode(
+              JSON.stringify({ error: "Failed to generate quiz." }) + "\n"
+            )
+          );
+          controller.close();
+        }
+      },
+    });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "application/x-ndjson",
+        "Cache-Control": "no-store",
+      },
+    });
   } catch {
     return NextResponse.json(
       { error: "Failed to generate quiz." },
