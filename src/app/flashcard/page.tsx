@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, PanelLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, PanelLeft, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { FlashCard, FlashCardData } from '@/components/ui/flashcard/flash-card';
 import { FlashCardSidebar } from '@/components/ui/flashcard/flashcard-sidebar';
 import { FlashCardProvider, useFlashCards } from '@/contexts/FlashCardContext';
@@ -35,6 +35,7 @@ function FlashCardPageContent() {
   const [bulkCardsGenerated, setBulkCardsGenerated] = useState(0);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [cardsInFolder, setCardsInFolder] = useState<FlashCardData[]>([]);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   // --- LocalStorage Caching Helpers ---
   const FLASHCARD_LIST_KEY = 'flashcard_list';
@@ -212,25 +213,36 @@ function FlashCardPageContent() {
       setError('Please enter a topic');
       return;
     }
-
     setIsLoading(true);
     setError('');
     setBulkCardsGenerated(0);
-
     try {
-      // Streaming bulk API: expects NDJSON (one card per line)
-      const response = await fetch('/api/flashcard/bulk', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/x-ndjson',
-        },
-        body: JSON.stringify({
-          topic,
-          count: bulkCount,
-          createFolder: true
-        }),
-      });
+      let response;
+      if (pdfFile) {
+        const formData = new FormData();
+        formData.append('topic', topic);
+        formData.append('count', String(bulkCount));
+        formData.append('createFolder', 'true');
+        formData.append('pdf', pdfFile);
+        response = await fetch('/api/flashcard/bulk', {
+          method: 'POST',
+          body: formData,
+          headers: { 'Accept': 'application/x-ndjson' },
+        });
+      } else {
+        response = await fetch('/api/flashcard/bulk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/x-ndjson',
+          },
+          body: JSON.stringify({
+            topic,
+            count: bulkCount,
+            createFolder: true
+          }),
+        });
+      }
 
       if (!response.ok || !response.body) {
         const errorData = await response.json().catch(() => ({}));
@@ -496,18 +508,49 @@ function FlashCardPageContent() {
                   </div>
                 </div>
                 {isBulk && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <label htmlFor="bulk-count" className="text-sm">Number of flashcards</label>
-                    <input
-                      id="bulk-count"
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={bulkCount}
-                      onChange={(e) => setBulkCount(Number(e.target.value))}
-                      className="w-20 border rounded px-2 py-1 text-sm"
-                    />
-                  </div>
+                  <>
+                    <div className="flex items-center gap-2 mt-2">
+                      <label htmlFor="bulk-count" className="text-sm">Number of flashcards</label>
+                      <input
+                        id="bulk-count"
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={bulkCount}
+                        onChange={(e) => setBulkCount(Number(e.target.value))}
+                        className="w-20 border rounded px-2 py-1 text-sm"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <label htmlFor="pdf-upload">
+                        <Button variant="outline" className="px-4 py-2 cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer" asChild>
+                          <span>{pdfFile ? "Change PDF" : "Choose PDF"}</span>
+                        </Button>
+                      </label>
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        id="pdf-upload"
+                        className="hidden"
+                        onChange={e => setPdfFile(e.target.files?.[0] || null)}
+                        disabled={isLoading}
+                      />
+                      {pdfFile && (
+                        <div className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs shadow-sm">
+                          <span className="truncate max-w-[140px] font-medium">{pdfFile.name}</span>
+                          <button
+                            type="button"
+                            className="ml-1 text-muted-foreground hover:text-destructive"
+                            onClick={() => setPdfFile(null)}
+                            aria-label="Remove file"
+                            disabled={isLoading}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
                 <div className="flex items-center gap-2 mt-2">
                   <Button 

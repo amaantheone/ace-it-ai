@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/config/auth";
+import { processPDF } from "@/utils/chatFunctions/pdf-utils";
 
 interface SubTopic {
   topic: string;
@@ -69,40 +70,69 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { topic, count, subtopicsOnly, createFolder } = await req.json();
+    let topic = "";
+    let count = 10;
+    let subtopicsOnly = false;
+    let createFolder = false;
+    let pdfText = "";
+    let context = "";
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.startsWith("multipart/form-data")) {
+      const formData = await req.formData();
+      topic = formData.get("topic")?.toString() || "";
+      count = Number(formData.get("count")) || 10;
+      subtopicsOnly = formData.get("subtopicsOnly") === "true";
+      createFolder = formData.get("createFolder") === "true";
+      const pdfFile = formData.get("pdf");
+      if (pdfFile && typeof pdfFile === "object" && "arrayBuffer" in pdfFile) {
+        const buffer = Buffer.from(await pdfFile.arrayBuffer());
+        pdfText = await processPDF(buffer);
+        context = pdfText.slice(0, 8000); // Limit context for LLM input
+      }
+    } else {
+      const body = await req.json();
+      topic = body.topic || "";
+      count = body.count || 10;
+      subtopicsOnly = body.subtopicsOnly || false;
+      createFolder = body.createFolder || false;
+      if (body.pdfText) {
+        context = body.pdfText.slice(0, 8000);
+      }
+    }
 
     if (!topic) {
       return NextResponse.json({ error: "Topic is required" }, { status: 400 });
     }
-
     if (!count || count < 1) {
       return NextResponse.json(
         { error: "Valid count is required" },
         { status: 400 }
       );
     }
-
     // Limit maximum count
     const adjustedCount = Math.min(count, 50);
-
     // Step 0: Get a short main topic from the LLM
+    let mainTopicPrompt = `User query: ${topic}`;
+    if (context) {
+      mainTopicPrompt += `\nRelevant PDF Context:\n${context}`;
+    }
     const mainTopicResponse = await llm.invoke([
       ["system", MAIN_TOPIC_SYSTEM_MESSAGE],
-      ["human", `User query: ${topic}`],
+      ["human", mainTopicPrompt],
     ]);
     let mainTopic = String(mainTopicResponse.content)
       .replace(/\n/g, "")
       .replace(/^"|"$/g, "")
       .trim();
     if (!mainTopic) mainTopic = topic;
-
     // Step 1: Generate subtopics based on the main topic
+    let subtopicsPrompt = `Generate ${adjustedCount} subtopics for the main topic: ${mainTopic}`;
+    if (context) {
+      subtopicsPrompt += `\nRelevant PDF Context:\n${context}`;
+    }
     const subtopicsResponse = await llm.invoke([
       ["system", SUBTOPICS_SYSTEM_MESSAGE],
-      [
-        "human",
-        `Generate ${adjustedCount} subtopics for the main topic: ${mainTopic}`,
-      ],
+      ["human", subtopicsPrompt],
     ]);
 
     // Parse subtopics
@@ -173,12 +203,13 @@ export async function POST(req: Request) {
         for (const subtopic of subtopics) {
           try {
             if (!session.user) throw new Error("No user in session");
+            let flashcardPrompt = `Generate a flashcard for the subtopic: \"${subtopic.topic}\" in the context of the main topic: \"${mainTopic}\". The definition and example should be specific to how \"${subtopic.topic}\" relates to \"${mainTopic}\". Do NOT give a generic definition, always use the main topic as context.`;
+            if (context) {
+              flashcardPrompt += `\nRelevant PDF Context:\n${context}`;
+            }
             const flashcardResponse = await llm.invoke([
               ["system", FLASHCARD_SYSTEM_MESSAGE],
-              [
-                "human",
-                `Generate a flashcard for the subtopic: \"${subtopic.topic}\" in the context of the main topic: \"${mainTopic}\". The definition and example should be specific to how \"${subtopic.topic}\" relates to \"${mainTopic}\". Do NOT give a generic definition, always use the main topic as context.`,
-              ],
+              ["human", flashcardPrompt],
             ]);
 
             const responseText = String(flashcardResponse.content);
