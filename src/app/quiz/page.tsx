@@ -25,6 +25,7 @@ export default function QuizPage() {
   const [topic, setTopic] = useState("");
   const [quizStarted, setQuizStarted] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [count, setCount] = useState(10);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -40,6 +41,7 @@ export default function QuizPage() {
       if (pdfFile) {
         const formData = new FormData();
         formData.append("topic", topic);
+        formData.append("count", String(count));
         formData.append("pdf", pdfFile);
         res = await fetch("/api/quiz", {
           method: "POST",
@@ -49,15 +51,15 @@ export default function QuizPage() {
         res = await fetch("/api/quiz", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic }),
+          body: JSON.stringify({ topic, count }),
         });
       }
       if (!res.body) throw new Error("No response body");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      setUserAnswers(Array(10).fill(""));
-      setAnswered(Array(10).fill(false));
+      setUserAnswers(Array(count).fill(""));
+      setAnswered(Array(count).fill(false));
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -100,7 +102,7 @@ export default function QuizPage() {
       setError("Failed to load quiz.");
       setLoading(false);
     });
-  }, [quizStarted, topic, pdfFile]);
+  }, [quizStarted, topic, pdfFile, count]);
 
   const handleSelect = (option: string) => {
     if (answered[current]) return;
@@ -157,6 +159,17 @@ export default function QuizPage() {
                 required
                 autoFocus
               />
+              <div className="w-full max-w-lg flex flex-col gap-2">
+                <label className="block text-sm font-medium text-foreground mb-1">Number of questions</label>
+                <input
+                  type="number"
+                  min={10}
+                  max={25}
+                  value={count}
+                  onChange={e => setCount(Math.max(10, Math.min(25, Number(e.target.value))))}
+                  className="border border-muted rounded-lg px-4 py-2 w-full max-w-[120px] text-base shadow-sm"
+                />
+              </div>
               <div className="w-full max-w-lg flex flex-col gap-2">
                 <label className="block text-sm font-medium text-foreground mb-1">Attach PDF (optional)</label>
                 <div className="flex items-center gap-2">

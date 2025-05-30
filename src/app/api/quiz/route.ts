@@ -40,11 +40,13 @@ export async function POST(req: Request) {
     let topic = "General Knowledge";
     let pdfText = "";
     let context = "";
+    let count = 10;
     // Check if the request is multipart (PDF upload)
     const contentType = req.headers.get("content-type") || "";
     if (contentType.startsWith("multipart/form-data")) {
       const formData = await req.formData();
       topic = formData.get("topic")?.toString() || topic;
+      count = Math.max(10, Math.min(25, Number(formData.get("count")) || 10));
       const pdfFile = formData.get("pdf");
       if (pdfFile && typeof pdfFile === "object" && "arrayBuffer" in pdfFile) {
         const buffer = Buffer.from(await pdfFile.arrayBuffer());
@@ -55,6 +57,7 @@ export async function POST(req: Request) {
       // JSON body
       const body = await req.json();
       topic = body.topic || topic;
+      count = Math.max(10, Math.min(25, Number(body.count) || 10));
       if (body.pdfText) {
         context = body.pdfText.slice(0, 8000);
       }
@@ -63,12 +66,12 @@ export async function POST(req: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          // Step 1: Generate 10 diverse subtopics
+          // Step 1: Generate N diverse subtopics
           const subtopicPrompt = context
             ? `Topic: ${topic}\nContext: ${context}`
             : `Topic: ${topic}`;
           const subtopicRes = await llm.invoke([
-            ["system", SUBTOPIC_SYSTEM_MESSAGE],
+            ["system", SUBTOPIC_SYSTEM_MESSAGE.replace("10", String(count))],
             ["human", subtopicPrompt],
           ]);
           let subtopics: string[] = [];
@@ -86,18 +89,19 @@ export async function POST(req: Request) {
             controller.close();
             return;
           }
-          if (!Array.isArray(subtopics) || subtopics.length !== 10) {
+          if (!Array.isArray(subtopics) || subtopics.length < count) {
             controller.enqueue(
               encoder.encode(
-                JSON.stringify({ error: "Failed to generate 10 subtopics." }) +
-                  "\n"
+                JSON.stringify({
+                  error: `Failed to generate ${count} subtopics.`,
+                }) + "\n"
               )
             );
             controller.close();
             return;
           }
           // Step 2: For each subtopic, generate and stream a quiz question
-          for (const subtopic of subtopics) {
+          for (const subtopic of subtopics.slice(0, count)) {
             const questionPrompt = context
               ? `Subtopic: ${subtopic}\nContext: ${context}`
               : `Subtopic: ${subtopic}`;
@@ -129,8 +133,6 @@ export async function POST(req: Request) {
             controller.enqueue(
               encoder.encode(JSON.stringify({ question: questionObj }) + "\n")
             );
-            // Optionally, add a small delay to simulate streaming
-            // await new Promise((res) => setTimeout(res, 100));
           }
           controller.close();
         } catch {
