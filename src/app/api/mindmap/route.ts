@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/config/auth";
+import { processPDF } from "@/utils/chatFunctions/pdf-utils";
 
 const MINDMAP_SYSTEM_MESSAGE = `You are a mindmap generator. 
 Create a structured mindmap on the given topic.
@@ -50,14 +51,39 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { topic } = await req.json();
+    let topic = "";
+    let pdfText = "";
+    let context = "";
+    const contentType = req.headers.get("content-type") || "";
+    if (contentType.startsWith("multipart/form-data")) {
+      const formData = await req.formData();
+      topic = formData.get("topic")?.toString() || "";
+      const pdfFile = formData.get("pdf");
+      if (pdfFile && typeof pdfFile === "object" && "arrayBuffer" in pdfFile) {
+        const buffer = Buffer.from(await pdfFile.arrayBuffer());
+        pdfText = await processPDF(buffer);
+        context = pdfText.slice(0, 8000); // Limit context for LLM input
+      }
+    } else {
+      // JSON body
+      const body = await req.json();
+      topic = body.topic || "";
+      if (body.pdfText) {
+        context = body.pdfText.slice(0, 8000);
+      }
+    }
 
     if (!topic) {
       return NextResponse.json({ error: "Topic is required" }, { status: 400 });
     }
 
+    let systemPrompt = MINDMAP_SYSTEM_MESSAGE;
+    if (context) {
+      systemPrompt += `\n\nRelevant PDF Context:\n${context}`;
+    }
+
     const response = await llm.invoke([
-      ["system", MINDMAP_SYSTEM_MESSAGE],
+      ["system", systemPrompt],
       ["human", `Generate a mindmap for: ${topic}`],
     ]);
 

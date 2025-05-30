@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Moon, Sun } from "lucide-react";
+import { ArrowLeft, Moon, Sun, X } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { MindmapRenderer } from '@/components/ui/mindmap/mindmap-renderer';
 import { ChatInput } from "@/components/ui/chat/chat-input";
@@ -34,6 +34,7 @@ export default function MindmapPage() {
   const [currentMindmapId, setCurrentMindmapId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   // --- LocalStorage Caching Helpers ---
   const MINDMAP_LIST_KEY = 'mindmap_list';
@@ -109,13 +110,24 @@ export default function MindmapPage() {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/mindmap', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ topic }),
-      });
+      let response;
+      if (pdfFile) {
+        const formData = new FormData();
+        formData.append('topic', topic);
+        formData.append('pdf', pdfFile);
+        response = await fetch('/api/mindmap', {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        response = await fetch('/api/mindmap', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ topic }),
+        });
+      }
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to generate mindmap');
@@ -138,6 +150,7 @@ export default function MindmapPage() {
     } finally {
       setIsLoading(false);
       setTopic('');
+      setPdfFile(null);
     }
   };
 
@@ -253,24 +266,53 @@ export default function MindmapPage() {
             <form onSubmit={(e) => {
               e.preventDefault();
               handleGenerateMindmap();
-            }} className="flex gap-2 items-center min-h-0">
-              <div className="flex-1">
-                <ChatInput
-                  placeholder="Enter a topic (e.g., Quantum Physics, Climate Change, Machine Learning)"
-                  value={topic}
-                  onChange={(e) => setTopic(e.target.value)}
+            }} className="flex flex-col gap-2 min-h-0">
+              <div className="flex gap-2 items-center w-full">
+                <div className="flex-1">
+                  <ChatInput
+                    placeholder="Enter a topic (e.g., Quantum Physics, Climate Change, Machine Learning)"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    disabled={isLoading}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleGenerateMindmap();
+                      }
+                    }}
+                  />
+                </div>
+                <label htmlFor="pdf-upload">
+                  <Button variant="outline" className="px-4 py-2 cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer" asChild>
+                    <span>{pdfFile ? "Change PDF" : "Choose PDF"}</span>
+                  </Button>
+                </label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  id="pdf-upload"
+                  className="hidden"
+                  onChange={e => setPdfFile(e.target.files?.[0] || null)}
                   disabled={isLoading}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleGenerateMindmap();
-                    }
-                  }}
                 />
+                {pdfFile && (
+                  <div className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs shadow-sm">
+                    <span className="truncate max-w-[140px] font-medium">{pdfFile.name}</span>
+                    <button
+                      type="button"
+                      className="ml-1 text-muted-foreground hover:text-destructive"
+                      onClick={() => setPdfFile(null)}
+                      aria-label="Remove file"
+                      disabled={isLoading}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <Button type="submit" disabled={isLoading} className="cursor-pointer hover:opacity-90">
+                  {isLoading ? 'Generating...' : 'Generate'}
+                </Button>
               </div>
-              <Button type="submit" disabled={isLoading} className="cursor-pointer hover:opacity-90">
-                {isLoading ? 'Generating...' : 'Generate'}
-              </Button>
             </form>
             {error && <p className="text-destructive mt-2">{error}</p>}
           </CardContent>
