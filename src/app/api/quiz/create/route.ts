@@ -8,24 +8,25 @@ export async function POST(req: Request) {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const body = await req.json();
+  const { title, totalQuestions } = body;
+  if (!title || !totalQuestions) {
+    return NextResponse.json({ error: "Invalid data" }, { status: 400 });
+  }
+  // Find user
   const user = await prisma.user.findUnique({
     where: { email: session.user.email },
   });
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
-  const { title, totalQuestions } = await req.json();
-  if (!title) {
-    return NextResponse.json({ error: "Missing title" }, { status: 400 });
-  }
+  // Create quiz
   const quiz = await prisma.quiz.create({
     data: {
       title,
-      userId: user.id,
-      score: null,
       totalQuestions,
+      userId: user.id,
     },
-    select: { id: true, title: true, score: true, totalQuestions: true },
   });
   return NextResponse.json({ quiz });
 }

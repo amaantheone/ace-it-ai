@@ -26,6 +26,7 @@ model User {
   flashCardFolders FlashCardFolder[]
   mindmaps         Mindmap[]
   quizzes          Quiz[]
+  quizAttempts     QuizAttempt[]
 }
 
 model Session {
@@ -107,12 +108,39 @@ model Mindmap {
 }
 
 model Quiz {
-  id             String   @id @default(cuid())
+  id             String        @id @default(cuid())
   title          String
   score          Int?
   totalQuestions Int?
   userId         String
-  user           User     @relation(fields: [userId], references: [id])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  user           User          @relation(fields: [userId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  attempts       QuizAttempt[]
+}
+
+model QuizAttempt {
+  id        String                @id @default(cuid())
+  userId    String
+  quizId    String
+  score     Int
+  createdAt DateTime              @default(now())
+  questions QuizAttemptQuestion[]
+  user      User                  @relation(fields: [userId], references: [id])
+  quiz      Quiz                  @relation(fields: [quizId], references: [id])
+}
+
+model QuizAttemptQuestion {
+  id               String      @id @default(cuid())
+  attemptId        String
+  question         String
+  options          String // JSON stringified array
+  answer           String
+  userAnswer       String
+  explanation      String?
+  wrongExplanation String? // JSON stringified object
+  questionIndex    Int
+  attempt          QuizAttempt @relation(fields: [attemptId], references: [id])
+
+  @@unique([attemptId, questionIndex])
 }

@@ -6,6 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { X } from "lucide-react";
 import { QuizSidebar } from "@/components/ui/quiz/quiz-sidebar";
+import { createAttempt, saveQuestionAnswer, getAttempt, getAttemptQuestions } from "@/utils/quizFunctions/attemptHelpers";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 interface QuizQuestion {
   question: string;
@@ -15,9 +18,37 @@ interface QuizQuestion {
   wrongExplanation?: Record<string, string>;
 }
 
+interface QuizAttemptQuestion {
+  id: string;
+  question: string;
+  options: string; // JSON stringified array
+  answer: string;
+  userAnswer: string;
+  explanation?: string | null;
+  wrongExplanation?: string | null; // JSON stringified object
+}
+
+interface QuizAttempt {
+  id: string;
+  userId: string;
+  quizId: string;
+  score: number;
+  createdAt: string;
+  questions: QuizAttemptQuestion[];
+}
+
 type QuizMeta = { id: string; title: string; score: number | null; totalQuestions: number };
 
 export default function QuizPage() {
+  const router = useRouter();
+  const { status } = useSession();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/auth/login");
+    }
+  }, [status, router]);
+
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [current, setCurrent] = useState(0);
   const [userAnswers, setUserAnswers] = useState<string[]>([]);
@@ -32,13 +63,30 @@ export default function QuizPage() {
   const [quizId, setQuizId] = useState<string | null>(null);
   const [sidebarQuizzes, setSidebarQuizzes] = useState<QuizMeta[]>([]);
   const [showScoreFor, setShowScoreFor] = useState<QuizMeta | null>(null);
+  const [reviewAttempt, setReviewAttempt] = useState<QuizAttempt | null>(null);
+  const [currentReviewQuestionIdx, setCurrentReviewQuestionIdx] = useState(0);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load quizzes for sidebar from localStorage
+  // Load quizzes for sidebar from localStorage, and if empty, fetch from DB
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = localStorage.getItem("quizzes");
-    if (stored) setSidebarQuizzes(JSON.parse(stored));
+    if (stored && JSON.parse(stored).length > 0) {
+      setSidebarQuizzes(JSON.parse(stored));
+    } else {
+      // If no quizzes in localStorage, fetch from DB
+      fetch("/api/quiz/list", { credentials: "include" })
+        .then(res => res.ok ? res.json() : Promise.reject())
+        .then(data => {
+          if (data.quizzes && Array.isArray(data.quizzes)) {
+            setSidebarQuizzes(data.quizzes);
+            localStorage.setItem("quizzes", JSON.stringify(data.quizzes));
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   // When a quiz is generated, create it in DB and add to sidebar/localStorage
@@ -77,10 +125,49 @@ export default function QuizPage() {
     }
   }, [finished, quizId, quiz, answered, userAnswers, topic]);
 
+  // When quiz is started and you have a quizId, create an attempt
+  useEffect(() => {
+    if (quizStarted && quizId && !attemptId) {
+      createAttempt(quizId, 0).then(attempt => {
+        setAttemptId(attempt.id);
+      });
+    }
+  }, [quizStarted, quizId, attemptId]);
+
   // Handler for sidebar quiz selection
-  const handleSidebarSelect = (id: string) => {
-    const quiz = sidebarQuizzes.find(q => q.id === id);
-    if (quiz) setShowScoreFor(quiz);
+  const handleSidebarSelect = async (quizId: string) => {
+    let quizMeta = sidebarQuizzes.find(q => q.id === quizId) || null;
+    // If not in localStorage/sidebar, fetch from DB
+    if (!quizMeta) {
+      try {
+        const res = await fetch(`/api/quiz/list`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          const found = (data.quizzes as QuizMeta[] | undefined)?.find(q => q.id === quizId) || null;
+          if (found) {
+            quizMeta = found;
+            setSidebarQuizzes(prev => {
+              const updated = [found, ...prev.filter(q => q.id !== found.id)];
+              localStorage.setItem("quizzes", JSON.stringify(updated));
+              return updated;
+            });
+          }
+        }
+      } catch {}
+    }
+    if (quizMeta) setShowScoreFor(quizMeta);
+    setReviewAttempt(null);
+    setCurrentReviewQuestionIdx(0);
+    setReviewLoading(true);
+    try {
+      const attempt = await getAttempt(quizId);
+      if (attempt) {
+        const questions = await getAttemptQuestions(attempt.id);
+        setReviewAttempt({ ...attempt, questions });
+      }
+    } finally {
+      setReviewLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -159,15 +246,28 @@ export default function QuizPage() {
     });
   }, [quizStarted, topic, pdfFile, count]);
 
-  const handleSelect = (option: string) => {
-    if (answered[current]) return;
+  // Update your answer handler to save each answer as soon as it’s given
+  const handleSelect = async (option: string) => {
+    if (answered[current] || !attemptId) return;
     const newAnswers = [...userAnswers];
     newAnswers[current] = option;
     setUserAnswers(newAnswers);
-    setAnswered((prev) => {
+    setAnswered(prev => {
       const newAnswered = [...prev];
       newAnswered[current] = true;
       return newAnswered;
+    });
+
+    // Save answer to backend
+    const q = quiz[current];
+    await saveQuestionAnswer(attemptId, {
+      question: q.question,
+      options: q.options,
+      answer: q.answer,
+      userAnswer: option,
+      explanation: q.explanation,
+      wrongExplanation: q.wrongExplanation,
+      questionIndex: current,
     });
   };
 
@@ -186,6 +286,16 @@ export default function QuizPage() {
   const total = quiz.length;
   const accuracy = total > 0 ? Math.round((right / total) * 100) : 0;
 
+  // PLAN: Quiz Review UI
+  // 1. When a quiz is selected from the sidebar, fetch the latest attempt for that quiz (or let user pick an attempt if multiple).
+  // 2. Store the fetched attempt (with questions, answers, explanations) in state, e.g. reviewAttempt.
+  // 3. Add state for currentReviewQuestionIdx to navigate through questions.
+  // 4. Render the score summary at the top (already done).
+  // 5. Below, render the current question, all options (highlight user answer and correct answer), explanation, and wrong explanation if relevant.
+  // 6. Add Prev/Next navigation buttons to move through questions.
+  // 7. Make the review UI read-only (no answer selection).
+  // 8. If no attempt data, show a loading spinner or error.
+
   return (
     <div className="min-h-screen flex flex-row items-stretch justify-center bg-gradient-to-br from-background to-muted/60 p-2">
       <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} />
@@ -198,27 +308,126 @@ export default function QuizPage() {
             const wrong = total - score;
             const accuracy = total > 0 ? Math.round((right / total) * 100) : 0;
             return (
-              <div className="flex flex-col items-center gap-8 py-10">
-                <div className="text-2xl font-bold mb-2 text-primary">Quiz Complete!</div>
-                <div className="flex flex-col md:flex-row gap-6 w-full justify-center items-center">
-                  <div className="flex gap-6 justify-center w-full md:w-auto">
-                    <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
-                      <div className="text-muted-foreground text-xs mb-1">Score</div>
-                      <div className="text-3xl font-bold text-primary">{score}/{total}</div>
+              <>
+                <div className="flex flex-col items-center gap-8 py-10">
+                  <div className="text-2xl font-bold mb-2 text-primary">Quiz Complete!</div>
+                  <div className="flex flex-col md:flex-row gap-6 w-full justify-center items-center">
+                    <div className="flex gap-6 justify-center w-full md:w-auto">
+                      <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
+                        <div className="text-muted-foreground text-xs mb-1">Score</div>
+                        <div className="text-3xl font-bold text-primary">{score}/{total}</div>
+                      </div>
+                      <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
+                        <div className="text-muted-foreground text-xs mb-1">Accuracy</div>
+                        <div className="text-3xl font-bold text-primary">{accuracy}%</div>
+                      </div>
                     </div>
                     <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
-                      <div className="text-muted-foreground text-xs mb-1">Accuracy</div>
-                      <div className="text-3xl font-bold text-primary">{accuracy}%</div>
+                      <div className="text-muted-foreground text-xs mb-1">Right</div>
+                      <div className="font-bold text-lg text-green-700">{right}</div>
+                      <div className="text-muted-foreground text-xs mt-2">Wrong</div>
+                      <div className="font-bold text-lg text-red-600">{wrong}</div>
                     </div>
-                  </div>
-                  <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
-                    <div className="text-muted-foreground text-xs mb-1">Right</div>
-                    <div className="font-bold text-lg text-green-700">{right}</div>
-                    <div className="text-muted-foreground text-xs mt-2">Wrong</div>
-                    <div className="font-bold text-lg text-red-600">{wrong}</div>
                   </div>
                 </div>
-              </div>
+                {/* Review UI always visible below score summary */}
+                <div className="w-full max-w-2xl mx-auto">
+                  {reviewLoading ? (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Spinner className="h-8 w-8 mb-2" />
+                      <span className="text-muted-foreground text-base font-medium">Loading attempt...</span>
+                    </div>
+                  ) : reviewAttempt ? (
+                    <div className="mt-8">
+                      <div className="text-lg font-semibold text-foreground mb-4">Review Attempt</div>
+                      <div className="flex flex-col gap-4">
+                        <div className="flex items-center justify-between">
+                          <Button
+                            variant="outline"
+                            className="px-4 py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer"
+                            onClick={() => {
+                              const idx = currentReviewQuestionIdx - 1;
+                              if (idx >= 0) setCurrentReviewQuestionIdx(idx);
+                            }}
+                            disabled={currentReviewQuestionIdx === 0}
+                          >
+                            Previous
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="px-4 py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer"
+                            onClick={() => {
+                              const idx = currentReviewQuestionIdx + 1;
+                              if (idx < reviewAttempt.questions.length) setCurrentReviewQuestionIdx(idx);
+                              else setShowScoreFor(null);
+                            }}
+                            disabled={currentReviewQuestionIdx === reviewAttempt.questions.length - 1}
+                          >
+                            {currentReviewQuestionIdx === reviewAttempt.questions.length - 1 ? "Finish" : "Next"}
+                          </Button>
+                        </div>
+                        <div className="rounded-lg border border-muted/40 bg-muted/60 p-4">
+                          <div className="font-semibold text-lg text-foreground mb-2">
+                            Question {currentReviewQuestionIdx + 1} of {reviewAttempt.questions.length}
+                          </div>
+                          <div className="text-foreground/90 mb-2">
+                            {reviewAttempt.questions[currentReviewQuestionIdx].question}
+                          </div>
+                          <div className="flex flex-col gap-2 mb-4">
+                            {JSON.parse(reviewAttempt.questions[currentReviewQuestionIdx].options).map((opt: string, oidx: number) => {
+                              const userAnswer = reviewAttempt.questions[currentReviewQuestionIdx].userAnswer;
+                              const correctAnswer = reviewAttempt.questions[currentReviewQuestionIdx].answer;
+                              const isSelected = userAnswer === opt;
+                              const isCorrect = opt === correctAnswer;
+                              const isWrong = isSelected && !isCorrect;
+                              return (
+                                <div key={oidx} className="relative">
+                                  <Button
+                                    type="button"
+                                    variant={isWrong ? "destructive" : isSelected ? "default" : "outline"}
+                                    className={`w-full text-left justify-start py-3 px-4 rounded-lg text-base font-medium transition border-2 ${isCorrect ? "border-green-500 ring-2 ring-green-500" : ""} ${isWrong ? "border-red-500 ring-2 ring-red-500" : "border-muted/40"} hover:cursor-pointer`}
+                                    disabled
+                                  >
+                                    <span className="mr-2 font-semibold">{String.fromCharCode(65 + oidx)}.</span> {opt}
+                                    {isCorrect && (
+                                      <span className="ml-2 text-green-600 font-semibold">✓</span>
+                                    )}
+                                    {isWrong && (
+                                      <span className="ml-2 text-red-600 font-semibold">✗</span>
+                                    )}
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="text-foreground/80 text-sm mt-2">
+                            <div className="font-semibold text-foreground">Explanation:</div>
+                            <div>{reviewAttempt.questions[currentReviewQuestionIdx].explanation}</div>
+                            {(() => {
+                              const userAnswer = reviewAttempt.questions[currentReviewQuestionIdx].userAnswer;
+                              const correctAnswer = reviewAttempt.questions[currentReviewQuestionIdx].answer;
+                              if (userAnswer && userAnswer !== correctAnswer && reviewAttempt.questions[currentReviewQuestionIdx].wrongExplanation) {
+                                const wrongExplanations = JSON.parse(reviewAttempt.questions[currentReviewQuestionIdx].wrongExplanation || '{}');
+                                return (
+                                  <div className="mt-2">
+                                    <div className="font-semibold text-foreground">Why not:</div>
+                                    <div>{wrongExplanations[userAnswer]}</div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <span className="text-muted-foreground text-base font-medium">No attempt data found for this quiz.</span>
+                    </div>
+                  )}
+                </div>
+              </>
             );
           })()
         ) : (
@@ -391,6 +600,92 @@ export default function QuizPage() {
                   <div className="flex flex-col items-center justify-center mt-8">
                     <Spinner className="h-10 w-10 mb-3" />
                     <span className="text-muted-foreground text-base font-medium">Generating quiz...</span>
+                  </div>
+                )}
+                {/* Render review UI outside the score summary block so it's always visible */}
+                {showScoreFor && reviewAttempt && (
+                  <div className="mt-8 w-full max-w-2xl">
+                    <div className="text-lg font-semibold text-foreground mb-4">Review Attempt</div>
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center justify-between">
+                        <Button
+                          variant="outline"
+                          className="px-4 py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer"
+                          onClick={() => {
+                            const idx = currentReviewQuestionIdx - 1;
+                            if (idx >= 0) setCurrentReviewQuestionIdx(idx);
+                          }}
+                          disabled={currentReviewQuestionIdx === 0}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="px-4 py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer"
+                          onClick={() => {
+                            const idx = currentReviewQuestionIdx + 1;
+                            if (idx < reviewAttempt.questions.length) setCurrentReviewQuestionIdx(idx);
+                            else setShowScoreFor(null);
+                          }}
+                          disabled={currentReviewQuestionIdx === reviewAttempt.questions.length - 1}
+                        >
+                          {currentReviewQuestionIdx === reviewAttempt.questions.length - 1 ? "Finish" : "Next"}
+                        </Button>
+                      </div>
+                      <div className="rounded-lg border border-muted/40 bg-muted/60 p-4">
+                        <div className="font-semibold text-lg text-foreground mb-2">
+                          Question {currentReviewQuestionIdx + 1} of {reviewAttempt.questions.length}
+                        </div>
+                        <div className="text-foreground/90 mb-2">
+                          {reviewAttempt.questions[currentReviewQuestionIdx].question}
+                        </div>
+                        <div className="flex flex-col gap-2 mb-4">
+                          {JSON.parse(reviewAttempt.questions[currentReviewQuestionIdx].options).map((opt: string, oidx: number) => {
+                            const userAnswer = reviewAttempt.questions[currentReviewQuestionIdx].userAnswer;
+                            const correctAnswer = reviewAttempt.questions[currentReviewQuestionIdx].answer;
+                            const isSelected = userAnswer === opt;
+                            const isCorrect = opt === correctAnswer;
+                            const isWrong = isSelected && !isCorrect;
+                            return (
+                              <div key={oidx} className="relative">
+                                <Button
+                                  type="button"
+                                  variant={isWrong ? "destructive" : isSelected ? "default" : "outline"}
+                                  className={`w-full text-left justify-start py-3 px-4 rounded-lg text-base font-medium transition border-2 ${isCorrect ? "border-green-500 ring-2 ring-green-500" : ""} ${isWrong ? "border-red-500 ring-2 ring-red-500" : "border-muted/40"} hover:cursor-pointer`}
+                                  disabled
+                                >
+                                  <span className="mr-2 font-semibold">{String.fromCharCode(65 + oidx)}.</span> {opt}
+                                  {isCorrect && (
+                                    <span className="ml-2 text-green-600 font-semibold">✓</span>
+                                  )}
+                                  {isWrong && (
+                                    <span className="ml-2 text-red-600 font-semibold">✗</span>
+                                  )}
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="text-foreground/80 text-sm mt-2">
+                          <div className="font-semibold text-foreground">Explanation:</div>
+                          <div>{reviewAttempt.questions[currentReviewQuestionIdx].explanation}</div>
+                          {(() => {
+                            const userAnswer = reviewAttempt.questions[currentReviewQuestionIdx].userAnswer;
+                            const correctAnswer = reviewAttempt.questions[currentReviewQuestionIdx].answer;
+                            if (userAnswer && userAnswer !== correctAnswer && reviewAttempt.questions[currentReviewQuestionIdx].wrongExplanation) {
+                              const wrongExplanations = JSON.parse(reviewAttempt.questions[currentReviewQuestionIdx].wrongExplanation || '{}');
+                              return (
+                                <div className="mt-2">
+                                  <div className="font-semibold text-foreground">Why not:</div>
+                                  <div>{wrongExplanations[userAnswer]}</div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </CardContent>
