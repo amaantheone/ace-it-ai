@@ -191,17 +191,36 @@ export default function QuizPage() {
       <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} />
       <div className="flex-1 flex flex-col items-center justify-center">
         {showScoreFor ? (
-          <div className="flex flex-col items-center gap-8 py-10">
-            <div className="text-2xl font-bold mb-2 text-primary">Quiz Complete!</div>
-            <div className="flex flex-col md:flex-row gap-6 w-full justify-center items-center">
-              <div className="flex gap-6 justify-center w-full md:w-auto">
-                <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
-                  <div className="text-muted-foreground text-xs mb-1">Score</div>
-                  <div className="text-3xl font-bold text-primary">{showScoreFor.score ?? 0}/{showScoreFor.totalQuestions ?? 0}</div>
+          (() => {
+            const score = showScoreFor.score ?? 0;
+            const total = showScoreFor.totalQuestions ?? 0;
+            const right = score;
+            const wrong = total - score;
+            const accuracy = total > 0 ? Math.round((right / total) * 100) : 0;
+            return (
+              <div className="flex flex-col items-center gap-8 py-10">
+                <div className="text-2xl font-bold mb-2 text-primary">Quiz Complete!</div>
+                <div className="flex flex-col md:flex-row gap-6 w-full justify-center items-center">
+                  <div className="flex gap-6 justify-center w-full md:w-auto">
+                    <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
+                      <div className="text-muted-foreground text-xs mb-1">Score</div>
+                      <div className="text-3xl font-bold text-primary">{score}/{total}</div>
+                    </div>
+                    <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
+                      <div className="text-muted-foreground text-xs mb-1">Accuracy</div>
+                      <div className="text-3xl font-bold text-primary">{accuracy}%</div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
+                    <div className="text-muted-foreground text-xs mb-1">Right</div>
+                    <div className="font-bold text-lg text-green-700">{right}</div>
+                    <div className="text-muted-foreground text-xs mt-2">Wrong</div>
+                    <div className="font-bold text-lg text-red-600">{wrong}</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
+            );
+          })()
         ) : (
           <>
             <div className="mb-4 text-center select-none">
