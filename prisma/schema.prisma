@@ -25,6 +25,7 @@ model User {
   flashCards       FlashCard[]
   flashCardFolders FlashCardFolder[]
   mindmaps         Mindmap[]
+  quizzes          Quiz[]
 }
 
 model Session {
@@ -103,4 +104,15 @@ model Mindmap {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Quiz {
+  id             String   @id @default(cuid())
+  title          String
+  score          Int?
+  totalQuestions Int?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
