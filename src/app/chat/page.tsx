@@ -20,7 +20,7 @@ export default function ChatPage() {
   const { 
     isGuest, 
     incrementGuestMessageCount, 
-    showLoginPopup,
+    showChatLoginPopup,
     saveGuestData,
     loadGuestData 
   } = useGuest();
@@ -293,7 +293,7 @@ export default function ChatPage() {
     <div className="flex h-screen w-screen bg-background text-foreground">
       {/* Login Popup for guests after 3 messages */}
       <LoginPopup 
-        isOpen={showLoginPopup}
+        isOpen={showChatLoginPopup}
         title="Continue with an Account"
         description="You've sent 3 messages as a guest. Please sign in to continue chatting and save your conversations."
         closable={false}

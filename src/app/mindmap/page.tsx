@@ -27,7 +27,7 @@ export default function MindmapPage() {
   const { 
     isGuest, 
     incrementGuestMindmapCount, 
-    showLoginPopup,
+    showMindmapLoginPopup,
     saveGuestData,
     loadGuestData 
   } = useGuest();
@@ -368,7 +368,7 @@ export default function MindmapPage() {
 
       {/* Login Popup for Guest Users */}
       <LoginPopup
-        isOpen={showLoginPopup}
+        isOpen={showMindmapLoginPopup}
         title="Sign in to Continue Creating Mindmaps"
         description="You've created 1 mindmap as a guest. Sign in to unlock unlimited mindmap creation and save your work!"
         closable={false}

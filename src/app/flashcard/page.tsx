@@ -27,8 +27,8 @@ function FlashCardPageContent() {
     isGuest,
     guestIndividualFlashcardCount,
     incrementGuestIndividualFlashcardCount,
-    showLoginPopup,
-    setShowLoginPopup
+    showFlashcardLoginPopup,
+    setShowFlashcardLoginPopup
   } = useGuest();
 
   const [topic, setTopic] = useState('');
@@ -364,13 +364,13 @@ function FlashCardPageContent() {
 
     // Check guest limits for individual flashcards (limit reached at 4)
     if (isGuest && guestIndividualFlashcardCount >= 4) {
-      setShowLoginPopup(true);
+      setShowFlashcardLoginPopup(true);
       return;
     }
 
     // Prevent bulk generation for guests
     if (isGuest && isBulk) {
-      setShowLoginPopup(true);
+      setShowFlashcardLoginPopup(true);
       return;
     }
 
@@ -779,10 +779,10 @@ function FlashCardPageContent() {
       </div>
 
       {/* Login Popup for when guest limits are reached */}
-      {showLoginPopup && (
+      {showFlashcardLoginPopup && (
         <LoginPopup 
-          isOpen={showLoginPopup}
-          onClose={() => setShowLoginPopup(false)}
+          isOpen={showFlashcardLoginPopup}
+          onClose={() => setShowFlashcardLoginPopup(false)}
         />
       )}
     </div>

@@ -59,7 +59,7 @@ export const LoginPopup: React.FC<LoginPopupProps> = ({
           <div className="space-y-3">
             <Button 
               onClick={handleSignIn}
-              className="w-full"
+              className="w-full hover:cursor-pointer"
               size="lg"
             >
               Sign in with Google
@@ -68,7 +68,7 @@ export const LoginPopup: React.FC<LoginPopupProps> = ({
             <Button 
               onClick={handleReturnHome}
               variant="outline"
-              className="w-full"
+              className="w-full hover:cursor-pointer"
               size="lg"
             >
               Return to Home Page

@@ -14,8 +14,21 @@ interface GuestContextType {
   guestIndividualFlashcardCount: number;
   incrementGuestIndividualFlashcardCount: () => void;
   resetGuestIndividualFlashcardCount: () => void;
+  
+  // Feature-specific login popup flags
+  showChatLoginPopup: boolean;
+  showMindmapLoginPopup: boolean;
+  showFlashcardLoginPopup: boolean;
+  
+  // Legacy flag for backward compatibility
   showLoginPopup: boolean;
   setShowLoginPopup: (show: boolean) => void;
+  
+  // Feature-specific popup setters
+  setShowChatLoginPopup: (show: boolean) => void;
+  setShowMindmapLoginPopup: (show: boolean) => void;
+  setShowFlashcardLoginPopup: (show: boolean) => void;
+  
   clearGuestData: () => void;
   saveGuestData: (key: string, data: unknown) => void;
   loadGuestData: (key: string) => unknown;
@@ -41,6 +54,13 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
   const [guestMessageCount, setGuestMessageCount] = useState(0);
   const [guestMindmapCount, setGuestMindmapCount] = useState(0);
   const [guestIndividualFlashcardCount, setGuestIndividualFlashcardCount] = useState(0);
+  
+  // Feature-specific login popup flags
+  const [showChatLoginPopup, setShowChatLoginPopup] = useState(false);
+  const [showMindmapLoginPopup, setShowMindmapLoginPopup] = useState(false);
+  const [showFlashcardLoginPopup, setShowFlashcardLoginPopup] = useState(false);
+  
+  // Legacy flag for backward compatibility - will be true if any feature popup is true
   const [showLoginPopup, setShowLoginPopup] = useState(false);
 
   // Determine if user is guest
@@ -111,6 +131,9 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
       setGuestMindmapCount(0);
       setGuestIndividualFlashcardCount(0);
       setShowLoginPopup(false);
+      setShowChatLoginPopup(false);
+      setShowMindmapLoginPopup(false);
+      setShowFlashcardLoginPopup(false);
     }
   }, [isGuest, clearGuestData]);
 
@@ -147,18 +170,42 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
     }
   }, [guestIndividualFlashcardCount, isGuest]);
 
-  // Check if should show login popup (after 4 messages, 2 mindmaps, or 4 individual flashcards)
+  // Check if should show feature-specific login popups
   useEffect(() => {
-    if (isGuest && !showLoginPopup) {
-      const shouldShowForMessages = guestMessageCount >= 4;
-      const shouldShowForMindmaps = guestMindmapCount >= 2;
-      const shouldShowForFlashcards = guestIndividualFlashcardCount >= 4;
+    if (isGuest) {
+      // Chat login popup
+      const shouldShowForChat = guestMessageCount >= 4;
+      if (shouldShowForChat && !showChatLoginPopup) {
+        setShowChatLoginPopup(true);
+      }
       
-      if (shouldShowForMessages || shouldShowForMindmaps || shouldShowForFlashcards) {
+      // Mindmap login popup
+      const shouldShowForMindmap = guestMindmapCount >= 2;
+      if (shouldShowForMindmap && !showMindmapLoginPopup) {
+        setShowMindmapLoginPopup(true);
+      }
+      
+      // Flashcard login popup
+      const shouldShowForFlashcard = guestIndividualFlashcardCount >= 4;
+      if (shouldShowForFlashcard && !showFlashcardLoginPopup) {
+        setShowFlashcardLoginPopup(true);
+      }
+      
+      // Legacy behavior: set global popup if any feature popup is true
+      if ((shouldShowForChat || shouldShowForMindmap || shouldShowForFlashcard) && !showLoginPopup) {
         setShowLoginPopup(true);
       }
     }
-  }, [guestMessageCount, guestMindmapCount, guestIndividualFlashcardCount, isGuest, showLoginPopup]);
+  }, [
+    guestMessageCount, 
+    guestMindmapCount, 
+    guestIndividualFlashcardCount, 
+    isGuest, 
+    showLoginPopup,
+    showChatLoginPopup,
+    showMindmapLoginPopup,
+    showFlashcardLoginPopup
+  ]);
 
   const incrementGuestMessageCount = useCallback(() => {
     if (isGuest) {
@@ -251,6 +298,12 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
     resetGuestIndividualFlashcardCount,
     showLoginPopup,
     setShowLoginPopup,
+    showChatLoginPopup,
+    setShowChatLoginPopup,
+    showMindmapLoginPopup, 
+    setShowMindmapLoginPopup,
+    showFlashcardLoginPopup,
+    setShowFlashcardLoginPopup,
     clearGuestData,
     saveGuestData,
     loadGuestData,
