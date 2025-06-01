@@ -7,9 +7,11 @@ export async function GET(req: Request, context: unknown) {
   const session = await getServerSession(authOptions);
   const { id } = (context as { params: { id: string } }).params;
 
+  // For guest users, return a 404 since they use localStorage
   if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ error: "Mindmap not found" }, { status: 404 });
   }
+
   const user = await prisma.user.findUnique({
     where: { email: session.user.email! },
   });

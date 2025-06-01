@@ -9,8 +9,8 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { MindmapRenderer } from '@/components/ui/mindmap/mindmap-renderer';
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import { MindmapSidebar } from '@/components/ui/mindmap/mindmap-sidebar';
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useGuest } from "@/contexts/GuestContext";
+import { LoginPopup } from "@/components/ui/login-popup";
 
 // Define a MindmapNode and MindmapData type for strong typing
 interface MindmapNode {
@@ -23,9 +23,15 @@ interface MindmapData {
 }
 
 export default function MindmapPage() {
-  const router = useRouter();
-  const { status } = useSession();
   const { theme, toggleTheme } = useTheme();
+  const { 
+    isGuest, 
+    incrementGuestMindmapCount, 
+    showLoginPopup,
+    saveGuestData,
+    loadGuestData 
+  } = useGuest();
+  
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,69 +43,70 @@ export default function MindmapPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
 
   // --- LocalStorage Caching Helpers ---
-  const MINDMAP_LIST_KEY = 'mindmap_list';
-  const getMindmapKey = (id: string) => `mindmap_${id}`;
 
   type MindmapListItem = { id: string; topic: string; createdAt: string; data?: MindmapData }[];
 
   // Load mindmap list from localStorage
   const loadMindmapListFromCache = useCallback((): MindmapListItem | null => {
     try {
-      const cached = localStorage.getItem(MINDMAP_LIST_KEY);
+      const key = isGuest ? 'guest_mindmaps' : 'mindmap_list';
+      const cached = localStorage.getItem(key);
       if (cached) {
         return JSON.parse(cached);
       }
     } catch {}
     return null;
-  }, []);
+  }, [isGuest]);
 
   // Save mindmap list to localStorage
   const saveMindmapListToCache = useCallback((list: MindmapListItem) => {
     try {
-      localStorage.setItem(MINDMAP_LIST_KEY, JSON.stringify(list));
+      const key = isGuest ? 'guest_mindmaps' : 'mindmap_list';
+      localStorage.setItem(key, JSON.stringify(list));
     } catch {}
-  }, []);
+  }, [isGuest]);
 
   // Load individual mindmap from localStorage
   const loadMindmapFromCache = useCallback((id: string): MindmapData | null => {
     try {
-      const cached = localStorage.getItem(getMindmapKey(id));
+      const key = isGuest ? `guest_mindmap_${id}` : `mindmap_${id}`;
+      const cached = localStorage.getItem(key);
       if (cached) {
         return JSON.parse(cached);
       }
     } catch {}
     return null;
-  }, []);
+  }, [isGuest]);
 
   // Save individual mindmap to localStorage
   const saveMindmapToCache = useCallback((id: string, data: MindmapData) => {
     try {
-      localStorage.setItem(getMindmapKey(id), JSON.stringify(data));
+      const key = isGuest ? `guest_mindmap_${id}` : `mindmap_${id}`;
+      localStorage.setItem(key, JSON.stringify(data));
     } catch {}
-  }, []);
+  }, [isGuest]);
 
-  // --- Fetch mindmap list: cache first, then API ---
-  useEffect(() => {
-    // Redirect to login if not authenticated
-    if (status === "unauthenticated") {
-      router.replace("/auth/login");
-    }
-  }, [status, router]);
-
+  // --- Fetch mindmap list: cache first, then API (only for authenticated users) ---
   useEffect(() => {
     // Try to load from cache first
     const cachedList = loadMindmapListFromCache();
     if (cachedList) {
       setMindmaps(cachedList);
     }
-    // Always update from API
-    fetch('/api/mindmap')
-      .then(res => res.json())
-      .then(data => {
-        setMindmaps(data.mindmaps || []);
-        saveMindmapListToCache(data.mindmaps || []);
-      });
-  }, [loadMindmapListFromCache, saveMindmapListToCache]);
+
+    // For authenticated users, also update from API
+    if (!isGuest) {
+      fetch('/api/mindmap')
+        .then(res => res.json())
+        .then(data => {
+          setMindmaps(data.mindmaps || []);
+          saveMindmapListToCache(data.mindmaps || []);
+        })
+        .catch(error => {
+          console.error('Error fetching mindmaps:', error);
+        });
+    }
+  }, [isGuest, loadMindmapListFromCache, saveMindmapListToCache]);
 
   // --- Generate mindmap: update cache ---
   const handleGenerateMindmap = async () => {
@@ -135,15 +142,34 @@ export default function MindmapPage() {
       const data = await response.json();
       setMindmapData(data.mindmap as MindmapData);
       setCurrentMindmapId(data.id);
+      
       // Save to cache
       saveMindmapToCache(data.id, data.mindmap);
-      // Refetch mindmaps and update cache
-      fetch('/api/mindmap')
-        .then(res => res.json())
-        .then(data => {
-          setMindmaps(data.mindmaps || []);
-          saveMindmapListToCache(data.mindmaps || []);
-        });
+      
+      // For guest users, save mindmap data and increment count
+      if (isGuest) {
+        const guestMindmaps = (loadGuestData('guest_mindmaps') as { id: string; topic: string; createdAt: string; data?: MindmapData }[]) || [];
+        const newMindmap = {
+          id: data.id,
+          topic,
+          createdAt: new Date().toISOString(),
+          data: data.mindmap
+        };
+        guestMindmaps.unshift(newMindmap);
+        saveGuestData('guest_mindmaps', guestMindmaps);
+        setMindmaps(guestMindmaps);
+        
+        // Increment guest mindmap count
+        incrementGuestMindmapCount();
+      } else {
+        // For authenticated users, refetch mindmaps and update cache
+        fetch('/api/mindmap')
+          .then(res => res.json())
+          .then(data => {
+            setMindmaps(data.mindmaps || []);
+            saveMindmapListToCache(data.mindmaps || []);
+          });
+      }
     } catch (err) {
       console.error('Error generating mindmap:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate mindmap');
@@ -154,11 +180,12 @@ export default function MindmapPage() {
     }
   };
 
-  // --- Select mindmap: load from cache first, then API ---
+  // --- Select mindmap: load from cache first, then API (guest mode uses only cache) ---
   const handleSelectMindmap = async (id: string) => {
     setCurrentMindmapId(id);
     setIsLoading(true);
     setError('');
+    
     // Try cache first
     const cached = loadMindmapFromCache(id);
     if (cached) {
@@ -166,6 +193,15 @@ export default function MindmapPage() {
       setIsLoading(false);
       return; // Do not fetch from API if found in cache
     }
+
+    // For guest users, if not in cache, it doesn't exist
+    if (isGuest) {
+      setError('Mindmap not found');
+      setIsLoading(false);
+      return;
+    }
+
+    // For authenticated users, try API
     try {
       const response = await fetch(`/api/mindmap/${id}`);
       if (!response.ok) {
@@ -329,6 +365,14 @@ export default function MindmapPage() {
           </div>
         )}
       </div>
+
+      {/* Login Popup for Guest Users */}
+      <LoginPopup
+        isOpen={showLoginPopup}
+        title="Sign in to Continue Creating Mindmaps"
+        description="You've created 1 mindmap as a guest. Sign in to unlock unlimited mindmap creation and save your work!"
+        closable={false}
+      />
     </div>
   );
 }

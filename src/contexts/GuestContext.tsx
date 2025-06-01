@@ -8,6 +8,9 @@ interface GuestContextType {
   guestMessageCount: number;
   incrementGuestMessageCount: () => void;
   resetGuestMessageCount: () => void;
+  guestMindmapCount: number;
+  incrementGuestMindmapCount: () => void;
+  resetGuestMindmapCount: () => void;
   showLoginPopup: boolean;
   setShowLoginPopup: (show: boolean) => void;
   clearGuestData: () => void;
@@ -33,6 +36,7 @@ interface GuestProviderProps {
 export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
   const { data: session } = useSession();
   const [guestMessageCount, setGuestMessageCount] = useState(0);
+  const [guestMindmapCount, setGuestMindmapCount] = useState(0);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
 
   // Determine if user is guest
@@ -41,6 +45,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
   // Guest data keys
   const GUEST_FLAG_KEY = 'isGuest';
   const GUEST_MESSAGE_COUNT_KEY = 'guest_message_count';
+  const GUEST_MINDMAP_COUNT_KEY = 'guest_mindmap_count';
   const GUEST_SESSIONS_KEY = 'guest_sessions';
   const GUEST_MESSAGES_KEY = 'guest_messages';
   const GUEST_FLASHCARDS_KEY = 'guest_flashcards';
@@ -52,6 +57,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
       // Remove all guest-related keys
       localStorage.removeItem(GUEST_FLAG_KEY);
       localStorage.removeItem(GUEST_MESSAGE_COUNT_KEY);
+      localStorage.removeItem(GUEST_MINDMAP_COUNT_KEY);
       localStorage.removeItem(GUEST_SESSIONS_KEY);
       localStorage.removeItem(GUEST_MESSAGES_KEY);
       localStorage.removeItem(GUEST_FLASHCARDS_KEY);
@@ -80,14 +86,19 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
         if (savedCount) {
           setGuestMessageCount(parseInt(savedCount, 10));
         }
+        const savedMindmapCount = localStorage.getItem(GUEST_MINDMAP_COUNT_KEY);
+        if (savedMindmapCount) {
+          setGuestMindmapCount(parseInt(savedMindmapCount, 10));
+        }
         localStorage.setItem(GUEST_FLAG_KEY, 'true');
       } catch (error) {
-        console.error('Error loading guest message count:', error);
+        console.error('Error loading guest counts:', error);
       }
     } else {
       // Clear all guest data when user logs in
       clearGuestData();
       setGuestMessageCount(0);
+      setGuestMindmapCount(0);
       setShowLoginPopup(false);
     }
   }, [isGuest, clearGuestData]);
@@ -103,12 +114,23 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
     }
   }, [guestMessageCount, isGuest]);
 
-  // Check if should show login popup (after 4 messages)
+  // Save guest mindmap count to localStorage
   useEffect(() => {
-    if (isGuest && guestMessageCount >= 4 && !showLoginPopup) {
+    if (isGuest) {
+      try {
+        localStorage.setItem(GUEST_MINDMAP_COUNT_KEY, guestMindmapCount.toString());
+      } catch (error) {
+        console.error('Error saving guest mindmap count:', error);
+      }
+    }
+  }, [guestMindmapCount, isGuest]);
+
+  // Check if should show login popup (after 4 messages or 2 mindmaps)
+  useEffect(() => {
+    if (isGuest && (guestMessageCount >= 4 || guestMindmapCount >= 2) && !showLoginPopup) {
       setShowLoginPopup(true);
     }
-  }, [guestMessageCount, isGuest, showLoginPopup]);
+  }, [guestMessageCount, guestMindmapCount, isGuest, showLoginPopup]);
 
   const incrementGuestMessageCount = useCallback(() => {
     if (isGuest) {
@@ -122,6 +144,21 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
       localStorage.removeItem(GUEST_MESSAGE_COUNT_KEY);
     } catch (error) {
       console.error('Error resetting guest message count:', error);
+    }
+  }, []);
+
+  const incrementGuestMindmapCount = useCallback(() => {
+    if (isGuest) {
+      setGuestMindmapCount(prev => prev + 1);
+    }
+  }, [isGuest]);
+
+  const resetGuestMindmapCount = useCallback(() => {
+    setGuestMindmapCount(0);
+    try {
+      localStorage.removeItem(GUEST_MINDMAP_COUNT_KEY);
+    } catch (error) {
+      console.error('Error resetting guest mindmap count:', error);
     }
   }, []);
 
@@ -163,6 +200,9 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
     guestMessageCount,
     incrementGuestMessageCount,
     resetGuestMessageCount,
+    guestMindmapCount,
+    incrementGuestMindmapCount,
+    resetGuestMindmapCount,
     showLoginPopup,
     setShowLoginPopup,
     clearGuestData,

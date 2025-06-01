@@ -45,8 +45,10 @@ const llm = new ChatGoogleGenerativeAI({
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
+  const isGuest = !session?.user?.email;
 
-  if (!session?.user?.email) {
+  // For guest users, we still generate the mindmap but don't save to database
+  if (!isGuest && !session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -105,22 +107,31 @@ export async function POST(req: Request) {
       );
     }
 
-    // Save mindmap to database
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email! },
-    });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    // Save mindmap to database (only for authenticated users)
+    let savedMindmapId = null;
+    if (!isGuest && session?.user?.email) {
+      const user = await prisma.user.findUnique({
+        where: { email: session.user.email! },
+      });
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      const savedMindmap = await prisma.mindmap.create({
+        data: {
+          data: mindmapData,
+          topic,
+          userId: user.id,
+        },
+      });
+      savedMindmapId = savedMindmap.id;
+    } else {
+      // For guest users, generate a temporary ID
+      savedMindmapId = `guest_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
     }
-    const savedMindmap = await prisma.mindmap.create({
-      data: {
-        data: mindmapData,
-        topic,
-        userId: user.id,
-      },
-    });
 
-    return NextResponse.json({ mindmap: mindmapData, id: savedMindmap.id });
+    return NextResponse.json({ mindmap: mindmapData, id: savedMindmapId });
   } catch (error) {
     console.error("Error generating mindmap:", error);
     return NextResponse.json(
@@ -132,9 +143,12 @@ export async function POST(req: Request) {
 
 export async function GET() {
   const session = await getServerSession(authOptions);
+
+  // For guest users, return empty mindmaps list since they use localStorage
   if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json({ mindmaps: [] });
   }
+
   const user = await prisma.user.findUnique({
     where: { email: session.user.email! },
   });
