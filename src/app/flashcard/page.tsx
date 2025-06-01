@@ -363,9 +363,12 @@ function FlashCardPageContent() {
     }
 
     // Check guest limits for individual flashcards (limit reached at 4)
-    if (isGuest && guestIndividualFlashcardCount >= 4) {
-      setShowFlashcardLoginPopup(true);
-      return;
+    if (isGuest) {
+      const newCount = incrementGuestIndividualFlashcardCount();
+      if (newCount >= 4) {
+        setShowFlashcardLoginPopup(true);
+        return;
+      }
     }
 
     // Prevent bulk generation for guests
@@ -783,6 +786,7 @@ function FlashCardPageContent() {
         <LoginPopup 
           isOpen={showFlashcardLoginPopup}
           onClose={() => setShowFlashcardLoginPopup(false)}
+          closable={true}
         />
       )}
     </div>

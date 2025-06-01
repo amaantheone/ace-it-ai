@@ -43,7 +43,7 @@ export const LoginPopup: React.FC<LoginPopupProps> = ({
             className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition-colors"
             aria-label="Close"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         )}
         
@@ -65,14 +65,25 @@ export const LoginPopup: React.FC<LoginPopupProps> = ({
               Sign in with Google
             </Button>
             
-            <Button 
-              onClick={handleReturnHome}
-              variant="outline"
-              className="w-full hover:cursor-pointer"
-              size="lg"
-            >
-              Return to Home Page
-            </Button>
+            {closable ? (
+              <Button 
+                onClick={onClose}
+                variant="outline"
+                className="w-full hover:cursor-pointer"
+                size="lg"
+              >
+                Continue as Guest
+              </Button>
+            ) : (
+              <Button 
+                onClick={handleReturnHome}
+                variant="outline"
+                className="w-full hover:cursor-pointer"
+                size="lg"
+              >
+                Return to Home Page
+              </Button>
+            )}
             
             <div className="text-center">
               <p className="text-xs text-muted-foreground">

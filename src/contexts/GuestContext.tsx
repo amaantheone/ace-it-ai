@@ -6,13 +6,13 @@ import { useSession } from 'next-auth/react';
 interface GuestContextType {
   isGuest: boolean;
   guestMessageCount: number;
-  incrementGuestMessageCount: () => void;
+  incrementGuestMessageCount: () => number;
   resetGuestMessageCount: () => void;
   guestMindmapCount: number;
-  incrementGuestMindmapCount: () => void;
+  incrementGuestMindmapCount: () => number;
   resetGuestMindmapCount: () => void;
   guestIndividualFlashcardCount: number;
-  incrementGuestIndividualFlashcardCount: () => void;
+  incrementGuestIndividualFlashcardCount: () => number;
   resetGuestIndividualFlashcardCount: () => void;
   
   // Feature-specific login popup flags
@@ -173,45 +173,30 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
   // Check if should show feature-specific login popups
   useEffect(() => {
     if (isGuest) {
-      // Chat login popup
-      const shouldShowForChat = guestMessageCount >= 4;
-      if (shouldShowForChat && !showChatLoginPopup) {
-        setShowChatLoginPopup(true);
-      }
-      
-      // Mindmap login popup
-      const shouldShowForMindmap = guestMindmapCount >= 2;
-      if (shouldShowForMindmap && !showMindmapLoginPopup) {
-        setShowMindmapLoginPopup(true);
-      }
-      
-      // Flashcard login popup
-      const shouldShowForFlashcard = guestIndividualFlashcardCount >= 4;
-      if (shouldShowForFlashcard && !showFlashcardLoginPopup) {
-        setShowFlashcardLoginPopup(true);
-      }
-      
-      // Legacy behavior: set global popup if any feature popup is true
-      if ((shouldShowForChat || shouldShowForMindmap || shouldShowForFlashcard) && !showLoginPopup) {
+      // We no longer automatically show popups on load based on counts
+      // This effect now only updates the legacy showLoginPopup if any of the 
+      // feature-specific popups are set to true by other parts of the code
+      if ((showChatLoginPopup || showMindmapLoginPopup || showFlashcardLoginPopup) && !showLoginPopup) {
         setShowLoginPopup(true);
       }
     }
   }, [
-    guestMessageCount, 
-    guestMindmapCount, 
-    guestIndividualFlashcardCount, 
     isGuest, 
     showLoginPopup,
     showChatLoginPopup,
     showMindmapLoginPopup,
-    showFlashcardLoginPopup
+    showFlashcardLoginPopup,
+    setShowLoginPopup
   ]);
 
   const incrementGuestMessageCount = useCallback(() => {
     if (isGuest) {
-      setGuestMessageCount(prev => prev + 1);
+      const newCount = guestMessageCount + 1;
+      setGuestMessageCount(newCount);
+      return newCount;
     }
-  }, [isGuest]);
+    return 0;
+  }, [isGuest, guestMessageCount]);
 
   const resetGuestMessageCount = useCallback(() => {
     setGuestMessageCount(0);
@@ -224,9 +209,12 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
 
   const incrementGuestMindmapCount = useCallback(() => {
     if (isGuest) {
-      setGuestMindmapCount(prev => prev + 1);
+      const newCount = guestMindmapCount + 1;
+      setGuestMindmapCount(newCount);
+      return newCount;
     }
-  }, [isGuest]);
+    return 0;
+  }, [isGuest, guestMindmapCount]);
 
   const resetGuestMindmapCount = useCallback(() => {
     setGuestMindmapCount(0);
@@ -239,9 +227,12 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
 
   const incrementGuestIndividualFlashcardCount = useCallback(() => {
     if (isGuest) {
-      setGuestIndividualFlashcardCount(prev => prev + 1);
+      const newCount = guestIndividualFlashcardCount + 1;
+      setGuestIndividualFlashcardCount(newCount);
+      return newCount;
     }
-  }, [isGuest]);
+    return 0;
+  }, [isGuest, guestIndividualFlashcardCount]);
 
   const resetGuestIndividualFlashcardCount = useCallback(() => {
     setGuestIndividualFlashcardCount(0);

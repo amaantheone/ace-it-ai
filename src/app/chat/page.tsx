@@ -21,6 +21,7 @@ export default function ChatPage() {
     isGuest, 
     incrementGuestMessageCount, 
     showChatLoginPopup,
+    setShowChatLoginPopup,
     saveGuestData,
     loadGuestData 
   } = useGuest();
@@ -217,9 +218,13 @@ export default function ChatPage() {
   const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     if (!currentSessionId) return;
     
-    // Increment guest message count if in guest mode
+    // Check guest message count and show popup if limit reached (4 messages)
     if (isGuest) {
-      incrementGuestMessageCount();
+      const newCount = incrementGuestMessageCount();
+      if (newCount >= 4) {
+        setShowChatLoginPopup(true);
+        return; // Prevent sending more messages if limit reached
+      }
     }
     
     handleSendMessageUtil(e, {
@@ -243,9 +248,13 @@ export default function ChatPage() {
   const handleSuggestionClick = async (text: string) => {
     if (!currentSessionId) return;
     
-    // Increment guest message count if in guest mode
+    // Check guest message count and show popup if limit reached (4 messages)
     if (isGuest) {
-      incrementGuestMessageCount();
+      const newCount = incrementGuestMessageCount();
+      if (newCount >= 4) {
+        setShowChatLoginPopup(true);
+        return; // Prevent sending more messages if limit reached
+      }
     }
     
     // Optimistically add the user message to the chat
@@ -296,7 +305,8 @@ export default function ChatPage() {
         isOpen={showChatLoginPopup}
         title="Continue with an Account"
         description="You've sent 3 messages as a guest. Please sign in to continue chatting and save your conversations."
-        closable={false}
+        closable={true}
+        onClose={() => setShowChatLoginPopup(false)}
       />
 
       {/* Sidebar for desktop (flex child) */}

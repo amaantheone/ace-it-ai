@@ -1,8 +1,9 @@
 'use client';
 
-import { Paperclip, CornerDownLeft } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatInput as BaseChatInput } from "./chat-input";
+import { SendButton } from "./send-button";
 import { useRef, useState } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -133,16 +134,12 @@ export function ChatInputArea({
                 onChange={handleFileChange}
               />
             </div>
-            <Button
-              type="submit"
-              disabled={!input || isLoading}
-              variant="default"
-              size="sm"
-              className="gap-2"
-            >
-              Send message
-              <CornerDownLeft className="h-4 w-4" />
-            </Button>
+            <SendButton
+              input={combinedInput}
+              isLoading={isLoading}
+              onSubmit={onSubmit}
+              formRef={formRef}
+            />
           </div>
         </form>
       </div>

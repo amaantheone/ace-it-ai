@@ -26,8 +26,10 @@ export default function MindmapPage() {
   const { theme, toggleTheme } = useTheme();
   const { 
     isGuest, 
-    incrementGuestMindmapCount, 
+    incrementGuestMindmapCount,
+    guestMindmapCount,
     showMindmapLoginPopup,
+    setShowMindmapLoginPopup,
     saveGuestData,
     loadGuestData 
   } = useGuest();
@@ -114,6 +116,16 @@ export default function MindmapPage() {
       setError('Please enter a topic');
       return;
     }
+
+    // Check guest limits BEFORE making the API call
+    if (isGuest) {
+      // If we already reached the limit (1 or more mindmaps), show popup and don't proceed
+      if (guestMindmapCount >= 1) {
+        setShowMindmapLoginPopup(true);
+        return;
+      }
+    }
+    
     setIsLoading(true);
     setError('');
     try {
@@ -159,8 +171,11 @@ export default function MindmapPage() {
         saveGuestData('guest_mindmaps', guestMindmaps);
         setMindmaps(guestMindmaps);
         
-        // Increment guest mindmap count
-        incrementGuestMindmapCount();
+        // Increment guest mindmap count and check limits
+        const newCount = incrementGuestMindmapCount();
+        if (newCount >= 2) {
+          setShowMindmapLoginPopup(true);
+        }
       } else {
         // For authenticated users, refetch mindmaps and update cache
         fetch('/api/mindmap')
@@ -371,7 +386,8 @@ export default function MindmapPage() {
         isOpen={showMindmapLoginPopup}
         title="Sign in to Continue Creating Mindmaps"
         description="You've created 1 mindmap as a guest. Sign in to unlock unlimited mindmap creation and save your work!"
-        closable={false}
+        closable={true}
+        onClose={() => setShowMindmapLoginPopup(false)}
       />
     </div>
   );
