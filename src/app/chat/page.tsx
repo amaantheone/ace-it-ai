@@ -2,28 +2,28 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useGuest } from "../../contexts/GuestContext";
 import { useSessionStore, Message, Session } from "../../hooks/useSessionStore";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Sidebar } from "../../components/ui/chat/sidebar";
 import { ChatHeader } from "../../components/ui/chat/chat-header";
 import { ChatInputArea } from "../../components/ui/chat/chat-input-area";
 import { ChatMessages } from "../../components/ui/chat/chat-messages";
+import { LoginPopup } from "../../components/ui/login-popup";
 import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil } from "../../utils/chatFunctions/messageHandlers";
 import { generateTitle as generateTitleUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil } from "../../utils/chatFunctions/sessionHandlers";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 
 export default function ChatPage() {
-  const router = useRouter();
-  const { data: session, status } = useSession();
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/auth/login");
-    }
-  }, [status, router]);
+  const { data: session } = useSession();
+  const { 
+    isGuest, 
+    incrementGuestMessageCount, 
+    showLoginPopup,
+    saveGuestData,
+    loadGuestData 
+  } = useGuest();
 
   const {
     sessions,
@@ -94,64 +94,102 @@ export default function ChatPage() {
     };
   }, [isUserMenuOpen]);
 
+  // Guest localStorage keys
+  const GUEST_SESSIONS_KEY = 'guest_sessions';
+  const GUEST_MESSAGES_KEY = 'guest_messages';
+
   // Load initial sessions
   useEffect(() => {
     async function loadSessions() {
-      try {
-        const response = await fetch('/api/session');
-        if (!response.ok) {
-          throw new Error('Failed to load sessions');
-        }
-        const data = await response.json();
-        setSessions(data);
-        
-        // If there are no sessions, create one
-        if (data.length === 0) {
-          const newSessionResponse = await fetch('/api/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          });
-
-          if (!newSessionResponse.ok) {
-            throw new Error('Failed to create session');
-          }
-
-          const newSession = await newSessionResponse.json();
+      if (isGuest) {
+        // Guest: load from localStorage using context
+        const guestSessions = (loadGuestData(GUEST_SESSIONS_KEY) as Session[]) || [];
+        setSessions(guestSessions);
+        if (guestSessions.length === 0) {
+          // Create a new guest session (with all required fields)
+          const newSession: Session = {
+            id: crypto.randomUUID(),
+            topic: '',
+            startedAt: new Date(),
+          };
           setSessions([newSession]);
           setCurrentSessionId(newSession.id);
-          setIsLoading(true);
           setMessages(newSession.id, []);
-          setIsLoading(false);
+          saveGuestData(GUEST_SESSIONS_KEY, [newSession]);
+          saveGuestData(GUEST_MESSAGES_KEY, { [newSession.id]: [] });
         } else {
-          // Set the most recent session as current if none is selected
           if (!currentSessionId) {
-            setCurrentSessionId(data[0].id);
+            setCurrentSessionId(guestSessions[0].id);
           }
         }
-      } catch (error) {
-        console.error('Error loading sessions:', error);
+      } else {
+        // Authenticated: use API (existing functionality unchanged)
+        try {
+          const response = await fetch('/api/session');
+          if (!response.ok) {
+            throw new Error('Failed to load sessions');
+          }
+          const data = await response.json();
+          setSessions(data);
+          if (data.length === 0) {
+            const newSessionResponse = await fetch('/api/session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            if (!newSessionResponse.ok) {
+              throw new Error('Failed to create session');
+            }
+            const newSession = await newSessionResponse.json();
+            setSessions([newSession]);
+            setCurrentSessionId(newSession.id);
+            setIsLoading(true);
+            setMessages(newSession.id, []);
+            setIsLoading(false);
+          } else {
+            if (!currentSessionId) {
+              setCurrentSessionId(data[0].id);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading sessions:', error);
+        }
       }
     }
     loadSessions();
-  }, [setSessions, setCurrentSessionId, setMessages, setIsLoading, currentSessionId]);
+  }, [setSessions, setCurrentSessionId, setMessages, setIsLoading, currentSessionId, isGuest, loadGuestData, saveGuestData]);
 
   // Load messages when switching sessions
   useEffect(() => {
     async function loadMessages() {
       if (!currentSessionId) return;
-      try {
-        const response = await fetch(`/api/session/${currentSessionId}/messages`);
-        if (!response.ok) {
-          throw new Error('Failed to load messages');
+      if (isGuest) {
+        // Guest: load from localStorage using context
+        const guestMessages = (loadGuestData(GUEST_MESSAGES_KEY) as Record<string, Message[]>) || {};
+        setMessages(currentSessionId, guestMessages[currentSessionId] || []);
+      } else {
+        // Authenticated: use API (existing functionality unchanged)
+        try {
+          const response = await fetch(`/api/session/${currentSessionId}/messages`);
+          if (!response.ok) {
+            throw new Error('Failed to load messages');
+          }
+          const data = await response.json();
+          setMessages(currentSessionId, data);
+        } catch (error) {
+          console.error('Error loading messages:', error);
         }
-        const data = await response.json();
-        setMessages(currentSessionId, data);
-      } catch (error) {
-        console.error('Error loading messages:', error);
       }
     }
     loadMessages();
-  }, [currentSessionId, setMessages]);
+  }, [currentSessionId, setMessages, isGuest, loadGuestData]);
+
+  // Save sessions/messages to localStorage on change (guest only)
+  useEffect(() => {
+    if (isGuest) {
+      saveGuestData(GUEST_SESSIONS_KEY, sessions);
+      saveGuestData(GUEST_MESSAGES_KEY, messages);
+    }
+  }, [sessions, messages, isGuest, saveGuestData]);
 
   const generateTitle = useCallback(async (sessionId: string, message: string) => {
     await generateTitleUtil(sessionId, message, sessions as Session[], setSessions);
@@ -178,6 +216,12 @@ export default function ChatPage() {
 
   const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
     if (!currentSessionId) return;
+    
+    // Increment guest message count if in guest mode
+    if (isGuest) {
+      incrementGuestMessageCount();
+    }
+    
     handleSendMessageUtil(e, {
       input,
       currentSessionId,
@@ -191,12 +235,19 @@ export default function ChatPage() {
       formRef: formRef as React.RefObject<HTMLFormElement>,
       selectedFile,
       setSelectedFile,
+      isGuestMode: isGuest,
     });
   };
 
   // Handler to send a suggestion as a user message
   const handleSuggestionClick = async (text: string) => {
     if (!currentSessionId) return;
+    
+    // Increment guest message count if in guest mode
+    if (isGuest) {
+      incrementGuestMessageCount();
+    }
+    
     // Optimistically add the user message to the chat
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -226,7 +277,8 @@ export default function ChatPage() {
       setMessages,
       setSessions,
       sessions: sessions as Session[],
-      formRef: formRef as React.RefObject<HTMLFormElement>
+      formRef: formRef as React.RefObject<HTMLFormElement>,
+      isGuestMode: isGuest,
     });
     setIsLoading(false);
   };
@@ -239,6 +291,14 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen w-screen bg-background text-foreground">
+      {/* Login Popup for guests after 3 messages */}
+      <LoginPopup 
+        isOpen={showLoginPopup}
+        title="Continue with an Account"
+        description="You've sent 3 messages as a guest. Please sign in to continue chatting and save your conversations."
+        closable={false}
+      />
+
       {/* Sidebar for desktop (flex child) */}
       <div className={`hidden md:block w-64 flex-shrink-0 transition-all duration-300 ${isSidebarOpen ? '' : 'md:-ml-64'}`}> 
         <Sidebar 

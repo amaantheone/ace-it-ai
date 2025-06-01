@@ -58,6 +58,8 @@ export async function POST(req: Request) {
     let pdfBuffer: Buffer | null = null;
     let sessionId: string = "";
     let userMessageId: string | undefined;
+    let isGuestMode: boolean = false;
+    let guestMessages: { role: string; content: string; id?: string }[] = [];
 
     if (contentType.includes("multipart/form-data")) {
       // Parse multipart form data
@@ -65,6 +67,11 @@ export async function POST(req: Request) {
       message = formData.get("message") as string;
       sessionId = formData.get("sessionId") as string;
       userMessageId = formData.get("userMessageId") as string | undefined;
+      isGuestMode = formData.get("isGuestMode") === "true";
+      const guestMessagesStr = formData.get("guestMessages") as string;
+      if (guestMessagesStr) {
+        guestMessages = JSON.parse(guestMessagesStr);
+      }
       const file = formData.get("pdf") as File | null;
       if (file) {
         if (file.size > 10 * 1024 * 1024) {
@@ -83,27 +90,53 @@ export async function POST(req: Request) {
       message = body.message;
       sessionId = body.sessionId;
       userMessageId = body.userMessageId;
+      isGuestMode = body.isGuestMode || false;
+      guestMessages = body.guestMessages || [];
     }
     if (!sessionId) throw new Error("Session ID is required");
 
-    // Only allow authenticated users
+    // Check authentication - allow guest mode
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    let user = null;
+
+    if (!isGuestMode) {
+      // Authenticated mode - require session
+      if (!session?.user?.email) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      // Get user
+      user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+      });
+      if (!user) throw new Error("User not found");
     }
 
-    // Get user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-    if (!user) throw new Error("User not found");
+    // Retrieve previous messages - from database for authenticated users, from request for guests
+    let prevMessages: {
+      role: string;
+      content: string;
+      id?: string;
+      createdAt?: Date;
+    }[] = [];
 
-    // Retrieve previous messages from the database for this session
-    const prevMessages = await prisma.message.findMany({
-      where: { sessionId },
-      orderBy: { createdAt: "asc" },
-      take: MAX_HISTORY,
-    });
+    if (isGuestMode) {
+      // Guest mode: use messages from request body, limited to MAX_HISTORY
+      prevMessages = guestMessages.slice(-MAX_HISTORY);
+    } else {
+      // Authenticated mode: retrieve from database
+      const dbMessages = await prisma.message.findMany({
+        where: { sessionId },
+        orderBy: { createdAt: "asc" },
+        take: MAX_HISTORY,
+      });
+      prevMessages = dbMessages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+        id: msg.id,
+        createdAt: msg.createdAt,
+      }));
+    }
 
     // Build conversation history for the LLM
     const messages: [string, string][] = [["system", SYSTEM_MESSAGE]];
@@ -164,101 +197,109 @@ export async function POST(req: Request) {
     // (Removed unused lastUserMsg logic; handled by userMessageId and message scan above)
 
     if (req.headers.get("x-regenerate") === "true") {
-      // Regenerate: delete the AI message after the specified user message (or last if not provided), then create a new one
-      const messages = await prisma.message.findMany({
-        where: { sessionId },
-        orderBy: { createdAt: "asc" },
-      });
-      let userIdx = -1;
-      if (userMessageId) {
-        userIdx = messages.findIndex(
-          (m) => m.id === userMessageId && m.role === "user"
-        );
-      } else {
-        // Default to last user message
-        for (let i = messages.length - 1; i >= 0; i--) {
-          if (messages[i].role === "user") {
-            userIdx = i;
-            break;
+      // Regenerate: for authenticated users, delete the AI message after the specified user message
+      // For guest users, we don't need to delete from database since we don't persist
+      if (!isGuestMode && user) {
+        const messages = await prisma.message.findMany({
+          where: { sessionId },
+          orderBy: { createdAt: "asc" },
+        });
+        let userIdx = -1;
+        if (userMessageId) {
+          userIdx = messages.findIndex(
+            (m) => m.id === userMessageId && m.role === "user"
+          );
+        } else {
+          // Default to last user message
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === "user") {
+              userIdx = i;
+              break;
+            }
           }
         }
-      }
-      let aiToDeleteId: string | null = null;
-      if (
-        userIdx !== -1 &&
-        userIdx + 1 < messages.length &&
-        messages[userIdx + 1].role === "ai"
-      ) {
-        aiToDeleteId = messages[userIdx + 1].id;
-      }
-      if (aiToDeleteId) {
-        await prisma.message.delete({ where: { id: aiToDeleteId } });
-      }
-      // Build conversation history for the LLM up to and including the user message
-      const messagesForLLM = [["system", SYSTEM_MESSAGE]];
-      for (let i = 0; i <= userIdx; i++) {
-        const msg = messages[i];
-        messagesForLLM.push([
-          msg.role === "user" ? "human" : "ai",
-          msg.content,
-        ]);
-      }
-      // Add the new user message content if not already present (for UI-initiated regeneration)
-      if (
-        !userMessageId &&
-        message &&
-        (!messages[userIdx] || messages[userIdx].content !== message)
-      ) {
-        messagesForLLM.push(["human", message]);
-      }
-      const llmMessages = messagesForLLM.map(([role, content]) => {
-        if (role === "system") return { role: "system", content };
-        if (role === "human") return { role: "user", content };
-        return { role: "assistant", content };
-      });
-      const response = await llm.invoke(llmMessages);
-      const responseText = String(response.content);
-      // Insert the new AI message with a createdAt just after the user message
-      let createdAt = new Date();
-      if (userIdx !== -1 && messages[userIdx]?.createdAt) {
-        // Add 1 millisecond to the user message's createdAt to ensure correct order
-        createdAt = new Date(
-          new Date(messages[userIdx].createdAt).getTime() + 1
-        );
-      }
-      await prisma.message.create({
-        data: {
-          role: "ai",
-          content: responseText,
-          sessionId,
-          userId: user.id,
-          createdAt,
-        },
-      });
-      return NextResponse.json({ message: responseText });
-    } else {
-      // Normal: create both user and AI messages
-      await prisma.$transaction([
-        prisma.message.create({
-          data: {
-            role: "user",
-            content: message,
-            sessionId,
-            userId: user.id,
-          },
-        }),
-        prisma.message.create({
+        let aiToDeleteId: string | null = null;
+        if (
+          userIdx !== -1 &&
+          userIdx + 1 < messages.length &&
+          messages[userIdx + 1].role === "ai"
+        ) {
+          aiToDeleteId = messages[userIdx + 1].id;
+        }
+        if (aiToDeleteId) {
+          await prisma.message.delete({ where: { id: aiToDeleteId } });
+        }
+        // Build conversation history for the LLM up to and including the user message
+        const messagesForLLM = [["system", SYSTEM_MESSAGE]];
+        for (let i = 0; i <= userIdx; i++) {
+          const msg = messages[i];
+          messagesForLLM.push([
+            msg.role === "user" ? "human" : "ai",
+            msg.content,
+          ]);
+        }
+        // Add the new user message content if not already present (for UI-initiated regeneration)
+        if (
+          !userMessageId &&
+          message &&
+          (!messages[userIdx] || messages[userIdx].content !== message)
+        ) {
+          messagesForLLM.push(["human", message]);
+        }
+        const llmMessages = messagesForLLM.map(([role, content]) => {
+          if (role === "system") return { role: "system", content };
+          if (role === "human") return { role: "user", content };
+          return { role: "assistant", content };
+        });
+        const response = await llm.invoke(llmMessages);
+        const responseText = String(response.content);
+        // Insert the new AI message with a createdAt just after the user message
+        let createdAt = new Date();
+        if (userIdx !== -1 && messages[userIdx]?.createdAt) {
+          // Add 1 millisecond to the user message's createdAt to ensure correct order
+          createdAt = new Date(
+            new Date(messages[userIdx].createdAt).getTime() + 1
+          );
+        }
+        await prisma.message.create({
           data: {
             role: "ai",
             content: responseText,
             sessionId,
             userId: user.id,
+            createdAt,
           },
-        }),
-      ]);
+        });
+        return NextResponse.json({ message: responseText });
+      } else {
+        // Guest mode regeneration: just return new response without database operations
+        return NextResponse.json({ message: responseText });
+      }
+    } else {
+      // Normal flow: create messages for authenticated users, just return response for guests
+      if (!isGuestMode && user) {
+        await prisma.$transaction([
+          prisma.message.create({
+            data: {
+              role: "user",
+              content: message,
+              sessionId,
+              userId: user.id,
+            },
+          }),
+          prisma.message.create({
+            data: {
+              role: "ai",
+              content: responseText,
+              sessionId,
+              userId: user.id,
+            },
+          }),
+        ]);
+      }
+      // For both authenticated and guest users, return the response
+      return NextResponse.json({ message: responseText });
     }
-
-    return NextResponse.json({ message: responseText });
   } catch (error) {
     console.error("Error:", error);
     return NextResponse.json(

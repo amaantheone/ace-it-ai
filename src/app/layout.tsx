@@ -4,9 +4,8 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { SessionProviderWrapper } from "../contexts/SessionContext";
 import { NextAuthProvider } from "../components/providers/NextAuthProvider";
 import { FlashCardProvider } from "../contexts/FlashCardContext";
+import { GuestProvider } from "../contexts/GuestContext";
 import { SpeedInsights } from "@vercel/speed-insights/next"
-
-// Remove unused import if not needed
 
 export const metadata: Metadata = {
   title: "Ace It AI",
@@ -26,10 +25,12 @@ export default function RootLayout({
           <ThemeProvider>
             <SessionProviderWrapper>
               <NextAuthProvider>
-                <FlashCardProvider>
-                  {children}
-                  <SpeedInsights />
-                </FlashCardProvider>
+                <GuestProvider>
+                  <FlashCardProvider>
+                    {children}
+                    <SpeedInsights />
+                  </FlashCardProvider>
+                </GuestProvider>
               </NextAuthProvider>
             </SessionProviderWrapper>
           </ThemeProvider>

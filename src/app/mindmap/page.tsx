@@ -24,7 +24,7 @@ interface MindmapData {
 
 export default function MindmapPage() {
   const router = useRouter();
-  const { status } = useSession(); // remove 'session' as it's unused
+  const { status } = useSession();
   const { theme, toggleTheme } = useTheme();
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
