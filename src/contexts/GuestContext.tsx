@@ -11,6 +11,9 @@ interface GuestContextType {
   guestMindmapCount: number;
   incrementGuestMindmapCount: () => void;
   resetGuestMindmapCount: () => void;
+  guestIndividualFlashcardCount: number;
+  incrementGuestIndividualFlashcardCount: () => void;
+  resetGuestIndividualFlashcardCount: () => void;
   showLoginPopup: boolean;
   setShowLoginPopup: (show: boolean) => void;
   clearGuestData: () => void;
@@ -37,6 +40,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
   const { data: session } = useSession();
   const [guestMessageCount, setGuestMessageCount] = useState(0);
   const [guestMindmapCount, setGuestMindmapCount] = useState(0);
+  const [guestIndividualFlashcardCount, setGuestIndividualFlashcardCount] = useState(0);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
 
   // Determine if user is guest
@@ -46,6 +50,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
   const GUEST_FLAG_KEY = 'isGuest';
   const GUEST_MESSAGE_COUNT_KEY = 'guest_message_count';
   const GUEST_MINDMAP_COUNT_KEY = 'guest_mindmap_count';
+  const GUEST_INDIVIDUAL_FLASHCARD_COUNT_KEY = 'guest_individual_flashcard_count';
   const GUEST_SESSIONS_KEY = 'guest_sessions';
   const GUEST_MESSAGES_KEY = 'guest_messages';
   const GUEST_FLASHCARDS_KEY = 'guest_flashcards';
@@ -58,6 +63,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
       localStorage.removeItem(GUEST_FLAG_KEY);
       localStorage.removeItem(GUEST_MESSAGE_COUNT_KEY);
       localStorage.removeItem(GUEST_MINDMAP_COUNT_KEY);
+      localStorage.removeItem(GUEST_INDIVIDUAL_FLASHCARD_COUNT_KEY);
       localStorage.removeItem(GUEST_SESSIONS_KEY);
       localStorage.removeItem(GUEST_MESSAGES_KEY);
       localStorage.removeItem(GUEST_FLASHCARDS_KEY);
@@ -78,7 +84,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
     }
   }, []);
 
-  // Load guest message count from localStorage
+  // Load guest counts from localStorage
   useEffect(() => {
     if (isGuest) {
       try {
@@ -90,6 +96,10 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
         if (savedMindmapCount) {
           setGuestMindmapCount(parseInt(savedMindmapCount, 10));
         }
+        const savedIndividualFlashcardCount = localStorage.getItem(GUEST_INDIVIDUAL_FLASHCARD_COUNT_KEY);
+        if (savedIndividualFlashcardCount) {
+          setGuestIndividualFlashcardCount(parseInt(savedIndividualFlashcardCount, 10));
+        }
         localStorage.setItem(GUEST_FLAG_KEY, 'true');
       } catch (error) {
         console.error('Error loading guest counts:', error);
@@ -99,6 +109,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
       clearGuestData();
       setGuestMessageCount(0);
       setGuestMindmapCount(0);
+      setGuestIndividualFlashcardCount(0);
       setShowLoginPopup(false);
     }
   }, [isGuest, clearGuestData]);
@@ -125,12 +136,29 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
     }
   }, [guestMindmapCount, isGuest]);
 
-  // Check if should show login popup (after 4 messages or 2 mindmaps)
+  // Save guest individual flashcard count to localStorage
   useEffect(() => {
-    if (isGuest && (guestMessageCount >= 4 || guestMindmapCount >= 2) && !showLoginPopup) {
-      setShowLoginPopup(true);
+    if (isGuest) {
+      try {
+        localStorage.setItem(GUEST_INDIVIDUAL_FLASHCARD_COUNT_KEY, guestIndividualFlashcardCount.toString());
+      } catch (error) {
+        console.error('Error saving guest individual flashcard count:', error);
+      }
     }
-  }, [guestMessageCount, guestMindmapCount, isGuest, showLoginPopup]);
+  }, [guestIndividualFlashcardCount, isGuest]);
+
+  // Check if should show login popup (after 4 messages, 2 mindmaps, or 4 individual flashcards)
+  useEffect(() => {
+    if (isGuest && !showLoginPopup) {
+      const shouldShowForMessages = guestMessageCount >= 4;
+      const shouldShowForMindmaps = guestMindmapCount >= 2;
+      const shouldShowForFlashcards = guestIndividualFlashcardCount >= 4;
+      
+      if (shouldShowForMessages || shouldShowForMindmaps || shouldShowForFlashcards) {
+        setShowLoginPopup(true);
+      }
+    }
+  }, [guestMessageCount, guestMindmapCount, guestIndividualFlashcardCount, isGuest, showLoginPopup]);
 
   const incrementGuestMessageCount = useCallback(() => {
     if (isGuest) {
@@ -159,6 +187,21 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
       localStorage.removeItem(GUEST_MINDMAP_COUNT_KEY);
     } catch (error) {
       console.error('Error resetting guest mindmap count:', error);
+    }
+  }, []);
+
+  const incrementGuestIndividualFlashcardCount = useCallback(() => {
+    if (isGuest) {
+      setGuestIndividualFlashcardCount(prev => prev + 1);
+    }
+  }, [isGuest]);
+
+  const resetGuestIndividualFlashcardCount = useCallback(() => {
+    setGuestIndividualFlashcardCount(0);
+    try {
+      localStorage.removeItem(GUEST_INDIVIDUAL_FLASHCARD_COUNT_KEY);
+    } catch (error) {
+      console.error('Error resetting guest individual flashcard count:', error);
     }
   }, []);
 
@@ -203,6 +246,9 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
     guestMindmapCount,
     incrementGuestMindmapCount,
     resetGuestMindmapCount,
+    guestIndividualFlashcardCount,
+    incrementGuestIndividualFlashcardCount,
+    resetGuestIndividualFlashcardCount,
     showLoginPopup,
     setShowLoginPopup,
     clearGuestData,

@@ -10,7 +10,8 @@ import { FlashCard, FlashCardData } from '@/components/ui/flashcard/flash-card';
 import { FlashCardSidebar } from '@/components/ui/flashcard/flashcard-sidebar';
 import { FlashCardProvider, useFlashCards } from '@/contexts/FlashCardContext';
 import { ChatInput } from '@/components/ui/chat/chat-input';
-import { useSession } from "next-auth/react";
+import { useGuest } from '@/contexts/GuestContext';
+import { LoginPopup } from '@/components/ui/login-popup';
 
 function FlashCardPageContent() {
   const searchParams = useSearchParams();
@@ -22,7 +23,13 @@ function FlashCardPageContent() {
     updateFlashCard,
     deleteFlashCard,
   } = useFlashCards();
-  const { status } = useSession();
+  const {
+    isGuest,
+    guestIndividualFlashcardCount,
+    incrementGuestIndividualFlashcardCount,
+    showLoginPopup,
+    setShowLoginPopup
+  } = useGuest();
 
   const [topic, setTopic] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -45,18 +52,29 @@ function FlashCardPageContent() {
   // Load flashcard list from localStorage
   const loadFlashCardListFromCache = useCallback((): FlashCardData[] | null => {
     try {
+      // For guests, prioritize guest_flashcards key, fallback to flashcard_list
+      if (isGuest) {
+        const guestCached = localStorage.getItem('guest_flashcards');
+        if (guestCached) return JSON.parse(guestCached);
+      }
       const cached = localStorage.getItem(FLASHCARD_LIST_KEY);
       if (cached) return JSON.parse(cached);
     } catch {}
     return null;
-  }, []);
+  }, [isGuest]);
 
   // Save flashcard list to localStorage
   const saveFlashCardListToCache = useCallback((list: FlashCardData[]) => {
     try {
-      localStorage.setItem(FLASHCARD_LIST_KEY, JSON.stringify(list));
+      if (isGuest) {
+        // For guests, save to guest_flashcards key
+        localStorage.setItem('guest_flashcards', JSON.stringify(list));
+      } else {
+        // For authenticated users, save to flashcard_list key
+        localStorage.setItem(FLASHCARD_LIST_KEY, JSON.stringify(list));
+      }
     } catch {}
-  }, []);
+  }, [isGuest]);
 
   // Load folders from localStorage
   const loadFoldersFromCache = useCallback((): { id: string; name: string; cardIds: string[] }[] | null => {
@@ -97,35 +115,43 @@ function FlashCardPageContent() {
     } catch {}
   }, []);
 
-  // --- Fetch flashcard list and folders: cache first, then API ---
+  // Update flashcard list and folders fetching for guest/authenticated users
   useEffect(() => {
-    const cachedList = loadFlashCardListFromCache();
-    if (cachedList) setFlashCards(cachedList);
-    const cachedFolders = loadFoldersFromCache();
-    if (cachedFolders) setFolders(cachedFolders);
-    // Always update from API
-    fetch('/api/flashcard')
-      .then(res => res.json())
-      .then(data => {
-        setFlashCards(data.flashCards || []);
-        saveFlashCardListToCache(data.flashCards || []);
-      });
-    fetch('/api/flashcard/folder')
-      .then(res => res.json())
-      .then(data => {
-        setFolders(data.folders || []);
-        saveFoldersToCache(data.folders || []);
-      });
-  }, [loadFlashCardListFromCache, saveFlashCardListToCache, loadFoldersFromCache, saveFoldersToCache, setFlashCards, setFolders]);
+    if (isGuest) {
+      // For guests, load from localStorage only
+      const cachedList = loadFlashCardListFromCache();
+      if (cachedList) setFlashCards(cachedList);
+      const cachedFolders = loadFoldersFromCache();
+      if (cachedFolders) setFolders(cachedFolders);
+    } else {
+      // For authenticated users, clear any guest data first, then load from API
+      setFlashCards([]);
+      setFolders([]);
+      
+      // Always update from API for authenticated users
+      fetch('/api/flashcard')
+        .then(res => res.json())
+        .then(data => {
+          setFlashCards(data.flashCards || []);
+          saveFlashCardListToCache(data.flashCards || []);
+        });
+      fetch('/api/flashcard/folder')
+        .then(res => res.json())
+        .then(data => {
+          setFolders(data.folders || []);
+          saveFoldersToCache(data.folders || []);
+        });
+    }
+  }, [isGuest, loadFlashCardListFromCache, saveFlashCardListToCache, loadFoldersFromCache, saveFoldersToCache, setFlashCards, setFolders]);
 
-  // Update fetchCard to use cache
+  // Update fetchCard to use cache and support guest mode
   const fetchCard = useCallback(async (id: string) => {
     // Try cache first
     const cached = loadFlashCardFromCache(id);
     if (cached) {
       setCurrentCard(cached);
       // If the card has a folderId, fetch all cards in that folder (from state or cache)
-      if (cached.folderId) {
+      if (cached.folderId && !isGuest) {
         const folder = (loadFoldersFromCache() || []).find(f => f.id === cached.folderId);
         if (folder) {
           const folderCards = (loadFlashCardListFromCache() || []).filter(card => folder.cardIds.includes(card.id!));
@@ -136,7 +162,13 @@ function FlashCardPageContent() {
       }
       return;
     }
-    // Fallback to API
+    
+    if (isGuest) {
+      // For guests, only use localStorage - no API calls
+      return;
+    }
+    
+    // Fallback to API for authenticated users
     try {
       const response = await fetch(`/api/flashcard/${id}`);
       if (!response.ok) throw new Error('Failed to fetch flash card');
@@ -157,7 +189,7 @@ function FlashCardPageContent() {
       console.error('Error fetching flash card:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch flash card');
     }
-  }, [loadFlashCardFromCache, setCurrentCard, loadFoldersFromCache, loadFlashCardListFromCache, setCardsInFolder, setCurrentIndex, setError, saveFlashCardToCache]);
+  }, [loadFlashCardFromCache, setCurrentCard, loadFoldersFromCache, loadFlashCardListFromCache, setCardsInFolder, setCurrentIndex, setError, saveFlashCardToCache, isGuest]);
 
   // Handle window resize
   useEffect(() => {
@@ -187,13 +219,6 @@ function FlashCardPageContent() {
     }
   }, [searchParams, fetchCard]);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/auth/login");
-    }
-  }, [status, router]);
-
   const goToNextCard = () => {
     if (currentIndex < cardsInFolder.length - 1) {
       const prevCard = cardsInFolder[currentIndex + 1];
@@ -222,7 +247,7 @@ function FlashCardPageContent() {
         const formData = new FormData();
         formData.append('topic', topic);
         formData.append('count', String(bulkCount));
-        formData.append('createFolder', 'true');
+        formData.append('createFolder', isGuest ? 'false' : 'true'); // No folders for guests
         formData.append('pdf', pdfFile);
         response = await fetch('/api/flashcard/bulk', {
           method: 'POST',
@@ -239,7 +264,7 @@ function FlashCardPageContent() {
           body: JSON.stringify({
             topic,
             count: bulkCount,
-            createFolder: true
+            createFolder: !isGuest // No folders for guests
           }),
         });
       }
@@ -271,16 +296,24 @@ function FlashCardPageContent() {
           } catch {
             continue;
           }
-          if (data.folder && !folderAdded) {
+          if (data.folder && !folderAdded && !isGuest) {
             folder = data.folder;
             setFolders(prev => [...prev, folder!]);
             folderAdded = true;
           }
           if (data.flashCard) {
             cards.push(data.flashCard);
-            setFlashCards(prev => [...prev, data.flashCard]);
+            
+            if (isGuest) {
+              // For guests, save individual card to localStorage
+              saveFlashCardToCache(data.flashCard.id, data.flashCard);
+            } else {
+              // For authenticated users, add to state immediately
+              setFlashCards(prev => [...prev, data.flashCard]);
+            }
+            
             // If we have a folder, add this card's id to its cardIds (avoid duplicates)
-            if (folder && data.flashCard.id) {
+            if (folder && data.flashCard.id && !isGuest) {
               setFolders(prev => prev.map(f =>
                 f.id === folder!.id && !f.cardIds.includes(data.flashCard.id)
                   ? { ...f, cardIds: [...f.cardIds, data.flashCard.id] }
@@ -299,10 +332,21 @@ function FlashCardPageContent() {
           }
         }
       }
+      
       // If no cards were generated
       if (cards.length === 0) {
         throw new Error('No flashcards were generated');
       }
+      
+      // For guests, save all generated cards to localStorage
+      if (isGuest && cards.length > 0) {
+        const existingCards = loadFlashCardListFromCache() || [];
+        const updatedCards = [...cards, ...existingCards];
+        saveFlashCardListToCache(updatedCards);
+        // Also update the state to reflect the new cards
+        setFlashCards(updatedCards);
+      }
+      
       setTopic('');
     } catch (err) {
       console.error('Error generating flashcards:', err);
@@ -318,12 +362,24 @@ function FlashCardPageContent() {
       return;
     }
 
+    // Check guest limits for individual flashcards (limit reached at 4)
+    if (isGuest && guestIndividualFlashcardCount >= 4) {
+      setShowLoginPopup(true);
+      return;
+    }
+
+    // Prevent bulk generation for guests
+    if (isGuest && isBulk) {
+      setShowLoginPopup(true);
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     try {
       if (isBulk) {
-        // Handle bulk generation
+        // Handle bulk generation (only for authenticated users)
         await generateBulkFlashCards();
         return;
       }
@@ -344,26 +400,41 @@ function FlashCardPageContent() {
 
       const data = await response.json();
       setCurrentCard(data.flashCard);
-      await addFlashCard(data.flashCard);
-      // Ensure 'Uncategorized' folder is in state and updated
-      if (data.flashCard.folderId) {
-        setFolders(prev => {
-          // If folder already exists, add cardId if not present
-          const exists = prev.find(f => f.id === data.flashCard.folderId);
-          if (exists) {
-            return prev.map(f =>
-              f.id === data.flashCard.folderId && !f.cardIds.includes(data.flashCard.id)
-                ? { ...f, cardIds: [...f.cardIds, data.flashCard.id] }
-                : f
-            );
-          }
-          // If folder does not exist, add it
-          return [
-            { id: data.flashCard.folderId, name: 'Uncategorized', cardIds: [data.flashCard.id] },
-            ...prev,
-          ];
-        });
+      
+      if (isGuest) {
+        // For guests, save to localStorage and update state
+        saveFlashCardToCache(data.flashCard.id, data.flashCard);
+        const existingCards = loadFlashCardListFromCache() || [];
+        const updatedCards = [data.flashCard, ...existingCards];
+        saveFlashCardListToCache(updatedCards);
+        setFlashCards(updatedCards);
+        
+        // Increment guest individual flashcard count
+        incrementGuestIndividualFlashcardCount();
+      } else {
+        // For authenticated users, use the existing logic
+        await addFlashCard(data.flashCard);
+        // Ensure 'Uncategorized' folder is in state and updated
+        if (data.flashCard.folderId) {
+          setFolders(prev => {
+            // If folder already exists, add cardId if not present
+            const exists = prev.find(f => f.id === data.flashCard.folderId);
+            if (exists) {
+              return prev.map(f =>
+                f.id === data.flashCard.folderId && !f.cardIds.includes(data.flashCard.id)
+                  ? { ...f, cardIds: [...f.cardIds, data.flashCard.id] }
+                  : f
+              );
+            }
+            // If folder does not exist, add it
+            return [
+              { id: data.flashCard.folderId, name: 'Uncategorized', cardIds: [data.flashCard.id] },
+              ...prev,
+            ];
+          });
+        }
       }
+      
       setTopic(''); // Clear input after successful generation
       // Update the URL with the new card's id
       if (data.flashCard && data.flashCard.id) {
@@ -384,26 +455,44 @@ function FlashCardPageContent() {
     }
 
     try {
-      const response = await fetch(`/api/flashcard/${currentCard.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedCard),
-      });
+      if (isGuest) {
+        // For guests, update localStorage only
+        setCurrentCard(updatedCard);
+        updateFlashCard(updatedCard);
+        if (updatedCard.id) {
+          saveFlashCardToCache(updatedCard.id, updatedCard);
+        }
+        
+        // Update the guest flashcards list
+        const existingCards = loadFlashCardListFromCache() || [];
+        const updatedCards = existingCards.map(card => 
+          card.id === updatedCard.id ? updatedCard : card
+        );
+        saveFlashCardListToCache(updatedCards);
+        setFlashCards(updatedCards);
+      } else {
+        // For authenticated users, update via API
+        const response = await fetch(`/api/flashcard/${currentCard.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedCard),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update flashcard');
-      }
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update flashcard');
+        }
 
-      const { flashCard } = await response.json();
-      setCurrentCard(flashCard);
-      updateFlashCard(flashCard);
+        const { flashCard } = await response.json();
+        setCurrentCard(flashCard);
+        updateFlashCard(flashCard);
 
-      // Update URL if the ID has changed
-      if (flashCard.id && flashCard.id !== currentCard.id) {
-        router.push(`/flashcard?id=${flashCard.id}`);
+        // Update URL if the ID has changed
+        if (flashCard.id && flashCard.id !== currentCard.id) {
+          router.push(`/flashcard?id=${flashCard.id}`);
+        }
       }
     } catch (error) {
       console.error('Error updating flashcard:', error);
@@ -413,21 +502,43 @@ function FlashCardPageContent() {
 
   const handleDeleteCard = async (id: string) => {
     try {
-      const response = await fetch(`/api/flashcard/${id}/delete`, {
-        method: 'DELETE',
-      });
+      if (isGuest) {
+        // For guests, remove from localStorage only
+        deleteFlashCard(id);
+        removeFlashCardFromCache(id);
+        
+        // Update the guest flashcards list
+        const existingCards = loadFlashCardListFromCache() || [];
+        const updatedCards = existingCards.filter(card => card.id !== id);
+        saveFlashCardListToCache(updatedCards);
+        setFlashCards(updatedCards);
+        
+        setCurrentCard(null);
+        
+        // If the deleted card is in the URL, redirect to /flashcard
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('id') === id) {
+          router.replace('/flashcard');
+        }
+      } else {
+        // For authenticated users, delete via API
+        const response = await fetch(`/api/flashcard/${id}/delete`, {
+          method: 'DELETE',
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to delete flashcard');
-      }
+        if (!response.ok) {
+          throw new Error('Failed to delete flashcard');
+        }
 
-      deleteFlashCard(id);
-      removeFlashCardFromCache(id); // Remove from localStorage
-      setCurrentCard(null);
-      // If the deleted card is in the URL, redirect to /flashcard
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('id') === id) {
-        router.replace('/flashcard');
+        deleteFlashCard(id);
+        removeFlashCardFromCache(id); // Remove from localStorage
+        setCurrentCard(null);
+        
+        // If the deleted card is in the URL, redirect to /flashcard
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('id') === id) {
+          router.replace('/flashcard');
+        }
       }
     } catch (error) {
       console.error('Error deleting flashcard:', error);
@@ -437,15 +548,17 @@ function FlashCardPageContent() {
 
   return (
     <div className="flex h-screen w-screen bg-background text-foreground">
-      {/* Sidebar Container */}
-      <div className={`${isSidebarOpen ? 'w-64 md:w-64' : 'w-0'} ${
-        isMobileView ? 'fixed left-0 top-0 bottom-0 z-50' : 'relative'
-      } flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden bg-background border-r border-border`}>
-        <FlashCardSidebar />
-      </div>
+      {/* Sidebar Container - Hidden for guests */}
+      {!isGuest && (
+        <div className={`${isSidebarOpen ? 'w-64 md:w-64' : 'w-0'} ${
+          isMobileView ? 'fixed left-0 top-0 bottom-0 z-50' : 'relative'
+        } flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden bg-background border-r border-border`}>
+          <FlashCardSidebar />
+        </div>
+      )}
 
       {/* Overlay for mobile */}
-      {isMobileView && isSidebarOpen && (
+      {isMobileView && isSidebarOpen && !isGuest && (
         <div 
           className="fixed inset-0 bg-background/50 z-40"
           onClick={() => setIsSidebarOpen(false)}
@@ -453,29 +566,84 @@ function FlashCardPageContent() {
       )}
       
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <div className="flex items-center gap-2 p-4 border-b border-border">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="hover:opacity-80 transition-opacity"
-          >
-            <PanelLeft className="h-5 w-5" />
-          </Button>
+        <div className="flex flex-wrap items-center gap-2 p-3 sm:p-4 border-b border-border">
+          {!isGuest && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="hover:opacity-80 transition-opacity"
+            >
+              <PanelLeft className="h-5 w-5" />
+            </Button>
+          )}
           <Link href="/">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">Flash Card Generator</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Flash Card Generator</h1>
+          {isGuest && (
+            <div className="ml-auto flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
+              <div className="text-xs sm:text-sm text-muted-foreground text-right sm:text-left">
+                Guest Mode - {3 - guestIndividualFlashcardCount} flashcards remaining
+              </div>
+              <Link href="/auth/login">
+                <Button size="sm" variant="outline" className="text-xs h-7 px-2 sm:px-3 hover:cursor-pointer whitespace-nowrap">
+                  Sign in
+                </Button>
+              </Link>
+            </div>
+          )}
         </div>
         
-        <div className="flex-1 overflow-auto p-4">
-          <Card className="mb-6">
-            <CardHeader>
+        <div className="flex-1 overflow-auto p-2 sm:p-4">
+          {/* Guest Feature Hint - Moved to top and made smaller */}
+          {isGuest && (
+            <Card className="mb-4 border-muted/60">
+              <CardContent className="p-2 sm:p-3">
+                <div className="flex flex-col sm:flex-col sm:items-start gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0 w-5 h-5 bg-muted/60 rounded-full flex items-center justify-center">
+                      <span className="text-muted-foreground text-xs">💡</span>
+                    </div>
+                    <h3 className="font-medium text-foreground text-sm">More features with sign in</h3>
+                  </div>
+                  <div className="flex-1 w-full">
+                    <div className="flex flex-wrap sm:flex-row gap-x-2 sm:gap-x-4 gap-y-1 text-xs text-muted-foreground mb-2">
+                      <span>• Bulk creation</span>
+                      <span>• Library access</span>
+                      <span>• Smart folders</span>
+                      <span>• PDF upload</span>
+                    </div>
+                    <div className="flex justify-start">
+                      <Link href="/auth/login">
+                        <Button size="sm" variant="outline" className="text-xs h-7 px-3 hover:cursor-pointer">
+                          Sign in for more features
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          <Card className="mb-4 sm:mb-6">
+            <CardHeader className="py-3 px-3 sm:px-6">
               <CardTitle>Generate a Flash Card</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 sm:px-6 pb-4">
+              {isGuest && guestIndividualFlashcardCount >= 4 && (
+                <div className="mb-4 p-3 bg-muted rounded-lg border">
+                  <p className="text-xs sm:text-sm text-muted-foreground text-center">
+                    You&apos;ve reached the guest limit of 3 flashcards. 
+                    <Link href="/auth/login" className="text-primary hover:underline ml-1">
+                      Sign in
+                    </Link> to access your flashcard library and generate unlimited flashcards.
+                  </p>
+                </div>
+              )}
               <form onSubmit={(e) => {
                 e.preventDefault();
                 handleGenerateFlashCard();
@@ -495,19 +663,21 @@ function FlashCardPageContent() {
                       }}
                     />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1 text-sm cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={isBulk}
-                        onChange={() => setIsBulk((prev) => !prev)}
-                        className="accent-primary"
-                      />
-                      Pack
-                    </label>
-                  </div>
+                  {!isGuest && (
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-1 text-sm cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isBulk}
+                          onChange={() => setIsBulk((prev) => !prev)}
+                          className="accent-primary"
+                        />
+                        Pack
+                      </label>
+                    </div>
+                  )}
                 </div>
-                {isBulk && (
+                {!isGuest && isBulk && (
                   <>
                     <div className="flex items-center gap-2 mt-2">
                       <label htmlFor="bulk-count" className="text-sm">Number of flashcards</label>
@@ -571,55 +741,55 @@ function FlashCardPageContent() {
           </Card>
           
           {currentCard && (
-            <div className="flex justify-center items-center space-x-4">
-              {currentCard.folderId && currentIndex > 0 && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToPreviousCard}
-                  className="hover:bg-accent h-12 w-12"
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </Button>
-              )}
+            <div className="flex flex-col items-center">
+              <div className="flex justify-center items-center space-x-2 sm:space-x-4 w-full max-w-full sm:max-w-[600px]">
+                {currentCard.folderId && currentIndex > 0 && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={goToPreviousCard}
+                    className="hover:bg-accent h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0"
+                  >
+                    <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </Button>
+                )}
 
-              <div className="w-[600px]">
-                <FlashCard 
-                  {...currentCard}
-                  onEdit={handleEditCard}
-                  onDelete={handleDeleteCard}
-                />
+                <div className="flex-1 w-full max-w-full overflow-hidden">
+                  <FlashCard 
+                    {...currentCard}
+                    onEdit={handleEditCard}
+                    onDelete={handleDeleteCard}
+                  />
+                </div>
+
+                {currentCard.folderId && currentIndex < cardsInFolder.length - 1 && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={goToNextCard}
+                    className="hover:bg-accent h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0"
+                  >
+                    <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </Button>
+                )}
               </div>
-
-              {currentCard.folderId && currentIndex < cardsInFolder.length - 1 && (
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={goToNextCard}
-                  className="hover:bg-accent h-12 w-12"
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </Button>
-              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Login Popup for when guest limits are reached */}
+      {showLoginPopup && (
+        <LoginPopup 
+          isOpen={showLoginPopup}
+          onClose={() => setShowLoginPopup(false)}
+        />
+      )}
     </div>
   );
 }
 
 export default function FlashCardPage() {
-  const router = useRouter();
-  const { status } = useSession();
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.replace("/auth/login");
-    }
-  }, [status, router]);
-
   return (
     <FlashCardProvider>
       <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>

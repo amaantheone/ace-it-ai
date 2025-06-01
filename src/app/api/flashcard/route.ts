@@ -37,10 +37,7 @@ const llm = new ChatGoogleGenerativeAI({
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
-
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const isGuest = !session?.user?.email;
 
   try {
     const { topic } = await req.json(); // removed folderId since it's unused
@@ -86,10 +83,28 @@ export async function POST(req: Request) {
       );
     }
 
+    // ...existing code for response parsing and validation...
+
+    if (isGuest) {
+      // For guest users, return the flashcard without saving to database
+      const guestFlashCard = {
+        id: `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        term: flashCard.term,
+        translation: flashCard.translation,
+        partOfSpeech: flashCard.partOfSpeech,
+        definition: flashCard.definition,
+        example: flashCard.example,
+        tag: flashCard.tag || null,
+        createdAt: new Date().toISOString(),
+      };
+
+      return NextResponse.json({ flashCard: guestFlashCard });
+    }
+
     // Find or create the 'Uncategorized' folder for this user
     let uncategorizedFolder = await prisma.flashCardFolder.findFirst({
       where: {
-        userId: session.user.id,
+        userId: session.user!.id,
         name: "Uncategorized",
       },
     });
@@ -97,13 +112,13 @@ export async function POST(req: Request) {
       uncategorizedFolder = await prisma.flashCardFolder.create({
         data: {
           name: "Uncategorized",
-          userId: session.user.id,
+          userId: session.user!.id,
         },
       });
     }
 
     const flashCardData = {
-      userId: session.user.id,
+      userId: session.user!.id,
       term: flashCard.term,
       translation: flashCard.translation,
       partOfSpeech: flashCard.partOfSpeech,
@@ -130,15 +145,17 @@ export async function POST(req: Request) {
 
 export async function GET() {
   const session = await getServerSession(authOptions);
+  const isGuest = !session?.user?.email;
 
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (isGuest) {
+    // Guest users store flashcards in localStorage, return empty array
+    return NextResponse.json({ flashCards: [] });
   }
 
   try {
     const flashCards = await prisma.flashCard.findMany({
       where: {
-        userId: session.user.id,
+        userId: session.user!.id,
       },
       orderBy: {
         createdAt: "desc",

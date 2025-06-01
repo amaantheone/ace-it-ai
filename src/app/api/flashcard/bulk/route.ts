@@ -64,9 +64,17 @@ const llm = new ChatGoogleGenerativeAI({
 
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
+  const isGuest = !session?.user?.email;
 
-  if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Reject bulk generation for guests
+  if (isGuest) {
+    return NextResponse.json(
+      {
+        error:
+          "Bulk flashcard generation is not available for guests. Please sign in to use this feature.",
+      },
+      { status: 401 }
+    );
   }
 
   try {
@@ -181,9 +189,9 @@ export async function POST(req: Request) {
         };
 
         // Create a folder for the flashcards if requested
-        if (createFolder) {
+        if (createFolder && !isGuest) {
           try {
-            if (!session.user) throw new Error("No user in session");
+            if (!session?.user) throw new Error("No user in session");
             const folder = await prisma.flashCardFolder.create({
               data: {
                 name: folderName,
@@ -202,7 +210,6 @@ export async function POST(req: Request) {
         // Step 2: Generate a flashcard for each subtopic
         for (const subtopic of subtopics) {
           try {
-            if (!session.user) throw new Error("No user in session");
             let flashcardPrompt = `Generate a flashcard for the subtopic: \"${subtopic.topic}\" in the context of the main topic: \"${mainTopic}\". The definition and example should be specific to how \"${subtopic.topic}\" relates to \"${mainTopic}\". Do NOT give a generic definition, always use the main topic as context.`;
             if (context) {
               flashcardPrompt += `\nRelevant PDF Context:\n${context}`;
@@ -242,7 +249,27 @@ export async function POST(req: Request) {
               continue;
             }
 
-            // Prepare flashcard data
+            if (isGuest) {
+              // For guest users, return flashcard without saving to database
+              const guestFlashCard = {
+                id: `guest_${Date.now()}_${Math.random()
+                  .toString(36)
+                  .substr(2, 9)}`,
+                term: parsedData.term,
+                translation: parsedData.translation,
+                partOfSpeech: parsedData.partOfSpeech,
+                definition: parsedData.definition,
+                example: parsedData.example,
+                tag: mainTopic,
+                createdAt: new Date().toISOString(),
+              };
+
+              // Send the flashcard as soon as it's ready
+              send({ flashCard: guestFlashCard });
+              continue;
+            }
+
+            // Prepare flashcard data for authenticated users
             const flashCardData: {
               userId: string;
               term: string;
@@ -253,7 +280,7 @@ export async function POST(req: Request) {
               folderId?: string;
               tag?: string;
             } = {
-              userId: session.user.id,
+              userId: session!.user!.id,
               term: parsedData.term,
               translation: parsedData.translation,
               partOfSpeech: parsedData.partOfSpeech,

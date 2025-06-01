@@ -8,8 +8,9 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !session.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.user?.email) {
+      // Guest users store folders in localStorage, return empty array
+      return NextResponse.json({ folders: [] });
     }
 
     const user = await prisma.user.findUnique({
