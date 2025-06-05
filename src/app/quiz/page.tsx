@@ -298,8 +298,11 @@ export default function QuizPage() {
 
   return (
     <div className="min-h-screen flex flex-row items-stretch justify-center bg-gradient-to-br from-background to-muted/60 p-2">
+      {/* The QuizSidebar component now handles its own visibility */}
       <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} />
-      <div className="flex-1 flex flex-col items-center justify-center">
+      
+      {/* Main content area - shifted padding for mobile */}
+      <div className="flex-1 flex flex-col items-center justify-center md:ml-0 ml-0 mt-12 md:mt-0">
         {showScoreFor ? (
           (() => {
             const score = showScoreFor.score ?? 0;
@@ -433,11 +436,11 @@ export default function QuizPage() {
         ) : (
           <>
             <div className="mb-4 text-center select-none">
-              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-primary drop-shadow-sm mb-1">Quiz Generator</h1>
-              <p className="text-base md:text-lg text-muted-foreground font-medium italic opacity-90">Test your knowledge or generate a quiz from a PDF!</p>
+              <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-primary drop-shadow-sm mb-1">Quiz Generator</h1>
+              <p className="text-sm md:text-lg text-muted-foreground font-medium italic opacity-90">Test your knowledge or generate a quiz from a PDF!</p>
             </div>
             <Card className="w-full max-w-2xl shadow-xl border border-muted/40 dark:border-white/10 rounded-2xl bg-white/90 dark:bg-background/80 backdrop-blur-md dark:shadow-2xl">
-              <CardContent className="py-2 px-4 md:px-8">
+              <CardContent className="py-2 px-3 md:px-8">
                 {!quizStarted && (
                   <form
                     onSubmit={e => {
@@ -451,8 +454,8 @@ export default function QuizPage() {
                     <input
                       ref={inputRef}
                       type="text"
-                      className="border border-muted rounded-lg px-4 py-3 w-full max-w-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 text-base shadow-sm"
-                      placeholder="Enter a topic (e.g. General Knowledge, Science, History)"
+                      className="border border-muted rounded-lg px-3 md:px-4 py-2 md:py-3 w-full max-w-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 text-sm md:text-base shadow-sm"
+                      placeholder="Enter a topic (e.g. General Knowledge, Science)"
                       value={topic}
                       onChange={e => setTopic(e.target.value)}
                       required
@@ -481,14 +484,14 @@ export default function QuizPage() {
                         />
                         <label htmlFor="pdf-upload">
                           <span>
-                            <Button variant="outline" className="px-4 py-2 cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer" asChild>
+                            <Button variant="outline" className="px-3 md:px-4 py-1 md:py-2 text-xs md:text-sm cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer" asChild>
                               <span>{pdfFile ? "Change PDF" : "Choose PDF"}</span>
                             </Button>
                           </span>
                         </label>
                         {pdfFile && (
                           <div className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs shadow-sm">
-                            <span className="truncate max-w-[140px] font-medium">{pdfFile.name}</span>
+                            <span className="truncate max-w-[100px] md:max-w-[140px] font-medium">{pdfFile.name}</span>
                             <button
                               type="button"
                               className="ml-1 text-muted-foreground hover:text-destructive"
@@ -501,21 +504,21 @@ export default function QuizPage() {
                         )}
                       </div>
                     </div>
-                    <Button type="submit" className="w-full max-w-lg text-base py-3 rounded-lg shadow-md hover:cursor-pointer" variant="default">
+                    <Button type="submit" className="w-full max-w-lg text-sm md:text-base py-2 md:py-3 rounded-lg shadow-md hover:cursor-pointer" variant="default">
                       Start Quiz
                     </Button>
                   </form>
                 )}
                 {quiz.length > 0 && !finished && quizStarted && (
-                  <div className="flex flex-col gap-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="text-sm font-medium bg-primary/10 dark:bg-white px-3 py-1 rounded-lg shadow-sm transition-colors">
+                  <div className="flex flex-col gap-4 md:gap-6">
+                    <div className="flex items-center justify-between mb-1 md:mb-2">
+                      <div className="text-xs md:text-sm font-medium bg-primary/10 dark:bg-white px-2 md:px-3 py-1 rounded-lg shadow-sm transition-colors">
                         <span className="text-black dark:text-black">Question {current + 1}</span>
                         <span className="text-black dark:text-black opacity-80 ml-1">/ {quiz.length}</span>
                       </div>
                     </div>
-                    <div className="font-semibold text-lg mb-4 text-foreground/90 min-h-[48px]">{quiz[current].question}</div>
-                    <div className="flex flex-col gap-3 mb-4">
+                    <div className="font-semibold text-base md:text-lg mb-2 md:mb-4 text-foreground/90 min-h-[48px]">{quiz[current].question}</div>
+                    <div className="flex flex-col gap-2 md:gap-3 mb-2 md:mb-4">
                       {quiz[current].options.map((opt, oidx) => {
                         const isSelected = userAnswers[current] === opt;
                         const isCorrect = answered[current] && opt === quiz[current].answer;
@@ -525,7 +528,7 @@ export default function QuizPage() {
                             <Button
                               type="button"
                               variant={isWrong ? "destructive" : isSelected ? "default" : "outline"}
-                              className={`w-full text-left justify-start py-3 px-4 rounded-lg text-base font-medium transition border-2 ${isCorrect ? "border-green-500 ring-2 ring-green-500" : ""} ${isWrong ? "border-red-500 ring-2 ring-red-500" : "border-muted/40"} hover:cursor-pointer`}
+                              className={`w-full text-left justify-start py-2 md:py-3 px-3 md:px-4 rounded-lg text-sm md:text-base font-medium transition border-2 ${isCorrect ? "border-green-500 ring-2 ring-green-500" : ""} ${isWrong ? "border-red-500 ring-2 ring-red-500" : "border-muted/40"} hover:cursor-pointer`}
                               onClick={() => handleSelect(opt)}
                               disabled={answered[current]}
                             >
@@ -564,7 +567,7 @@ export default function QuizPage() {
                           (current === quiz.length - 1 && answered.filter(Boolean).length < quiz.length) ||
                           (current === quiz.length - 1 && answered.slice(0, quiz.length - 1).some(a => !a))
                         }
-                        className="w-full max-w-lg text-base py-3 rounded-lg shadow-md bg-primary text-white hover:bg-primary/90 focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors dark:bg-white dark:text-black dark:hover:bg-neutral-100 hover:cursor-pointer"
+                        className="w-full max-w-lg text-sm md:text-base py-2 md:py-3 rounded-lg shadow-md bg-primary text-white hover:bg-primary/90 focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors dark:bg-white dark:text-black dark:hover:bg-neutral-100 hover:cursor-pointer"
                         variant="default"
                       >
                         {current === quiz.length - 1 ? "Finish" : "Next Question"}
