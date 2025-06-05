@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { X } from "lucide-react";
 import { QuizSidebar } from "@/components/ui/quiz/quiz-sidebar";
 import { createAttempt, saveQuestionAnswer, getAttempt, getAttemptQuestions, updateQuizScore } from "@/utils/quizFunctions/attemptHelpers";
+import { generateQuizStreaming } from "@/utils/quizFunctions/streamingQuiz";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -67,6 +68,9 @@ export default function QuizPage() {
   const [currentReviewQuestionIdx, setCurrentReviewQuestionIdx] = useState(0);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [streamingStatus, setStreamingStatus] = useState("");
+  const [questionsGenerated, setQuestionsGenerated] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(10);
   const inputRef = useRef<HTMLInputElement>(null);
   const quizGenerationInProgress = useRef(false);
 
@@ -181,7 +185,7 @@ export default function QuizPage() {
     }
   };
 
-  // Generate quiz questions in backend with performance optimizations
+  // Generate quiz questions using streaming for better performance and timeout handling
   useEffect(() => {
     if (!quizStarted || quizGenerationInProgress.current) return;
     
@@ -192,103 +196,72 @@ export default function QuizPage() {
     setAnswered([]);
     setError(null);
     setFinished(false);
+    setStreamingStatus("Initializing...");
+    setQuestionsGenerated(0);
     
-    const fetchQuiz = async () => {
-      let res;
+    const generateQuiz = async () => {
       try {
-        if (pdfFile) {
-          const formData = new FormData();
-          formData.append("topic", topic);
-          formData.append("count", "10");
-          formData.append("pdf", pdfFile);
-          res = await fetch("/api/quiz", {
-            method: "POST",
-            body: formData,
-          });
-        } else {
-          res = await fetch("/api/quiz", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topic, count: 10, quizId }),
-          });
-        }
-      } catch (fetchError) {
-        console.error("Network error during quiz generation:", fetchError);
-        throw new Error("Network error. Please check your internet connection and try again.");
-      }
-      // Check for quiz deletion header
-      const deletedQuizId = res.headers.get("X-Quiz-Deleted");
-      if (deletedQuizId) {
-        setSidebarQuizzes(prev => {
-          const updated = prev.filter(q => q.id !== deletedQuizId);
-          localStorage.setItem("quizzes", JSON.stringify(updated));
-          return updated;
+        const questions = await generateQuizStreaming(topic, pdfFile, (status) => {
+          switch (status.status) {
+            case 'generating_subtopics':
+              setStreamingStatus("Analyzing topic and generating subtopics...");
+              break;
+            case 'subtopics_generated':
+              setStreamingStatus("Subtopics ready! Generating questions...");
+              if (status.data?.subtopics) {
+                setTotalQuestions(status.data.subtopics.length);
+              }
+              break;
+            case 'generating_question':
+              if (status.data?.current && status.data?.total) {
+                setStreamingStatus(`Generating question ${status.data.current} of ${status.data.total}...`);
+                if (status.data.subtopic) {
+                  setStreamingStatus(`Generating question ${status.data.current} of ${status.data.total}: ${status.data.subtopic}`);
+                }
+              }
+              break;
+            case 'question_generated':
+              if (status.data?.current) {
+                setQuestionsGenerated(status.data.current);
+                setStreamingStatus(`Question ${status.data.current} of ${status.data.total || totalQuestions} generated!`);
+              }
+              break;
+            case 'completed':
+              setStreamingStatus("Quiz generation completed!");
+              break;
+            case 'error':
+              setError(status.error || "Quiz generation failed");
+              break;
+          }
         });
-        setQuizId(null);
-      }
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Failed to load quiz" }));
-        // Provide more specific error messages for common issues
-        if (res.status === 408) {
-          throw new Error("Request timed out. Please try again with a simpler topic or smaller PDF file.");
-        } else if (res.status === 413) {
-          throw new Error("PDF file is too large. Please try a smaller file (max 10MB).");
-        } else if (res.status === 415) {
-          throw new Error("Invalid file type. Please upload a valid PDF file.");
-        } else if (errorData.error && errorData.error.includes("PDF")) {
-          throw new Error(`PDF processing error: ${errorData.error}`);
-        }
-        throw new Error(errorData.error || "Failed to load quiz");
-      }
-
-      const data = await res.json();
-      
-      if (data.error) {
-        setError(data.error);
+        
+        setQuiz(questions);
+        setUserAnswers(Array(questions.length).fill(""));
+        setAnswered(Array(questions.length).fill(false));
+        setStreamingStatus("");
         setLoading(false);
         quizGenerationInProgress.current = false;
-        // Remove quiz from sidebar/localStorage if quizIdToDelete is present in error
-        if (data.quizIdToDelete) {
-          setSidebarQuizzes(prev => {
-            const updated = prev.filter(q => q.id !== data.quizIdToDelete);
-            localStorage.setItem("quizzes", JSON.stringify(updated));
-            return updated;
-          });
-          setQuizId(null);
+      } catch (error) {
+        console.error("Streaming quiz generation failed:", error);
+        if (error instanceof Error) {
+          if (error.message.includes("PDF")) {
+            setError(`PDF Error: ${error.message}`);
+          } else if (error.message.includes("Network") || error.message.includes("fetch")) {
+            setError("Connection failed. Please check your internet and try again.");
+          } else {
+            setError(error.message || "Failed to generate quiz. Please try again.");
+          }
+        } else {
+          setError("Failed to generate quiz. Please try again.");
         }
-        return;
+        setStreamingStatus("");
+        setLoading(false);
+        quizGenerationInProgress.current = false;
       }
-
-      // Handle both { questions: [...] } and { question: ... } formats
-      let questions: QuizQuestion[] = [];
-      if (data.questions && Array.isArray(data.questions)) {
-        questions = data.questions;
-      } else if (data.question) {
-        questions = [data.question];
-      } else {
-        throw new Error("Invalid response format");
-      }
-
-      setQuiz(questions);
-      setUserAnswers(Array(questions.length).fill(""));
-      setAnswered(Array(questions.length).fill(false));
-      setLoading(false);
-      quizGenerationInProgress.current = false;
     };
-    fetchQuiz().catch((error) => {
-      console.error("Quiz generation failed:", error);
-      // Provide more user-friendly error messages
-      if (error.message.includes("PDF")) {
-        setError(`PDF Error: ${error.message}`);
-      } else if (error.message.includes("Network")) {
-        setError("Connection failed. Please check your internet and try again.");
-      } else {
-        setError(error.message || "Failed to generate quiz. Please try again.");
-      }
-      setLoading(false);
-      quizGenerationInProgress.current = false;
-    });
-  }, [quizStarted, topic, pdfFile, quizId]);
+    
+    generateQuiz();
+  }, [quizStarted, topic, pdfFile, totalQuestions]);
 
   // Update your answer handler to save each answer as soon as it’s given
   const handleSelect = async (option: string) => {
@@ -340,13 +313,38 @@ export default function QuizPage() {
   // 7. Make the review UI read-only (no answer selection).
   // 8. If no attempt data, show a loading spinner or error.
 
+  // Function to reset all quiz state for a fresh start
+  const resetQuizState = () => {
+    setQuiz([]);
+    setCurrent(0);
+    setUserAnswers([]);
+    setLoading(false);
+    setError(null);
+    setAnswered([]);
+    setFinished(false);
+    setTopic("");
+    setQuizStarted(false);
+    setPdfFile(null);
+    setQuizId(null); // Critical: Reset quizId to allow new quiz creation
+    setShowScoreFor(null);
+    setReviewAttempt(null);
+    setCurrentReviewQuestionIdx(0);
+    setReviewLoading(false);
+    setAttemptId(null);
+    quizGenerationInProgress.current = false; // Reset the ref
+    // Focus the input for immediate new quiz creation
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-row items-stretch justify-center bg-gradient-to-br from-background to-muted/60 p-1 md:p-2">
+    <div className="min-h-screen flex flex-row items-stretch justify-center bg-gradient-to-br from-background to-muted/60 p-2">
       {/* The QuizSidebar component now handles its own visibility */}
-      <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} />
+      <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} onNewQuiz={resetQuizState} />
       
-      {/* Main content area - adjusted padding for mobile sidebar */}
-      <div className="flex-1 flex flex-col items-center justify-center md:ml-0 ml-0 pt-16 md:pt-0 px-1 md:px-4">
+      {/* Main content area - shifted padding for mobile */}
+      <div className="flex-1 flex flex-col items-center justify-center md:ml-0 ml-0 mt-12 md:mt-0">
         {showScoreFor ? (
           (() => {
             const score = showScoreFor.score ?? 0;
@@ -388,10 +386,10 @@ export default function QuizPage() {
                     <div className="mt-8">
                       <div className="text-lg font-semibold text-foreground mb-4">Review Attempt</div>
                       <div className="flex flex-col gap-4">
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between">
                           <Button
                             variant="outline"
-                            className="px-3 py-2 md:px-4 md:py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer text-sm md:text-base"
+                            className="px-4 py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer"
                             onClick={() => {
                               const idx = currentReviewQuestionIdx - 1;
                               if (idx >= 0) setCurrentReviewQuestionIdx(idx);
@@ -402,7 +400,7 @@ export default function QuizPage() {
                           </Button>
                           <Button
                             variant="outline"
-                            className="px-3 py-2 md:px-4 md:py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer text-sm md:text-base"
+                            className="px-4 py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer"
                             onClick={() => {
                               const idx = currentReviewQuestionIdx + 1;
                               if (idx < reviewAttempt.questions.length) setCurrentReviewQuestionIdx(idx);
@@ -480,11 +478,11 @@ export default function QuizPage() {
         ) : (
           <>
             <div className="mb-4 text-center select-none">
-              <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-primary drop-shadow-sm mb-1">Quiz Generator</h1>
-              <p className="text-sm md:text-lg text-muted-foreground font-medium italic opacity-90">Test your knowledge or generate a quiz from a PDF!</p>
+              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-primary drop-shadow-sm mb-1">Quiz Generator</h1>
+              <p className="text-base md:text-lg text-muted-foreground font-medium italic opacity-90">Test your knowledge or generate a quiz from a PDF!</p>
             </div>
-            <Card className="w-full max-w-2xl mx-1 md:mx-0 shadow-xl border border-muted/40 dark:border-white/10 rounded-2xl bg-white/90 dark:bg-background/80 backdrop-blur-md dark:shadow-2xl">
-              <CardContent className="py-1 px-2 md:py-2 md:px-8">
+            <Card className="w-full max-w-2xl shadow-xl border border-muted/40 dark:border-white/10 rounded-2xl bg-white/90 dark:bg-background/80 backdrop-blur-md dark:shadow-2xl">
+              <CardContent className="py-2 px-4 md:px-8">
                 {!quizStarted && (
                   <form
                     onSubmit={e => {
@@ -503,7 +501,7 @@ export default function QuizPage() {
                     <input
                       ref={inputRef}
                       type="text"
-                      className="border border-muted rounded-lg px-3 py-2 md:px-4 md:py-3 w-full max-w-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 text-sm md:text-base shadow-sm"
+                      className="border border-muted rounded-lg px-4 py-3 w-full max-w-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/60 text-base shadow-sm"
                       placeholder="Enter a topic (e.g. General Knowledge, Science, History)"
                       value={topic}
                       onChange={e => setTopic(e.target.value)}
@@ -540,14 +538,14 @@ export default function QuizPage() {
                         />
                         <label htmlFor="pdf-upload">
                           <span>
-                            <Button variant="outline" className="px-3 py-2 md:px-4 md:py-2 cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer text-sm md:text-base" asChild>
+                            <Button variant="outline" className="px-4 py-2 cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer" asChild>
                               <span>{pdfFile ? "Change PDF" : "Choose PDF"}</span>
                             </Button>
                           </span>
                         </label>
                         {pdfFile && (
                           <div className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs shadow-sm">
-                            <span className="truncate max-w-[100px] md:max-w-[140px] font-medium">{pdfFile.name}</span>
+                            <span className="truncate max-w-[140px] font-medium">{pdfFile.name}</span>
                             <button
                               type="button"
                               className="ml-1 text-muted-foreground hover:text-destructive"
@@ -560,21 +558,21 @@ export default function QuizPage() {
                         )}
                       </div>
                     </div>
-                    <Button type="submit" className="w-full max-w-lg text-sm md:text-base py-2 md:py-3 rounded-lg shadow-md hover:cursor-pointer" variant="default">
+                    <Button type="submit" className="w-full max-w-lg text-base py-3 rounded-lg shadow-md hover:cursor-pointer" variant="default">
                       Start Quiz
                     </Button>
                   </form>
                 )}
                 {quiz.length > 0 && !finished && quizStarted && (
-                  <div className="flex flex-col gap-4 md:gap-6">
+                  <div className="flex flex-col gap-6">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-xs md:text-sm font-medium bg-primary/10 dark:bg-white px-2 md:px-3 py-1 rounded-lg shadow-sm transition-colors">
+                      <div className="text-sm font-medium bg-primary/10 dark:bg-white px-3 py-1 rounded-lg shadow-sm transition-colors">
                         <span className="text-black dark:text-black">Question {current + 1}</span>
                         <span className="text-black dark:text-black opacity-80 ml-1">/ {quiz.length}</span>
                       </div>
                     </div>
-                    <div className="font-semibold text-base md:text-lg mb-3 md:mb-4 text-foreground/90 min-h-[40px] md:min-h-[48px]">{quiz[current].question}</div>
-                    <div className="flex flex-col gap-2 md:gap-3 mb-3 md:mb-4">
+                    <div className="font-semibold text-lg mb-4 text-foreground/90 min-h-[48px]">{quiz[current].question}</div>
+                    <div className="flex flex-col gap-3 mb-4">
                       {quiz[current].options.map((opt, oidx) => {
                         const isSelected = userAnswers[current] === opt;
                         const isCorrect = answered[current] && opt === quiz[current].answer;
@@ -584,7 +582,7 @@ export default function QuizPage() {
                             <Button
                               type="button"
                               variant={isWrong ? "destructive" : isSelected ? "default" : "outline"}
-                              className={`w-full text-left justify-start py-2 md:py-3 px-3 md:px-4 rounded-lg text-sm md:text-base font-medium transition border-2 ${isCorrect ? "border-green-500 ring-2 ring-green-500" : ""} ${isWrong ? "border-red-500 ring-2 ring-red-500" : "border-muted/40"} hover:cursor-pointer`}
+                              className={`w-full text-left justify-start py-3 px-4 rounded-lg text-base font-medium transition border-2 ${isCorrect ? "border-green-500 ring-2 ring-green-500" : ""} ${isWrong ? "border-red-500 ring-2 ring-red-500" : "border-muted/40"} hover:cursor-pointer`}
                               onClick={() => handleSelect(opt)}
                               disabled={answered[current]}
                             >
@@ -597,17 +595,17 @@ export default function QuizPage() {
                               )}
                             </Button>
                             {answered[current] && isCorrect && (!answered[current] || userAnswers[current] === quiz[current].answer) && (
-                              <div className="rounded-lg border border-green-600 bg-green-50 p-2 md:p-3 mt-2 shadow-sm">
-                                <div className="font-semibold text-green-700 text-sm md:text-base">That&apos;s right!</div>
-                                <div className="text-green-700 text-xs md:text-sm mt-1">{quiz[current].explanation}</div>
+                              <div className="rounded-lg border border-green-600 bg-green-50 p-3 mt-2 shadow-sm">
+                                <div className="font-semibold text-green-700">That&apos;s right!</div>
+                                <div className="text-green-700 text-sm mt-1">{quiz[current].explanation}</div>
                               </div>
                             )}
                             {answered[current] && isWrong && (
-                              <div className="rounded-lg border border-red-600 bg-red-50 p-2 md:p-3 mt-2 shadow-sm">
-                                <div className="font-semibold text-red-700 flex items-center gap-2 text-sm md:text-base"><span>✗</span> Not quite</div>
-                                <div className="text-red-700 text-xs md:text-sm mt-1">{quiz[current].wrongExplanation?.[opt]}</div>
-                                <div className="rounded-lg border border-green-600 bg-green-50 p-2 md:p-3 mt-2">
-                                  <div className="text-green-700 text-xs md:text-sm">{quiz[current].explanation}</div>
+                              <div className="rounded-lg border border-red-600 bg-red-50 p-3 mt-2 shadow-sm">
+                                <div className="font-semibold text-red-700 flex items-center gap-2"><span>✗</span> Not quite</div>
+                                <div className="text-red-700 text-sm mt-1">{quiz[current].wrongExplanation?.[opt]}</div>
+                                <div className="rounded-lg border border-green-600 bg-green-50 p-3 mt-2">
+                                  <div className="text-green-700 text-sm">{quiz[current].explanation}</div>
                                 </div>
                               </div>
                             )}
@@ -623,7 +621,7 @@ export default function QuizPage() {
                           (current === quiz.length - 1 && answered.filter(Boolean).length < quiz.length) ||
                           (current === quiz.length - 1 && answered.slice(0, quiz.length - 1).some(a => !a))
                         }
-                        className="w-full max-w-lg text-sm md:text-base py-2 md:py-3 rounded-lg shadow-md bg-primary text-white hover:bg-primary/90 focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors dark:bg-white dark:text-black dark:hover:bg-neutral-100 hover:cursor-pointer"
+                        className="w-full max-w-lg text-base py-3 rounded-lg shadow-md bg-primary text-white hover:bg-primary/90 focus:ring-2 focus:ring-primary/40 focus:outline-none transition-colors dark:bg-white dark:text-black dark:hover:bg-neutral-100 hover:cursor-pointer"
                         variant="default"
                       >
                         {current === quiz.length - 1 ? "Finish" : "Next Question"}
@@ -636,20 +634,20 @@ export default function QuizPage() {
                     <div className="text-2xl font-bold mb-2 text-primary">Quiz Complete!</div>
                     <div className="flex flex-col md:flex-row gap-6 w-full justify-center items-center">
                       <div className="flex gap-6 justify-center w-full md:w-auto">
-                        <div className="rounded-2xl bg-muted/60 px-4 md:px-8 py-4 md:py-6 min-w-[120px] md:min-w-[140px] max-w-[120px] md:max-w-[140px] h-[100px] md:h-[120px] flex flex-col items-center justify-center text-center shadow">
+                        <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
                           <div className="text-muted-foreground text-xs mb-1">Score</div>
-                          <div className="text-2xl md:text-3xl font-bold text-primary">{score}/{total}</div>
+                          <div className="text-3xl font-bold text-primary">{score}/{total}</div>
                         </div>
-                        <div className="rounded-2xl bg-muted/60 px-4 md:px-8 py-4 md:py-6 min-w-[120px] md:min-w-[140px] max-w-[120px] md:max-w-[140px] h-[100px] md:h-[120px] flex flex-col items-center justify-center text-center shadow">
+                        <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
                           <div className="text-muted-foreground text-xs mb-1">Accuracy</div>
-                          <div className="text-2xl md:text-3xl font-bold text-primary">{accuracy}%</div>
+                          <div className="text-3xl font-bold text-primary">{accuracy}%</div>
                         </div>
                       </div>
-                      <div className="rounded-2xl bg-muted/60 px-4 md:px-8 py-4 md:py-6 min-w-[120px] md:min-w-[140px] max-w-[120px] md:max-w-[140px] h-[100px] md:h-[120px] flex flex-col items-center justify-center text-center shadow">
+                      <div className="rounded-2xl bg-muted/60 px-8 py-6 min-w-[140px] max-w-[140px] h-[120px] flex flex-col items-center justify-center text-center shadow">
                         <div className="text-muted-foreground text-xs mb-1">Right</div>
-                        <div className="font-bold text-base md:text-lg text-green-700">{right}</div>
+                        <div className="font-bold text-lg text-green-700">{right}</div>
                         <div className="text-muted-foreground text-xs mt-2">Wrong</div>
-                        <div className="font-bold text-base md:text-lg text-red-600">{wrong}</div>
+                        <div className="font-bold text-lg text-red-600">{wrong}</div>
                       </div>
                     </div>
                   </div>
@@ -661,8 +659,27 @@ export default function QuizPage() {
                     <span className="text-muted-foreground text-base font-medium">
                       {pdfFile ? "Processing PDF and generating quiz..." : "Generating quiz..."}
                     </span>
+                    {streamingStatus && (
+                      <div className="text-muted-foreground text-base mt-2 text-center">
+                        {streamingStatus}
+                      </div>
+                    )}
+                    {questionsGenerated > 0 && totalQuestions > 0 && (
+                      <div className="w-full max-w-md mt-3">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                          <span>Progress</span>
+                          <span>{questionsGenerated} of {totalQuestions} questions</span>
+                        </div>
+                        <div className="w-full bg-muted/40 rounded-full h-2.5">
+                          <div 
+                            className="bg-primary h-2.5 rounded-full" 
+                            style={{ width: `${Math.min(100, (questionsGenerated / totalQuestions) * 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
                     {pdfFile && (
-                      <span className="text-muted-foreground text-sm mt-1">
+                      <span className="text-muted-foreground text-sm mt-3">
                         This may take up to 2 minutes for complex topics
                       </span>
                     )}
@@ -670,13 +687,13 @@ export default function QuizPage() {
                 )}
                 {/* Render review UI outside the score summary block so it's always visible */}
                 {showScoreFor && reviewAttempt && (
-                  <div className="mt-8 w-full max-w-2xl mx-1 md:mx-0">
+                  <div className="mt-8 w-full max-w-2xl">
                     <div className="text-lg font-semibold text-foreground mb-4">Review Attempt</div>
                     <div className="flex flex-col gap-4">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between">
                         <Button
                           variant="outline"
-                          className="px-3 py-2 md:px-4 md:py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer text-sm md:text-base"
+                          className="px-4 py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer"
                           onClick={() => {
                             const idx = currentReviewQuestionIdx - 1;
                             if (idx >= 0) setCurrentReviewQuestionIdx(idx);
@@ -687,7 +704,7 @@ export default function QuizPage() {
                         </Button>
                         <Button
                           variant="outline"
-                          className="px-3 py-2 md:px-4 md:py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer text-sm md:text-base"
+                          className="px-4 py-2 rounded-lg shadow-sm border-muted/60 hover:cursor-pointer"
                           onClick={() => {
                             const idx = currentReviewQuestionIdx + 1;
                             if (idx < reviewAttempt.questions.length) setCurrentReviewQuestionIdx(idx);
@@ -717,7 +734,7 @@ export default function QuizPage() {
                                 <Button
                                   type="button"
                                   variant={isWrong ? "destructive" : isSelected ? "default" : "outline"}
-                                  className={`w-full text-left justify-start py-2 md:py-3 px-3 md:px-4 rounded-lg text-sm md:text-base font-medium transition border-2 ${isCorrect ? "border-green-500 ring-2 ring-green-500" : ""} ${isWrong ? "border-red-500 ring-2 ring-red-500" : "border-muted/40"} hover:cursor-pointer`}
+                                  className={`w-full text-left justify-start py-3 px-4 rounded-lg text-base font-medium transition border-2 ${isCorrect ? "border-green-500 ring-2 ring-green-500" : ""} ${isWrong ? "border-red-500 ring-2 ring-red-500" : "border-muted/40"} hover:cursor-pointer`}
                                   disabled
                                 >
                                   <span className="mr-2 font-semibold">{String.fromCharCode(65 + oidx)}.</span> {opt}
