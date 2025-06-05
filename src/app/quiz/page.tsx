@@ -353,16 +353,11 @@ export default function QuizPage() {
 
   return (
     <div className="min-h-screen flex flex-row items-stretch justify-center bg-gradient-to-br from-background to-muted/60 p-2">
-<<<<<<< HEAD
       {/* The QuizSidebar component now handles its own visibility */}
       <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} onNewQuiz={resetQuizState} />
       
       {/* Main content area - shifted padding for mobile */}
       <div className="flex-1 flex flex-col items-center justify-center md:ml-0 ml-0 mt-12 md:mt-0">
-=======
-      <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} />
-      <div className="flex-1 flex flex-col items-center justify-center">
->>>>>>> 149dac4189b7461515d3390761c3ae2502defe97
         {showScoreFor ? (
           (() => {
             const score = showScoreFor.score ?? 0;
