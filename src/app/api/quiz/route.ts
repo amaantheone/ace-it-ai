@@ -3,6 +3,7 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/config/auth";
 import { processPDF } from "@/utils/chatFunctions/pdf-utils";
+import { prisma } from "@/lib/prisma";
 
 const SUBTOPIC_SYSTEM_MESSAGE = `You are a helpful assistant. Given a topic and optional context, generate a list of 10 diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at a BASIC introductory
  level suitable for 9th-10th grade students (ages 14-16). Focus on fundamental concepts, not advanced applications. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  let quizIdToDelete: string | null = null;
   try {
     let topic = "General Knowledge";
     let pdfText = "";
@@ -68,6 +70,8 @@ export async function POST(req: Request) {
       if (body.pdfText) {
         context = body.pdfText.slice(0, 8000);
       }
+      // If quizId is provided in the body, keep for deletion on error
+      if (body.quizId) quizIdToDelete = body.quizId;
     }
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
@@ -88,6 +92,10 @@ export async function POST(req: Request) {
             const jsonStr = match ? match[0] : contentStr;
             subtopics = JSON.parse(jsonStr);
           } catch {
+            // Delete quiz if failed to parse subtopics
+            if (quizIdToDelete) {
+              await prisma.quiz.delete({ where: { id: quizIdToDelete } });
+            }
             controller.enqueue(
               encoder.encode(
                 JSON.stringify({ error: "Failed to parse subtopics." }) + "\n"
@@ -97,6 +105,10 @@ export async function POST(req: Request) {
             return;
           }
           if (!Array.isArray(subtopics) || subtopics.length < count) {
+            // Delete quiz if not enough subtopics
+            if (quizIdToDelete) {
+              await prisma.quiz.delete({ where: { id: quizIdToDelete } });
+            }
             controller.enqueue(
               encoder.encode(
                 JSON.stringify({
@@ -143,17 +155,45 @@ export async function POST(req: Request) {
             });
           // Wait for all questions to finish
           const questions = await Promise.all(questionPromises);
+          // If all questions failed, delete the quiz
+          if (questions.every((q) => q.error)) {
+            if (quizIdToDelete) {
+              await prisma.quiz.delete({ where: { id: quizIdToDelete } });
+            }
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({
+                  error: "Failed to generate any quiz questions.",
+                }) + "\n"
+              )
+            );
+            controller.close();
+            return;
+          }
           // Stream each question as soon as all are ready
           for (const q of questions) {
             controller.enqueue(encoder.encode(JSON.stringify(q) + "\n"));
           }
           controller.close();
         } catch {
-          controller.enqueue(
-            encoder.encode(
-              JSON.stringify({ error: "Failed to generate quiz." }) + "\n"
-            )
-          );
+          // Delete quiz on any other error
+          if (quizIdToDelete) {
+            await prisma.quiz.delete({ where: { id: quizIdToDelete } });
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({
+                  error: "Failed to generate quiz.",
+                  quizIdToDelete,
+                }) + "\n"
+              )
+            );
+          } else {
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({ error: "Failed to generate quiz." }) + "\n"
+              )
+            );
+          }
           controller.close();
         }
       },
@@ -162,9 +202,14 @@ export async function POST(req: Request) {
       headers: {
         "Content-Type": "application/x-ndjson",
         "Cache-Control": "no-store",
+        ...(quizIdToDelete ? { "X-Quiz-Deleted": quizIdToDelete } : {}),
       },
     });
   } catch {
+    // Delete quiz on any other error
+    if (quizIdToDelete) {
+      await prisma.quiz.delete({ where: { id: quizIdToDelete } });
+    }
     return NextResponse.json(
       { error: "Failed to generate quiz." },
       { status: 500 }

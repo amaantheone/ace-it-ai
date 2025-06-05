@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { X } from "lucide-react";
 import { QuizSidebar } from "@/components/ui/quiz/quiz-sidebar";
-import { createAttempt, saveQuestionAnswer, getAttempt, getAttemptQuestions } from "@/utils/quizFunctions/attemptHelpers";
+import { createAttempt, saveQuestionAnswer, getAttempt, getAttemptQuestions, updateQuizScore } from "@/utils/quizFunctions/attemptHelpers";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -79,7 +79,7 @@ export default function QuizPage() {
       // If no quizzes in localStorage, fetch from DB
       fetch("/api/quiz/list", { credentials: "include" })
         .then(res => res.ok ? res.json() : Promise.reject())
-        .then(data => {
+        .then((data) => {
           if (data.quizzes && Array.isArray(data.quizzes)) {
             setSidebarQuizzes(data.quizzes);
             localStorage.setItem("quizzes", JSON.stringify(data.quizzes));
@@ -89,7 +89,7 @@ export default function QuizPage() {
     }
   }, []);
 
-  // When a quiz is generated, create it in DB and add to sidebar/localStorage
+  // When a quiz is generated, create it in DB but don't add to sidebar/localStorage until finished
   useEffect(() => {
     if (quizStarted && topic && !quizId) {
       fetch("/api/quiz/create", {
@@ -101,13 +101,7 @@ export default function QuizPage() {
         .then(data => {
           if (data.quiz && data.quiz.id) {
             setQuizId(data.quiz.id);
-            // Add to sidebar/localStorage
-            const newQuiz: QuizMeta = { id: data.quiz.id, title: data.quiz.title, score: null, totalQuestions: count };
-            setSidebarQuizzes(prev => {
-              const updated = [newQuiz, ...prev.filter(q => q.id !== newQuiz.id)];
-              localStorage.setItem("quizzes", JSON.stringify(updated));
-              return updated;
-            });
+            // Don't add to sidebar yet - will add after completion
           }
         });
     }
@@ -117,11 +111,27 @@ export default function QuizPage() {
   useEffect(() => {
     if (finished && quizId) {
       const score = quiz.filter((q, i) => answered[i] && userAnswers[i] === q.answer).length;
-      setSidebarQuizzes(prev => {
-        const updated = prev.map(q => q.id === quizId ? { ...q, score, totalQuestions: quiz.length } : q);
-        localStorage.setItem("quizzes", JSON.stringify(updated));
-        return updated;
-      });
+      
+      // Save score to database
+      updateQuizScore(quizId, score, quiz.length)
+        .then(() => {
+          // Now add to sidebar/localStorage
+          const newQuiz: QuizMeta = { 
+            id: quizId, 
+            title: topic, 
+            score, 
+            totalQuestions: quiz.length 
+          };
+          
+          setSidebarQuizzes(prev => {
+            const updated = [newQuiz, ...prev.filter(q => q.id !== quizId)];
+            localStorage.setItem("quizzes", JSON.stringify(updated));
+            return updated;
+          });
+        })
+        .catch((err: Error) => {
+          console.error("Failed to update quiz score:", err);
+        });
     }
   }, [finished, quizId, quiz, answered, userAnswers, topic]);
 
@@ -170,6 +180,7 @@ export default function QuizPage() {
     }
   };
 
+  // Generate quiz questions in backend with performance optimizations
   useEffect(() => {
     if (!quizStarted) return;
     setLoading(true);
@@ -193,8 +204,18 @@ export default function QuizPage() {
         res = await fetch("/api/quiz", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic, count }),
+          body: JSON.stringify({ topic, count, quizId }),
         });
+      }
+      // Check for quiz deletion header
+      const deletedQuizId = res.headers.get("X-Quiz-Deleted");
+      if (deletedQuizId) {
+        setSidebarQuizzes(prev => {
+          const updated = prev.filter(q => q.id !== deletedQuizId);
+          localStorage.setItem("quizzes", JSON.stringify(updated));
+          return updated;
+        });
+        setQuizId(null);
       }
       if (!res.body) throw new Error("No response body");
       const reader = res.body.getReader();
@@ -215,6 +236,15 @@ export default function QuizPage() {
             if (obj.error) {
               setError(obj.error);
               setLoading(false);
+              // Remove quiz from sidebar/localStorage if quizIdToDelete is present in error
+              if (obj.quizIdToDelete) {
+                setSidebarQuizzes(prev => {
+                  const updated = prev.filter(q => q.id !== obj.quizIdToDelete);
+                  localStorage.setItem("quizzes", JSON.stringify(updated));
+                  return updated;
+                });
+                setQuizId(null);
+              }
               return;
             }
             if (obj.question) {
@@ -244,7 +274,7 @@ export default function QuizPage() {
       setError("Failed to load quiz.");
       setLoading(false);
     });
-  }, [quizStarted, topic, pdfFile, count]);
+  }, [quizStarted, topic, pdfFile, count, quizId]);
 
   // Update your answer handler to save each answer as soon as it’s given
   const handleSelect = async (option: string) => {
