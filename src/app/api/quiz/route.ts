@@ -4,8 +4,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/config/auth";
 import { processPDF } from "@/utils/chatFunctions/pdf-utils";
 
-const SUBTOPIC_SYSTEM_MESSAGE = `You are a helpful assistant. Given a topic and optional context, generate a list of 10 diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at a BASIC introductory
- level suitable for 9th-10th grade students (ages 14-16). Focus on fundamental concepts, not advanced applications. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
+// Dynamically generate the subtopic system message for the correct count
+const SUBTOPIC_SYSTEM_MESSAGE_TEMPLATE = ({ count }: { count: number }) =>
+  `You are a helpful assistant. Given a topic and optional context, generate a list of ${count} diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at a BASIC introductory level suitable for 9th-10th grade students (ages 14-16). Focus on fundamental concepts, not advanced applications. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
 
 const QUIZ_SYSTEM_MESSAGE = `You are a quiz generator for 9th-10th grade students (ages 14-16). Generate a single multiple-choice quiz question on the given subtopic that tests BASIC understanding and factual recall, not complex analysis or application. The question should:
 - Test fundamental concepts, definitions, or simple cause-and-effect relationships
@@ -47,13 +48,12 @@ export async function POST(req: Request) {
     let topic = "General Knowledge";
     let pdfText = "";
     let context = "";
-    let count = 10;
+    const count = 10;
     // Check if the request is multipart (PDF upload)
     const contentType = req.headers.get("content-type") || "";
     if (contentType.startsWith("multipart/form-data")) {
       const formData = await req.formData();
       topic = formData.get("topic")?.toString() || topic;
-      count = Math.max(10, Math.min(25, Number(formData.get("count")) || 10));
       const pdfFile = formData.get("pdf");
       if (pdfFile && typeof pdfFile === "object" && "arrayBuffer" in pdfFile) {
         const buffer = Buffer.from(await pdfFile.arrayBuffer());
@@ -64,106 +64,61 @@ export async function POST(req: Request) {
       // JSON body
       const body = await req.json();
       topic = body.topic || topic;
-      count = Math.max(10, Math.min(25, Number(body.count) || 10));
       if (body.pdfText) {
         context = body.pdfText.slice(0, 8000);
       }
     }
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          // Step 1: Generate N diverse subtopics
-          const subtopicPrompt = context
-            ? `Topic: ${topic}\nContext: ${context}`
-            : `Topic: ${topic}`;
-          const subtopicRes = await llm.invoke([
-            ["system", SUBTOPIC_SYSTEM_MESSAGE.replace("10", String(count))],
-            ["human", subtopicPrompt],
-          ]);
-          let subtopics: string[] = [];
-          try {
-            const contentStr = String(subtopicRes.content);
-            const match = contentStr.match(/\[([\s\S]*?)\]/);
-            const jsonStr = match ? match[0] : contentStr;
-            subtopics = JSON.parse(jsonStr);
-          } catch {
-            controller.enqueue(
-              encoder.encode(
-                JSON.stringify({ error: "Failed to parse subtopics." }) + "\n"
-              )
-            );
-            controller.close();
-            return;
-          }
-          if (!Array.isArray(subtopics) || subtopics.length < count) {
-            controller.enqueue(
-              encoder.encode(
-                JSON.stringify({
-                  error: `Failed to generate ${count} subtopics.`,
-                }) + "\n"
-              )
-            );
-            controller.close();
-            return;
-          }
-          // Step 2: Generate all quiz questions in parallel
-          const questionPromises = subtopics
-            .slice(0, count)
-            .map(async (subtopic) => {
-              const questionPrompt = context
-                ? `Subtopic: ${subtopic}\nContext: ${context}`
-                : `Subtopic: ${subtopic}`;
-              try {
-                const response = await llm.invoke([
-                  ["system", QUIZ_SYSTEM_MESSAGE],
-                  ["human", questionPrompt],
-                ]);
-                const responseText = String(response.content);
-                const jsonMatch =
-                  responseText.match(/```json\n([\s\S]*?)\n```/) ||
-                  responseText.match(/{[\s\S]*}/);
-                const jsonStr = jsonMatch
-                  ? jsonMatch[1] || jsonMatch[0]
-                  : responseText;
-                let questionObj;
-                try {
-                  questionObj = JSON.parse(jsonStr);
-                  return { question: questionObj };
-                } catch {
-                  return {
-                    error: `Failed to parse question for subtopic: ${subtopic}`,
-                  };
-                }
-              } catch {
-                return {
-                  error: `Failed to generate question for subtopic: ${subtopic}`,
-                };
-              }
-            });
-          // Wait for all questions to finish
-          const questions = await Promise.all(questionPromises);
-          // Stream each question as soon as all are ready
-          for (const q of questions) {
-            controller.enqueue(encoder.encode(JSON.stringify(q) + "\n"));
-          }
-          controller.close();
-        } catch {
-          controller.enqueue(
-            encoder.encode(
-              JSON.stringify({ error: "Failed to generate quiz." }) + "\n"
-            )
-          );
-          controller.close();
-        }
-      },
-    });
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "application/x-ndjson",
-        "Cache-Control": "no-store",
-      },
-    });
+    // Generate subtopics
+    const subtopicPrompt = context
+      ? `Topic: ${topic}\nContext: ${context}`
+      : `Topic: ${topic}`;
+    const subtopicSystemMessage = SUBTOPIC_SYSTEM_MESSAGE_TEMPLATE({ count });
+    const subtopicRes = await llm.invoke([
+      ["system", subtopicSystemMessage],
+      ["human", subtopicPrompt],
+    ]);
+    let subtopics: string[] = [];
+    try {
+      const contentStr = String(subtopicRes.content);
+      const match = contentStr.match(/\[([\s\S]*?)\]/);
+      const jsonStr = match ? match[0] : contentStr;
+      subtopics = JSON.parse(jsonStr);
+      // Ensure subtopics is an array of strings and slice to count
+      if (!Array.isArray(subtopics))
+        throw new Error("Subtopics is not an array");
+      subtopics = subtopics
+        .filter((s) => typeof s === "string")
+        .slice(0, count);
+    } catch {
+      return NextResponse.json({ error: "Failed to parse subtopics." }, { status: 500 });
+    }
+    if (!Array.isArray(subtopics) || subtopics.length === 0) {
+      return NextResponse.json({ error: `Failed to generate any subtopics.` }, { status: 500 });
+    }
+    // Generate questions for each subtopic
+    const questions: Record<string, unknown>[] = [];
+    for (const subtopic of subtopics) {
+      const questionPrompt = context
+        ? `Subtopic: ${subtopic}\nContext: ${context}`
+        : `Subtopic: ${subtopic}`;
+      const response = await llm.invoke([
+        ["system", QUIZ_SYSTEM_MESSAGE],
+        ["human", questionPrompt],
+      ]);
+      const responseText = String(response.content);
+      const jsonMatch =
+        responseText.match(/```json\n([\s\S]*?)\n```/) ||
+        responseText.match(/{[\s\S]*}/);
+      const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText;
+      let questionObj;
+      try {
+        questionObj = JSON.parse(jsonStr);
+      } catch {
+        return NextResponse.json({ error: `Failed to parse question for subtopic: ${subtopic}` }, { status: 500 });
+      }
+      questions.push(questionObj);
+    }
+    return NextResponse.json({ questions });
   } catch {
     return NextResponse.json(
       { error: "Failed to generate quiz." },

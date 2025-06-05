@@ -24,6 +24,20 @@ export async function saveQuestionAnswer(
   return (await res.json()).question;
 }
 
+export async function updateQuizScore(
+  quizId: string,
+  score: number,
+  totalQuestions: number
+) {
+  const res = await fetch("/api/quiz/update", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ quizId, score, totalQuestions }),
+  });
+  if (!res.ok) throw new Error("Failed to update quiz score");
+  return (await res.json()).quiz;
+}
+
 export async function getAttempt(quizId: string) {
   const res = await fetch(`/api/quiz/attempt/by-quiz/${quizId}`);
   if (!res.ok) return null;

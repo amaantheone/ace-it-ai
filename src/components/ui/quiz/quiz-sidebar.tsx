@@ -6,9 +6,11 @@ import { useState } from "react";
 export function QuizSidebar({
   quizzes = [],
   onSelectQuiz,
+  onNewQuiz,
 }: {
   quizzes?: { id: string; title: string; score: number | null }[];
   onSelectQuiz?: (id: string) => void;
+  onNewQuiz?: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<string | null>(null);
@@ -43,10 +45,12 @@ export function QuizSidebar({
           <BookOpen className="w-5 h-5 text-primary" /> Quiz Library
         </span>
         <button
-          className="p-1 mr-10 rounded-full bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition-colors shadow focus:outline-none focus:ring-2 focus:ring-primary/40 hover:cursor-pointer"
+          className="p-1 rounded-full bg-black text-white dark:bg-white dark:text-black hover:opacity-90 transition-colors shadow focus:outline-none focus:ring-2 focus:ring-primary/40 hover:cursor-pointer"
           aria-label="New Quiz"
           onClick={() => {
-            if (typeof window !== "undefined") {
+            if (onNewQuiz) {
+              onNewQuiz();
+            } else if (typeof window !== "undefined") {
               window.location.href = "/quiz";
             }
           }}
