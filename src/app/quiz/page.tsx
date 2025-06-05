@@ -296,10 +296,35 @@ export default function QuizPage() {
   // 7. Make the review UI read-only (no answer selection).
   // 8. If no attempt data, show a loading spinner or error.
 
+  // Function to reset all quiz state for a fresh start
+  const resetQuizState = () => {
+    setQuiz([]);
+    setCurrent(0);
+    setUserAnswers([]);
+    setLoading(false);
+    setError(null);
+    setAnswered([]);
+    setFinished(false);
+    setTopic("");
+    setQuizStarted(false);
+    setPdfFile(null);
+    setCount(10);
+    setQuizId(null); // Critical: Reset quizId to allow new quiz creation
+    setShowScoreFor(null);
+    setReviewAttempt(null);
+    setCurrentReviewQuestionIdx(0);
+    setReviewLoading(false);
+    setAttemptId(null);
+    // Focus the input for immediate new quiz creation
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-row items-stretch justify-center bg-gradient-to-br from-background to-muted/60 p-2">
       {/* The QuizSidebar component now handles its own visibility */}
-      <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} />
+      <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} onNewQuiz={resetQuizState} />
       
       {/* Main content area - shifted padding for mobile */}
       <div className="flex-1 flex flex-col items-center justify-center md:ml-0 ml-0 mt-12 md:mt-0">
@@ -445,8 +470,13 @@ export default function QuizPage() {
                   <form
                     onSubmit={e => {
                       e.preventDefault();
-                      if (topic.trim()) setQuizStarted(true);
-                      else inputRef.current?.focus();
+                      if (topic.trim()) {
+                        // Reset quizId to ensure fresh quiz creation
+                        setQuizId(null);
+                        setQuizStarted(true);
+                      } else {
+                        inputRef.current?.focus();
+                      }
                     }}
                     className="flex flex-col gap-2 items-center mt-0"
                     encType="multipart/form-data"

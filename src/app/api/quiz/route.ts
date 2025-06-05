@@ -4,8 +4,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/config/auth";
 import { processPDF } from "@/utils/chatFunctions/pdf-utils";
 
-const SUBTOPIC_SYSTEM_MESSAGE = `You are a helpful assistant. Given a topic and optional context, generate a list of 10 diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at a BASIC introductory
- level suitable for 9th-10th grade students (ages 14-16). Focus on fundamental concepts, not advanced applications. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
+// Dynamically generate the subtopic system message for the correct count
+const SUBTOPIC_SYSTEM_MESSAGE_TEMPLATE = ({ count }: { count: number }) =>
+  `You are a helpful assistant. Given a topic and optional context, generate a list of ${count} diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at a BASIC introductory level suitable for 9th-10th grade students (ages 14-16). Focus on fundamental concepts, not advanced applications. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
 
 const QUIZ_SYSTEM_MESSAGE = `You are a quiz generator for 9th-10th grade students (ages 14-16). Generate a single multiple-choice quiz question on the given subtopic that tests BASIC understanding and factual recall, not complex analysis or application. The question should:
 - Test fundamental concepts, definitions, or simple cause-and-effect relationships
@@ -77,8 +78,11 @@ export async function POST(req: Request) {
           const subtopicPrompt = context
             ? `Topic: ${topic}\nContext: ${context}`
             : `Topic: ${topic}`;
+          const subtopicSystemMessage = SUBTOPIC_SYSTEM_MESSAGE_TEMPLATE({
+            count,
+          });
           const subtopicRes = await llm.invoke([
-            ["system", SUBTOPIC_SYSTEM_MESSAGE.replace("10", String(count))],
+            ["system", subtopicSystemMessage],
             ["human", subtopicPrompt],
           ]);
           let subtopics: string[] = [];
@@ -87,6 +91,12 @@ export async function POST(req: Request) {
             const match = contentStr.match(/\[([\s\S]*?)\]/);
             const jsonStr = match ? match[0] : contentStr;
             subtopics = JSON.parse(jsonStr);
+            // Ensure subtopics is an array of strings and slice to count
+            if (!Array.isArray(subtopics))
+              throw new Error("Subtopics is not an array");
+            subtopics = subtopics
+              .filter((s) => typeof s === "string")
+              .slice(0, count);
           } catch {
             controller.enqueue(
               encoder.encode(
@@ -96,19 +106,27 @@ export async function POST(req: Request) {
             controller.close();
             return;
           }
-          if (!Array.isArray(subtopics) || subtopics.length < count) {
+          if (!Array.isArray(subtopics) || subtopics.length === 0) {
             controller.enqueue(
               encoder.encode(
-                JSON.stringify({
-                  error: `Failed to generate ${count} subtopics.`,
-                }) + "\n"
+                JSON.stringify({ error: `Failed to generate any subtopics.` }) +
+                  "\n"
               )
             );
             controller.close();
             return;
           }
+          if (subtopics.length < count) {
+            controller.enqueue(
+              encoder.encode(
+                JSON.stringify({
+                  warning: `Only generated ${subtopics.length} questions instead of requested ${count}.`,
+                }) + "\n"
+              )
+            );
+          }
           // Step 2: For each subtopic, generate and stream a quiz question
-          for (const subtopic of subtopics.slice(0, count)) {
+          for (const subtopic of subtopics) {
             const questionPrompt = context
               ? `Subtopic: ${subtopic}\nContext: ${context}`
               : `Subtopic: ${subtopic}`;
