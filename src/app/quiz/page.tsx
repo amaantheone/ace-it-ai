@@ -59,7 +59,7 @@ export default function QuizPage() {
   const [topic, setTopic] = useState("");
   const [quizStarted, setQuizStarted] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [count, setCount] = useState(10);
+
   const [quizId, setQuizId] = useState<string | null>(null);
   const [sidebarQuizzes, setSidebarQuizzes] = useState<QuizMeta[]>([]);
   const [showScoreFor, setShowScoreFor] = useState<QuizMeta | null>(null);
@@ -68,6 +68,7 @@ export default function QuizPage() {
   const [reviewLoading, setReviewLoading] = useState(false);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const quizGenerationInProgress = useRef(false);
 
   // Load quizzes for sidebar from localStorage, and if empty, fetch from DB
   useEffect(() => {
@@ -95,7 +96,7 @@ export default function QuizPage() {
       fetch("/api/quiz/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: topic, totalQuestions: count }),
+        body: JSON.stringify({ title: topic, totalQuestions: 10 }),
       })
         .then(res => res.json())
         .then(data => {
@@ -105,7 +106,7 @@ export default function QuizPage() {
           }
         });
     }
-  }, [quizStarted, topic, quizId, count]);
+  }, [quizStarted, topic, quizId]);
 
   // When quiz is finished, update score in DB and sidebar/localStorage
   useEffect(() => {
@@ -182,30 +183,38 @@ export default function QuizPage() {
 
   // Generate quiz questions in backend with performance optimizations
   useEffect(() => {
-    if (!quizStarted) return;
+    if (!quizStarted || quizGenerationInProgress.current) return;
+    
+    quizGenerationInProgress.current = true;
     setLoading(true);
     setQuiz([]);
     setUserAnswers([]);
     setAnswered([]);
     setError(null);
     setFinished(false);
+    
     const fetchQuiz = async () => {
       let res;
-      if (pdfFile) {
-        const formData = new FormData();
-        formData.append("topic", topic);
-        formData.append("count", String(count));
-        formData.append("pdf", pdfFile);
-        res = await fetch("/api/quiz", {
-          method: "POST",
-          body: formData,
-        });
-      } else {
-        res = await fetch("/api/quiz", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic, count, quizId }),
-        });
+      try {
+        if (pdfFile) {
+          const formData = new FormData();
+          formData.append("topic", topic);
+          formData.append("count", "10");
+          formData.append("pdf", pdfFile);
+          res = await fetch("/api/quiz", {
+            method: "POST",
+            body: formData,
+          });
+        } else {
+          res = await fetch("/api/quiz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ topic, count: 10, quizId }),
+          });
+        }
+      } catch (fetchError) {
+        console.error("Network error during quiz generation:", fetchError);
+        throw new Error("Network error. Please check your internet connection and try again.");
       }
       // Check for quiz deletion header
       const deletedQuizId = res.headers.get("X-Quiz-Deleted");
@@ -217,64 +226,69 @@ export default function QuizPage() {
         });
         setQuizId(null);
       }
-      if (!res.body) throw new Error("No response body");
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      setUserAnswers(Array(count).fill(""));
-      setAnswered(Array(count).fill(false));
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const obj = JSON.parse(line);
-            if (obj.error) {
-              setError(obj.error);
-              setLoading(false);
-              // Remove quiz from sidebar/localStorage if quizIdToDelete is present in error
-              if (obj.quizIdToDelete) {
-                setSidebarQuizzes(prev => {
-                  const updated = prev.filter(q => q.id !== obj.quizIdToDelete);
-                  localStorage.setItem("quizzes", JSON.stringify(updated));
-                  return updated;
-                });
-                setQuizId(null);
-              }
-              return;
-            }
-            if (obj.question) {
-              setQuiz((prev) => {
-                const next = [...prev, obj.question];
-                setUserAnswers((ua) => {
-                  const arr = [...ua];
-                  while (arr.length < next.length) arr.push("");
-                  return arr;
-                });
-                setAnswered((an) => {
-                  const arr = [...an];
-                  while (arr.length < next.length) arr.push(false);
-                  return arr;
-                });
-                return next;
-              });
-            }
-          } catch {
-            // ignore parse errors for incomplete lines
-          }
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Failed to load quiz" }));
+        // Provide more specific error messages for common issues
+        if (res.status === 408) {
+          throw new Error("Request timed out. Please try again with a simpler topic or smaller PDF file.");
+        } else if (res.status === 413) {
+          throw new Error("PDF file is too large. Please try a smaller file (max 10MB).");
+        } else if (res.status === 415) {
+          throw new Error("Invalid file type. Please upload a valid PDF file.");
+        } else if (errorData.error && errorData.error.includes("PDF")) {
+          throw new Error(`PDF processing error: ${errorData.error}`);
         }
+        throw new Error(errorData.error || "Failed to load quiz");
+      }
+
+      const data = await res.json();
+      
+      if (data.error) {
+        setError(data.error);
+        setLoading(false);
+        quizGenerationInProgress.current = false;
+        // Remove quiz from sidebar/localStorage if quizIdToDelete is present in error
+        if (data.quizIdToDelete) {
+          setSidebarQuizzes(prev => {
+            const updated = prev.filter(q => q.id !== data.quizIdToDelete);
+            localStorage.setItem("quizzes", JSON.stringify(updated));
+            return updated;
+          });
+          setQuizId(null);
+        }
+        return;
+      }
+
+      // Handle both { questions: [...] } and { question: ... } formats
+      let questions: QuizQuestion[] = [];
+      if (data.questions && Array.isArray(data.questions)) {
+        questions = data.questions;
+      } else if (data.question) {
+        questions = [data.question];
+      } else {
+        throw new Error("Invalid response format");
+      }
+
+      setQuiz(questions);
+      setUserAnswers(Array(questions.length).fill(""));
+      setAnswered(Array(questions.length).fill(false));
+      setLoading(false);
+      quizGenerationInProgress.current = false;
+    };
+    fetchQuiz().catch((error) => {
+      console.error("Quiz generation failed:", error);
+      // Provide more user-friendly error messages
+      if (error.message.includes("PDF")) {
+        setError(`PDF Error: ${error.message}`);
+      } else if (error.message.includes("Network")) {
+        setError("Connection failed. Please check your internet and try again.");
+      } else {
+        setError(error.message || "Failed to generate quiz. Please try again.");
       }
       setLoading(false);
-    };
-    fetchQuiz().catch(() => {
-      setError("Failed to load quiz.");
-      setLoading(false);
+      quizGenerationInProgress.current = false;
     });
-  }, [quizStarted, topic, pdfFile, count, quizId]);
+  }, [quizStarted, topic, pdfFile, quizId]);
 
   // Update your answer handler to save each answer as soon as it’s given
   const handleSelect = async (option: string) => {
@@ -338,13 +352,13 @@ export default function QuizPage() {
     setTopic("");
     setQuizStarted(false);
     setPdfFile(null);
-    setCount(10);
     setQuizId(null); // Critical: Reset quizId to allow new quiz creation
     setShowScoreFor(null);
     setReviewAttempt(null);
     setCurrentReviewQuestionIdx(0);
     setReviewLoading(false);
     setAttemptId(null);
+    quizGenerationInProgress.current = false; // Reset the ref
     // Focus the input for immediate new quiz creation
     if (inputRef.current) {
       inputRef.current.focus();
@@ -522,17 +536,6 @@ export default function QuizPage() {
                       autoFocus
                     />
                     <div className="w-full max-w-lg flex flex-col gap-2">
-                      <label className="block text-sm font-medium text-foreground mb-1">Number of questions</label>
-                      <input
-                        type="number"
-                        min={10}
-                        max={25}
-                        value={count}
-                        onChange={e => setCount(Math.max(10, Math.min(25, Number(e.target.value))))}
-                        className="border border-muted rounded-lg px-4 py-2 w-full max-w-[120px] text-base shadow-sm"
-                      />
-                    </div>
-                    <div className="w-full max-w-lg flex flex-col gap-2">
                       <label className="block text-sm font-medium text-foreground mb-1">Attach PDF (optional)</label>
                       <div className="flex items-center gap-2">
                         <input
@@ -540,7 +543,25 @@ export default function QuizPage() {
                           accept="application/pdf"
                           id="pdf-upload"
                           className="hidden"
-                          onChange={e => setPdfFile(e.target.files?.[0] || null)}
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              // Check file size (10MB limit)
+                              if (file.size > 10 * 1024 * 1024) {
+                                setError("PDF file is too large. Please select a file smaller than 10MB.");
+                                return;
+                              }
+                              // Check file type
+                              if (file.type !== "application/pdf") {
+                                setError("Please select a valid PDF file.");
+                                return;
+                              }
+                              setError(null); // Clear any previous errors
+                              setPdfFile(file);
+                            } else {
+                              setPdfFile(null);
+                            }
+                          }}
                         />
                         <label htmlFor="pdf-upload">
                           <span>
@@ -662,7 +683,14 @@ export default function QuizPage() {
                 {loading && quizStarted && quiz.length === 0 && (
                   <div className="flex flex-col items-center justify-center mt-8">
                     <Spinner className="h-10 w-10 mb-3" />
-                    <span className="text-muted-foreground text-base font-medium">Generating quiz...</span>
+                    <span className="text-muted-foreground text-base font-medium">
+                      {pdfFile ? "Processing PDF and generating quiz..." : "Generating quiz..."}
+                    </span>
+                    {pdfFile && (
+                      <span className="text-muted-foreground text-sm mt-1">
+                        This may take up to 2 minutes for complex topics
+                      </span>
+                    )}
                   </div>
                 )}
                 {/* Render review UI outside the score summary block so it's always visible */}
