@@ -107,39 +107,45 @@ export async function POST(req: Request) {
             controller.close();
             return;
           }
-          // Step 2: For each subtopic, generate and stream a quiz question
-          for (const subtopic of subtopics.slice(0, count)) {
-            const questionPrompt = context
-              ? `Subtopic: ${subtopic}\nContext: ${context}`
-              : `Subtopic: ${subtopic}`;
-            const response = await llm.invoke([
-              ["system", QUIZ_SYSTEM_MESSAGE],
-              ["human", questionPrompt],
-            ]);
-            const responseText = String(response.content);
-            const jsonMatch =
-              responseText.match(/```json\n([\s\S]*?)\n```/) ||
-              responseText.match(/{[\s\S]*}/);
-            const jsonStr = jsonMatch
-              ? jsonMatch[1] || jsonMatch[0]
-              : responseText;
-            let questionObj;
-            try {
-              questionObj = JSON.parse(jsonStr);
-            } catch {
-              controller.enqueue(
-                encoder.encode(
-                  JSON.stringify({
+          // Step 2: Generate all quiz questions in parallel
+          const questionPromises = subtopics
+            .slice(0, count)
+            .map(async (subtopic) => {
+              const questionPrompt = context
+                ? `Subtopic: ${subtopic}\nContext: ${context}`
+                : `Subtopic: ${subtopic}`;
+              try {
+                const response = await llm.invoke([
+                  ["system", QUIZ_SYSTEM_MESSAGE],
+                  ["human", questionPrompt],
+                ]);
+                const responseText = String(response.content);
+                const jsonMatch =
+                  responseText.match(/```json\n([\s\S]*?)\n```/) ||
+                  responseText.match(/{[\s\S]*}/);
+                const jsonStr = jsonMatch
+                  ? jsonMatch[1] || jsonMatch[0]
+                  : responseText;
+                let questionObj;
+                try {
+                  questionObj = JSON.parse(jsonStr);
+                  return { question: questionObj };
+                } catch {
+                  return {
                     error: `Failed to parse question for subtopic: ${subtopic}`,
-                  }) + "\n"
-                )
-              );
-              controller.close();
-              return;
-            }
-            controller.enqueue(
-              encoder.encode(JSON.stringify({ question: questionObj }) + "\n")
-            );
+                  };
+                }
+              } catch {
+                return {
+                  error: `Failed to generate question for subtopic: ${subtopic}`,
+                };
+              }
+            });
+          // Wait for all questions to finish
+          const questions = await Promise.all(questionPromises);
+          // Stream each question as soon as all are ready
+          for (const q of questions) {
+            controller.enqueue(encoder.encode(JSON.stringify(q) + "\n"));
           }
           controller.close();
         } catch {
