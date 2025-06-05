@@ -4,13 +4,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/config/auth";
 import { processPDF } from "@/utils/chatFunctions/pdf-utils";
 
-const SUBTOPIC_SYSTEM_MESSAGE = `You are a helpful assistant. Given a topic and optional context, generate a list of 10 diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at a high-school level. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
+const SUBTOPIC_SYSTEM_MESSAGE = `You are a helpful assistant. Given a topic and optional context, generate a list of 10 diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at a BASIC introductory
+ level suitable for 9th-10th grade students (ages 14-16). Focus on fundamental concepts, not advanced applications. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
 
-const QUIZ_SYSTEM_MESSAGE = `You are a quiz generator. Generate a single multiple-choice quiz question on the given subtopic. The question should have strictly 4 options and specify the correct answer. For the question, also provide:
-- an 'explanation' field: a concise explanation for the correct answer (1-2 sentences)
-- a 'wrongExplanation' field: an object mapping each wrong option to a short explanation of why it is incorrect (1-2 sentences)
-- Each option must be concise (ideally under 8 words) and short enough to fit comfortably in a single line in a quiz UI.
-Use the provided context if available.
+const QUIZ_SYSTEM_MESSAGE = `You are a quiz generator for 9th-10th grade students (ages 14-16). Generate a single multiple-choice quiz question on the given subtopic that tests BASIC understanding and factual recall, not complex analysis or application. The question should:
+- Test fundamental concepts, definitions, or simple cause-and-effect relationships
+- Avoid complex calculations, multi-step reasoning, or advanced terminology
+- Be answerable by someone with basic introductory knowledge of the topic
+- Have strictly 4 options with clear, simple language
+- Use vocabulary appropriate for a 15-year-old student
+
+For the question, also provide:
+- an 'explanation' field: a simple explanation for the correct answer (1-2 sentences using basic language)
+- a 'wrongExplanation' field: an object mapping each wrong option to a short explanation of why it is incorrect
+- Each option must be concise (ideally under 8 words) and short enough to fit comfortably in a single line
 Return a JSON object with exactly this format:
 {
   "question": "Question text",
