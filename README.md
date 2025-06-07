@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ACE IT AI
 
-## Getting Started
+## Description
 
-First, run the development server:
+Ace It AI is an intelligent learning companion built to fulfill every students' needs. This application leverages artificial intelligence to enhance students' learning journeys through interactive features like AI chat, mindmap generation, flashcard creation, and quiz generation and attempt functionality. Whether you're studying for exams, exploring new topics, or organizing your knowledge, Ace It AI provides intuitive tools to make learning more efficient and enjoyable.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Table of Contents
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* Features
+* Tech Stack
+* Running Locally
+* Contributing
+* Support
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **AI Chat Assistant**: Engage in conversations with an AI tutor that can answer questions and provide explanations on various topics
+- **PDF Context Upload**: Upload PDF documents to provide the AI with additional context for more relevant responses
+- **Interactive Mindmaps**: Generate visual mindmaps of any topic to help understand relationships between concepts
+- **Flashcard System**: Create study flashcards automatically based on your chosen topics
+- **Bulk Flashcard Generation**: Generate multiple flashcards at once with automatic folder organization
+- **Folder Management**: Organize your flashcards with comprehensive CRUD operations:
+  - Create folders through the bulk generation feature
+  - Update folder names
+  - Move flashcards between folders
+  - Delete folders and their contents
 
-## Learn More
+## Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- **Frontend**: Next.js, React, TailwindCSS
+- **UI Components**: shadcn UI
+- **Authentication**: NextAuth.js
+- **Database**: Prisma ORM
+- **AI Integration**: Google's Gemini language model for generating content
+- **Visualization**: Mermaid.js for Interactive mindmap rendering
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Running locally
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Clone the repository
+   ```bash
+   git clone https://github.com/amaantheone/ace-it-ai.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+   cd ace-it-ai
+   ```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Set up environment variables: <br>
+Create `.env` file and set env variables from `.env.example` file.
 
-## Deploy on Vercel
+6. Database Initialization:
+   ```bash
+   npx prisma migrate deploy && npx prisma generate
+   ```
+6. **Run the app**:
+   ```bash
+   npm run dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Contributing:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository.
+2. Create a new branch for your feature or bug fix.
+3. Commit your changes and push them to your fork.
+4. Submit a pull request.
+
+## ❤️ Support:
+
+If you liked the project, I will really appreciate it if you leave a star. 🌟😊
