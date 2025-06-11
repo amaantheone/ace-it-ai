@@ -166,9 +166,6 @@ export default function ChatPage() {
       
       setIsLoading(true);
       
-      // Add a timeout to test loading skeleton (temporary - remove later)
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
       if (isGuest) {
         // Guest: load from localStorage using context
         const guestMessages = (loadGuestData(GUEST_MESSAGES_KEY) as Record<string, Message[]>) || {};
