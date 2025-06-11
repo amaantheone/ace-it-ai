@@ -143,6 +143,9 @@ export const handleSendMessage = async (
       throw new Error(data.error || "Failed to get AI response");
     }
 
+    // Add a timeout to test loading skeleton (temporary - remove later)
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
     const aiMessage: Message = {
       id: aiMessageId,
       message: data.message,

@@ -9,6 +9,9 @@ import {
   ChatBubbleMessage,
   ChatBubbleAction
 } from "./chat-bubble";
+import { MessageSkeleton } from "./message-skeleton";
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import { RefreshCcw, CopyIcon } from "lucide-react";
 import Markdown from 'markdown-to-jsx';
 import { useSessionStore } from '@/hooks/useSessionStore';
@@ -26,14 +29,26 @@ interface Message {
 interface ChatMessagesProps {
   messages: Message[];
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
+  isLoading?: boolean;
 }
 
-export function ChatMessages({ messages, messagesContainerRef }: ChatMessagesProps) {
+export function ChatMessages({ messages, messagesContainerRef, isLoading = false }: ChatMessagesProps) {
   const getMessageVariant = (role?: string) => role === "ai" ? "received" : "sent";
 
   // Find the index of the last AI message
   const lastAiIndex = [...messages].reverse().findIndex(m => m.role === "ai");
   const lastAiMessageIndex = lastAiIndex === -1 ? -1 : messages.length - 1 - lastAiIndex;
+
+  // When loading, always show skeleton regardless of message count
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-3xl mx-auto px-2 md:px-0">
+        <div className="py-4">
+          <MessageSkeleton count={3} />
+        </div>
+      </div>
+    );
+  }
 
   if (messages.length === 0) {
     return (
@@ -88,33 +103,39 @@ export function ChatMessages({ messages, messagesContainerRef }: ChatMessagesPro
                     <div className="flex md:hidden items-center gap-2 mb-1 text-xs text-muted-foreground">
                       {message.role === "ai" ? "AI Tutor" : "You"}
                     </div>
-                    <div className="prose dark:prose-invert max-w-none">
-                      {message.role === "ai" ? (
-                        <Markdown options={{
-                          overrides: {
-                            p: {
-                              props: {
-                                className: 'mb-2'
-                              }
-                            },
-                            ul: {
-                              props: {
-                                className: 'list-disc pl-4 mb-2 space-y-1'
-                              }
-                            },
-                            li: {
-                              props: {
-                                className: 'ml-2'
+                    {message.isLoading && message.role === "ai" ? (
+                      <div className="prose dark:prose-invert max-w-none">
+                        <Skeleton count={3} height={20} />
+                      </div>
+                    ) : (
+                      <div className="prose dark:prose-invert max-w-none">
+                        {message.role === "ai" ? (
+                          <Markdown options={{
+                            overrides: {
+                              p: {
+                                props: {
+                                  className: 'mb-2'
+                                }
+                              },
+                              ul: {
+                                props: {
+                                  className: 'list-disc pl-4 mb-2 space-y-1'
+                                }
+                              },
+                              li: {
+                                props: {
+                                  className: 'ml-2'
+                                }
                               }
                             }
-                          }
-                        }}>
-                          {message.message || ''}
-                        </Markdown>
-                      ) : (
-                        message.message
-                      )}
-                    </div>
+                          }}>
+                            {message.message || ''}
+                          </Markdown>
+                        ) : (
+                          message.message
+                        )}
+                      </div>
+                    )}
                     {message.role === "ai" && (
                       <div className="flex items-center mt-1.5 gap-1">
                         {!message.isLoading && (

@@ -163,10 +163,17 @@ export default function ChatPage() {
   useEffect(() => {
     async function loadMessages() {
       if (!currentSessionId) return;
+      
+      setIsLoading(true);
+      
+      // Add a timeout to test loading skeleton (temporary - remove later)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       if (isGuest) {
         // Guest: load from localStorage using context
         const guestMessages = (loadGuestData(GUEST_MESSAGES_KEY) as Record<string, Message[]>) || {};
         setMessages(currentSessionId, guestMessages[currentSessionId] || []);
+        setIsLoading(false);
       } else {
         // Authenticated: use API (existing functionality unchanged)
         try {
@@ -178,11 +185,13 @@ export default function ChatPage() {
           setMessages(currentSessionId, data);
         } catch (error) {
           console.error('Error loading messages:', error);
+        } finally {
+          setIsLoading(false);
         }
       }
     }
     loadMessages();
-  }, [currentSessionId, setMessages, isGuest, loadGuestData]);
+  }, [currentSessionId, setMessages, isGuest, loadGuestData, setIsLoading]);
 
   // Save sessions/messages to localStorage on change (guest only)
   useEffect(() => {
@@ -374,10 +383,11 @@ export default function ChatPage() {
           <ChatMessages
             messages={getCurrentSessionMessages()}
             messagesContainerRef={messagesContainerRef}
+            isLoading={isLoading}
           />
         </div>
-        {/* Suggestions Grid (only if user has sent 0 messages in this session) */}
-        {getCurrentSessionMessages().filter(m => m.role === "user").length === 0 && (
+        {/* Suggestions Grid (only if messages aren't loading AND user has sent 0 messages in this session) */}
+        {!isLoading && getCurrentSessionMessages().filter(m => m.role === "user").length === 0 && (
           <div className="w-full flex justify-center mt-6 mb-4">
             <div className="grid grid-cols-2 gap-4 w-full max-w-2xl">
               <Card className="p-0 shadow-none border-none bg-transparent">

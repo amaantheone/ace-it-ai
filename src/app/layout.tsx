@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "react-loading-skeleton/dist/skeleton.css";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { SessionProviderWrapper } from "../contexts/SessionContext";
 import { NextAuthProvider } from "../components/providers/NextAuthProvider";

@@ -144,6 +144,9 @@ export const useSessionStore = create<SessionState & SessionActions>(
 
         const data = await response.json();
 
+        // Add a timeout to test loading skeleton (temporary - remove later)
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
         // Replace the loading message with the actual response
         set((state) => ({
           messages: {

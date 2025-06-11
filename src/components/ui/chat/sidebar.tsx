@@ -53,7 +53,11 @@ export function Sidebar({
   // Handle session selection with title generation
   const handleSessionSelect = (sessionId: string, session: Session) => {
     onSelectSession(sessionId);
-    if (onCloseSidebar) onCloseSidebar();
+    
+    // Only close sidebar on mobile view when a session is selected
+    if (isMobileView && onCloseSidebar) {
+      onCloseSidebar();
+    }
 
     // If this session doesn't have a title and it's not already generating one
     if (!session.topic && sessionId === currentSessionId) {
@@ -75,9 +79,7 @@ export function Sidebar({
     >
       <div className="flex flex-col h-full">
         <SidebarHeader onNewChat={onNewChat} />
-        <div className="flex-1 overflow-y-auto" onClick={() => {
-          if (isMobileView && isSidebarOpen && onCloseSidebar) onCloseSidebar();
-        }}>
+        <div className="flex-1 overflow-y-auto">
           <SessionList sessions={sessions} currentSessionId={currentSessionId} handleSessionSelect={handleSessionSelect} />
         </div>
         <div className="mt-auto relative" ref={menuRef}>
