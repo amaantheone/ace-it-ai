@@ -120,3 +120,33 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Theme transition animations */
+@keyframes theme-mask {
+  from {
+    clip-path: circle(0% at top left);
+  }
+  to {
+    clip-path: circle(150% at top left);
+  }
+}
+
+::view-transition-old(root) {
+  animation: none;
+}
+
+::view-transition-new(root) {
+  animation-duration: 0.8s;
+  animation-timing-function: cubic-bezier(0.76, 0, 0.24, 1);
+  animation-fill-mode: forwards;
+  animation-name: theme-mask;
+  mix-blend-mode: normal;
+}
+
+[data-theme="dark"] ::view-transition-new(root) {
+  display: none;
+}
+
+[data-theme="light"] ::view-transition-old(root) {
+  display: none;
+}

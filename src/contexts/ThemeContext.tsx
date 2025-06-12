@@ -23,22 +23,44 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(initialTheme);
     if (initialTheme === 'dark') {
       document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
   }, []);
 
+  const applyThemeChange = (newTheme: Theme) => {
+    localStorage.setItem('theme', newTheme);
+    
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+    
+    return newTheme;
+  };
+
   const toggleTheme = () => {
-    setTheme((prevTheme) => {
-      const newTheme = prevTheme === 'light' ? 'dark' : 'light';
-      localStorage.setItem('theme', newTheme);
-      
-      if (newTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-      
-      return newTheme;
-    });
+    // Check if the browser supports View Transitions API
+    if (document.startViewTransition) {
+      // Apply the transition effect
+      document.startViewTransition(() => {
+        setTheme((prevTheme) => {
+          const newTheme = prevTheme === 'light' ? 'dark' : 'light';
+          return applyThemeChange(newTheme);
+        });
+      });
+    } else {
+      // Fallback for browsers that don't support View Transitions API
+      setTheme((prevTheme) => {
+        const newTheme = prevTheme === 'light' ? 'dark' : 'light';
+        return applyThemeChange(newTheme);
+      });
+    }
   };
 
   return (

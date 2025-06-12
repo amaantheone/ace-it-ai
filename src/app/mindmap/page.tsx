@@ -4,13 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Moon, Sun, X } from "lucide-react";
-import { useTheme } from "@/contexts/ThemeContext";
+import { ArrowLeft, X } from "lucide-react";
 import { MindmapRenderer } from '@/components/ui/mindmap/mindmap-renderer';
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import { MindmapSidebar } from '@/components/ui/mindmap/mindmap-sidebar';
 import { useGuest } from "@/contexts/GuestContext";
 import { LoginPopup } from "@/components/ui/login-popup";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 // Define a MindmapNode and MindmapData type for strong typing
 interface MindmapNode {
@@ -23,7 +23,6 @@ interface MindmapData {
 }
 
 export default function MindmapPage() {
-  const { theme, toggleTheme } = useTheme();
   const { 
     isGuest, 
     incrementGuestMindmapCount,
@@ -294,20 +293,7 @@ export default function MindmapPage() {
             </Link>
             <h1 className="text-2xl font-bold">Mindmap Generator</h1>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              toggleTheme();
-            }}
-            className="rounded-full"
-          >
-            {theme === 'dark' ? (
-              <Sun className="h-5 w-5 text-primary" />
-            ) : (
-              <Moon className="h-5 w-5 text-primary" />
-            )}
-          </Button>
+          <ThemeToggle className="rounded-full" />
         </div>
         <Card className="mb-6">
           <CardHeader>

@@ -12,6 +12,7 @@ import { FlashCardProvider, useFlashCards } from '@/contexts/FlashCardContext';
 import { ChatInput } from '@/components/ui/chat/chat-input';
 import { useGuest } from '@/contexts/GuestContext';
 import { LoginPopup } from '@/components/ui/login-popup';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 function FlashCardPageContent() {
   const searchParams = useSearchParams();
@@ -586,7 +587,7 @@ function FlashCardPageContent() {
             </Button>
           </Link>
           <h1 className="text-xl sm:text-2xl font-bold">Flash Card Generator</h1>
-          {isGuest && (
+          {isGuest ? (
             <div className="ml-auto flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
               <div className="text-xs sm:text-sm text-muted-foreground text-right sm:text-left">
                 Guest Mode - {3 - guestIndividualFlashcardCount} flashcards remaining
@@ -596,6 +597,11 @@ function FlashCardPageContent() {
                   Sign in
                 </Button>
               </Link>
+              <ThemeToggle size="sm" />
+            </div>
+          ) : (
+            <div className="ml-auto">
+              <ThemeToggle size="sm" />
             </div>
           )}
         </div>

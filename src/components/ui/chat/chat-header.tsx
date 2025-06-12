@@ -2,6 +2,7 @@
 
 import { PanelLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface ChatHeaderProps {
   onToggleSidebar: () => void;
@@ -19,6 +20,9 @@ export function ChatHeader({ onToggleSidebar }: ChatHeaderProps) {
         <PanelLeft className="h-4 w-4" />
       </Button>
       <h1 className="font-semibold text-foreground">Ace It AI</h1>
+      <div className="ml-auto">
+        <ThemeToggle size="sm" />
+      </div>
     </header>
   );
 }

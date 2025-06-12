@@ -10,6 +10,7 @@ import { createAttempt, saveQuestionAnswer, getAttempt, getAttemptQuestions, upd
 import { generateQuizStreaming } from "@/utils/quizFunctions/streamingQuiz";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface QuizQuestion {
   question: string;
@@ -342,6 +343,11 @@ export default function QuizPage() {
     <div className="min-h-screen flex flex-row items-stretch justify-center bg-gradient-to-br from-background to-muted/60 p-2">
       {/* The QuizSidebar component now handles its own visibility */}
       <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} onNewQuiz={resetQuizState} />
+      
+      {/* Add ThemeToggle in the top right corner */}
+      <div className="absolute top-4 right-4 z-40">
+        <ThemeToggle size="sm" />
+      </div>
       
       {/* Main content area - shifted padding for mobile */}
       <div className="flex-1 flex flex-col items-center justify-center md:ml-0 ml-0 mt-12 md:mt-0">

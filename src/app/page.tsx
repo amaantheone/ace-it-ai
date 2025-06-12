@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Moon, Sun, LogOut, LogIn } from "lucide-react";
-import { useTheme } from "@/contexts/ThemeContext";
+import { LogOut, LogIn } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useSession, signOut } from "next-auth/react";
 
 export default function Home() {
-  const { theme, toggleTheme } = useTheme();
   const { data: session } = useSession();
 
   return (
@@ -22,18 +21,7 @@ export default function Home() {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="rounded-full"
-            >
-              {theme === 'dark' ? (
-                <Sun className="h-5 w-5 text-primary" />
-              ) : (
-                <Moon className="h-5 w-5 text-primary" />
-              )}
-            </Button>
+            <ThemeToggle className="rounded-full" />
             {session ? (
               <Button 
                 variant="outline" 
