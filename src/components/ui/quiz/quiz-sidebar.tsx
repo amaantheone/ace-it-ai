@@ -64,7 +64,7 @@ export function QuizSidebar({
     
     return (
       <button
-        className="fixed top-4 right-4 z-40 bg-muted border border-border rounded-full p-2 shadow hover:bg-accent transition-colors"
+        className="fixed top-4 left-4 z-40 bg-muted border border-border rounded-full p-2 shadow hover:bg-accent transition-colors"
         onClick={() => setMobileOpen(!mobileOpen)}
         aria-label={mobileOpen ? "Close sidebar" : "Open sidebar"}
       >
@@ -101,7 +101,15 @@ export function QuizSidebar({
           <div className={`flex items-center justify-between ${isMobileView ? 'p-3' : 'p-4'} border-b border-border gap-3`}>
             <span className="font-semibold text-foreground text-lg flex items-center gap-2">
               {/* Only show the book icon on desktop */}
-              {!isMobileView && <BookOpen className="w-5 h-5 text-primary" />}
+              {!isMobileView && (
+                <span 
+                  className="cursor-pointer hover:cursor-pointer" 
+                  onClick={() => typeof window !== "undefined" && (window.location.href = "/")}
+                  title="Go to homepage"
+                >
+                  <BookOpen className="w-5 h-5 text-primary" />
+                </span>
+              )}
               <span>Quiz Library</span>
             </span>
             <button

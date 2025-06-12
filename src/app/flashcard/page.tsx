@@ -582,7 +582,7 @@ function FlashCardPageContent() {
             </Button>
           )}
           <Link href="/">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="hover:cursor-pointer">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>

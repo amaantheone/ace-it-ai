@@ -1,8 +1,9 @@
 'use client';
 
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import Link from "next/link";
 
 interface ChatHeaderProps {
   onToggleSidebar: () => void;
@@ -19,6 +20,11 @@ export function ChatHeader({ onToggleSidebar }: ChatHeaderProps) {
       >
         <PanelLeft className="h-4 w-4" />
       </Button>
+      <Link href="/">
+        <Button variant="ghost" size="icon" className="hover:cursor-pointer">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+      </Link>
       <h1 className="font-semibold text-foreground">Ace It AI</h1>
       <div className="ml-auto">
         <ThemeToggle size="sm" />
