@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { renderMindmap } from '@/utils/mindmapFunctions/mindmapRenderer';
 import { generateMindmapSyntax } from '@/utils/mindmapFunctions/mindmapUtils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverContent } from '@/components/ui/popover';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,11 @@ interface MindmapRendererProps {
 
 export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
   const mermaidRef = useRef<HTMLDivElement>(null);
-  const [popover, setPopover] = useState<{ open: boolean; word: string; definition: string | null; x: number; y: number }>({ open: false, word: '', definition: null, x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
+  const [popover, setPopover] = useState<{ open: boolean; word: string; definition: string | null; x: number; y: number }>({ 
+    open: false, word: '', definition: null, x: 0, y: 0 
+  });
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   // Helper to find definition by node text
   const findDefinition = useCallback((node: MindmapNode, word: string): string | null => {
@@ -34,6 +39,20 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
       }
     }
     return null;
+  }, []);
+
+  // Check if we're on mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   useEffect(() => {
@@ -49,10 +68,19 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
           y = evt.clientY;
         }
         const definition = findDefinition(mindmapData.root, word) || 'No definition found.';
-        setPopover({ open: true, word, definition, x, y });
+        
+        if (isMobile) {
+          // Use Dialog for mobile
+          setPopover({ open: false, word, definition, x, y });
+          setDialogOpen(true);
+        } else {
+          // Use Popover for desktop
+          setDialogOpen(false);
+          setPopover({ open: true, word, definition, x, y });
+        }
       },
     });
-  }, [mindmapData, findDefinition]);
+  }, [mindmapData, findDefinition, isMobile]);
 
   return (
     <>
@@ -61,6 +89,8 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
         className="w-full overflow-x-auto bg-background p-4 rounded-lg"
         style={{ minHeight: '400px' }}
       />
+      
+      {/* Popover for desktop */}
       <Popover open={popover.open} onOpenChange={(open) => setPopover((prev) => ({ ...prev, open }))}>
         <PopoverContent
           align="center"
@@ -80,6 +110,23 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
           </Card>
         </PopoverContent>
       </Popover>
+      
+      {/* Dialog for mobile */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md max-h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">{popover.word}</DialogTitle>
+          </DialogHeader>
+          <DialogDescription className="text-sm mt-2 whitespace-pre-wrap">
+            {popover.definition}
+          </DialogDescription>
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -304,10 +304,10 @@ export default function MindmapPage() {
               e.preventDefault();
               handleGenerateMindmap();
             }} className="flex flex-col gap-2 min-h-0">
-              <div className="flex gap-2 items-center w-full">
-                <div className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-2 w-full">
+                <div className="flex-1 w-full">
                   <ChatInput
-                    placeholder="Enter a topic (e.g., Quantum Physics, Climate Change, Machine Learning)"
+                    placeholder="Enter a topic (e.g., Quantum Physics)"
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
                     disabled={isLoading}
@@ -319,36 +319,38 @@ export default function MindmapPage() {
                     }}
                   />
                 </div>
-                <label htmlFor="pdf-upload">
-                  <Button variant="outline" className="px-4 py-2 cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer" asChild>
-                    <span>{pdfFile ? "Change PDF" : "Choose PDF"}</span>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <label htmlFor="pdf-upload" className="flex-shrink-0">
+                    <Button variant="outline" className="px-4 py-2 cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer" asChild>
+                      <span>{pdfFile ? "Change PDF" : "Choose PDF"}</span>
+                    </Button>
+                  </label>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    id="pdf-upload"
+                    className="hidden"
+                    onChange={e => setPdfFile(e.target.files?.[0] || null)}
+                    disabled={isLoading}
+                  />
+                  {pdfFile && (
+                    <div className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs shadow-sm max-w-full">
+                      <span className="truncate max-w-[120px] font-medium">{pdfFile.name}</span>
+                      <button
+                        type="button"
+                        className="ml-1 text-muted-foreground hover:text-destructive"
+                        onClick={() => setPdfFile(null)}
+                        aria-label="Remove file"
+                        disabled={isLoading}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                  <Button type="submit" disabled={isLoading} className="cursor-pointer hover:opacity-90 ml-auto">
+                    {isLoading ? 'Generating...' : 'Generate'}
                   </Button>
-                </label>
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  id="pdf-upload"
-                  className="hidden"
-                  onChange={e => setPdfFile(e.target.files?.[0] || null)}
-                  disabled={isLoading}
-                />
-                {pdfFile && (
-                  <div className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs shadow-sm">
-                    <span className="truncate max-w-[140px] font-medium">{pdfFile.name}</span>
-                    <button
-                      type="button"
-                      className="ml-1 text-muted-foreground hover:text-destructive"
-                      onClick={() => setPdfFile(null)}
-                      aria-label="Remove file"
-                      disabled={isLoading}
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-                <Button type="submit" disabled={isLoading} className="cursor-pointer hover:opacity-90">
-                  {isLoading ? 'Generating...' : 'Generate'}
-                </Button>
+                </div>
               </div>
             </form>
             {error && <p className="text-destructive mt-2">{error}</p>}
