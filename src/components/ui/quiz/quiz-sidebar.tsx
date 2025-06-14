@@ -104,7 +104,7 @@ export function QuizSidebar({
               {!isMobileView && (
                 <span 
                   className="cursor-pointer hover:cursor-pointer" 
-                  onClick={() => typeof window !== "undefined" && (window.location.href = "/")}
+                  onClick={() => typeof window !== "undefined" && (window.location.href = "/dashboard")}
                   title="Go to homepage"
                 >
                   <BookOpen className="w-5 h-5 text-primary" />

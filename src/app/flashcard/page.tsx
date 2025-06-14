@@ -581,7 +581,7 @@ function FlashCardPageContent() {
               <PanelLeft className="h-5 w-5" />
             </Button>
           )}
-          <Link href="/">
+          <Link href="/dashboard">
             <Button variant="ghost" size="icon" className="hover:cursor-pointer">
               <ArrowLeft className="h-5 w-5" />
             </Button>
