@@ -135,6 +135,27 @@ export default function Home() {
               </CardContent>
             </Card>
           </Link>
+
+          <Link href="/docs" className="block sm:col-span-2">
+            <Card className="h-full transition-all hover:shadow-md bg-gradient-to-br from-green-600/60 to-teal-700/60 border-0 dark:from-green-500/30 dark:to-teal-600/30">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="rounded-full bg-white/20 p-3 transition-colors dark:bg-white/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+                      <path d="M8 7h6" />
+                      <path d="M8 11h8" />
+                      <path d="M8 15h6" />
+                    </svg>
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="font-bold text-xl text-white">Documentation</h3>
+                    <p className="text-white/90 text-sm">Learn how to use all the features of Ace It AI</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </main>
     </div>

@@ -25,7 +25,7 @@ export function ChatHeader({ onToggleSidebar }: ChatHeaderProps) {
           <ArrowLeft className="h-4 w-4" />
         </Button>
       </Link>
-      <h1 className="font-semibold text-foreground">Ace It AI</h1>
+      <h1 className="font-semibold text-foreground">Ace</h1>
       <div className="ml-auto">
         <ThemeToggle size="sm" />
       </div>

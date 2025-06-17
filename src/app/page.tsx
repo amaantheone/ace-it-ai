@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { 
   BookOpen, 
   Brain, 
@@ -89,18 +90,21 @@ function App() {
               <a href="#how-it-works" className="font-medium transition-colors hover:text-blue-500 text-slate-300">
                 How It Works
               </a>
-              <a href="/pricing" className="font-medium transition-colors hover:text-blue-500 text-slate-300">
+              <Link href="/docs" className="font-medium transition-colors hover:text-blue-500 text-slate-300">
+                Documentation
+              </Link>
+              <Link href="/pricing" className="font-medium transition-colors hover:text-blue-500 text-slate-300">
                 Pricing
-              </a>
+              </Link>
             </div>
             
             {/* Mobile menu button */}
             <div className="flex items-center gap-3">
-              <a href="/auth/login" className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl text-sm sm:text-base">
+              <Link href="/auth/login" className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl text-sm sm:text-base">
                 <LogIn size={14} className="sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Get Started</span>
                 <span className="sm:hidden">Start</span>
-              </a>
+              </Link>
               <button className="lg:hidden p-2 rounded-xl bg-slate-800/80 text-white border border-slate-700">
                 <Menu size={20} />
               </button>
