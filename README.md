@@ -24,6 +24,13 @@ Ace It AI is an intelligent learning companion built to fulfill every students' 
   - Update folder names
   - Move flashcards between folders
   - Delete folders and their contents
+- **Adaptive Quizzes**: Generate educational quizzes on any topic with detailed explanations
+  - Create quizzes from scratch *or* from uploaded PDF content
+  - Multiple-choice questions with accurate answer validation
+  - Detailed explanations for both correct and incorrect answers
+  - Score tracking and accuracy statistics
+  - Quiz history and progress tracking
+  - Review completed quizzes to reinforce learning
 
 ## Tech Stack
 
