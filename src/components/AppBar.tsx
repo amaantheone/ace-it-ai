@@ -167,11 +167,7 @@ export default function AppBar({ currentPage }: AppBarProps) {
         </div>
       )}
       {/* Spacer to prevent content from being hidden behind the AppBar */}
-      {currentPage === 'home' ? (
-        <div className="h-4 sm:h-6" />
-      ) : (
-        <div className="h-20 sm:h-24" />
-      )}
+      <div className="h-16 sm:h-20" />
     </>
   );
 }

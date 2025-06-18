@@ -306,8 +306,6 @@ function App() {
               </a>
               <a 
                 href="/terms" 
-                target="_blank" 
-                rel="noopener noreferrer" 
                 className="transition-colors hover:text-blue-500 font-medium text-slate-400"
               >
                 Terms of Service
