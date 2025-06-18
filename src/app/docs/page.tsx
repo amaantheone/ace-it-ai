@@ -1,24 +1,21 @@
 "use client"
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+
 import { 
   BookOpen, 
-  ArrowLeft,
-  Menu,
-  X,
   ChevronRight,
   Zap,
   Users,
   Settings,
   HelpCircle,
 } from 'lucide-react';
+import AppBar from '@/components/AppBar';
 
 const Documentation = () => {
   const [activeSection, setActiveSection] = useState('getting-started');
   const [activeSubsection, setActiveSubsection] = useState('introduction');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [, setIsMobileMenuOpen] = useState(false);
 
   const sections = [
     {
@@ -256,7 +253,7 @@ const Documentation = () => {
           <p class="text-lg mb-6">Setting up your Ace It AI account is straightforward, and navigating the platform is designed to be intuitive.</p>
           <h3 class="text-xl font-semibold mb-4 text-white">Creating Your Account</h3>
           <div class="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 mb-6">
-            <p class="mb-4">To get started with Ace It AI:</p>
+            <p class class="mb-4">To get started with Ace It AI:</p>
             <ol class="list-decimal ml-6 space-y-2 text-slate-300">
               <li>Visit the <a href="/" class="text-blue-400 hover:underline">homepage</a>.</li>
               <li>Click on the "Get Started" or "Login" button, typically found in the top navigation bar.</li>
@@ -867,6 +864,10 @@ const Documentation = () => {
       }
     }
     setIsMobileMenuOpen(false);
+    // Scroll to top when navigating
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleSubsectionClick = (subsectionId: string) => {
@@ -894,6 +895,16 @@ const Documentation = () => {
 
   const currentContent = getCurrentContent();
 
+  // Prepare docsNavLinks for AppBar
+  const docsNavLinks = sections.map(section => ({
+    id: section.id,
+    title: section.title,
+    subsections: section.subsections.map(sub => ({
+      id: sub.id,
+      title: sub.title
+    }))
+  }));
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Background pattern */}
@@ -905,47 +916,21 @@ const Documentation = () => {
 
       <div className="relative z-10">
         {/* Header */}
-        <header className="sticky top-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <Link href="/" className="flex items-center gap-3 text-white hover:text-blue-400 transition-colors">
-                  <ArrowLeft size={20} />
-                  <span className="hidden sm:inline">Back to Home</span>
-                </Link>
-                <div className="hidden sm:flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl overflow-hidden shadow-lg relative">
-                    <Image
-                      src="/Ace It AI.png" 
-                      alt="Ace It AI Logo" 
-                      fill
-                      className="object-contain"
-                    />
-                  </div>
-                  <span className="text-xl font-bold text-white">Documentation</span>
-                </div>
-              </div>
-              
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2 rounded-xl bg-slate-800/80 text-white border border-slate-700"
-              >
-                {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-              </button>
-            </div>
-          </div>
-        </header>
+        <AppBar 
+          currentPage='docs'
+          docsNavLinks={docsNavLinks}
+          onDocsNav={(sectionId, subsectionId) => {
+            return handleSectionClick(sectionId, subsectionId);
+          }}
+        />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex gap-8">
-          {/* Sidebar Navigation */}
-          <aside className={`${
-            isMobileMenuOpen ? 'block' : 'hidden'
-          } lg:block fixed lg:sticky top-20 left-0 right-0 lg:top-8 z-40 lg:z-auto w-full lg:w-80 h-screen lg:h-fit bg-slate-900 lg:bg-transparent p-4 lg:p-0 overflow-y-auto`}>
+          {/* Sidebar Navigation (hide on mobile) */}
+          <aside className="hidden lg:block sticky top-20 left-0 right-0 lg:top-8 z-40 lg:z-auto w-full lg:w-80 h-screen lg:h-fit bg-slate-900 lg:bg-transparent p-4 lg:p-0 overflow-y-auto">
             <nav className="space-y-2">
               {sections.map((section) => {
                 const Icon = section.icon;
                 const isActive = activeSection === section.id;
-                
                 return (
                   <div key={section.id}>
                     <button
@@ -960,7 +945,6 @@ const Documentation = () => {
                       <span>{section.title}</span>
                       <ChevronRight size={16} className={`ml-auto transition-transform ${isActive ? 'rotate-90' : ''}`} />
                     </button>
-                    
                     {isActive && (
                       <div className="ml-6 mt-2 space-y-1">
                         {section.subsections.map((subsection) => {
@@ -999,6 +983,42 @@ const Documentation = () => {
                     className="prose prose-invert prose-lg max-w-none text-slate-300"
                     dangerouslySetInnerHTML={{ __html: currentContent.content }}
                   />
+                  {/* Next Button Logic */}
+                  {(() => {
+                    const sectionIdx = sections.findIndex(s => s.id === activeSection);
+                    const subsectionIdx = sectionIdx >= 0 ? sections[sectionIdx].subsections.findIndex(sub => sub.id === activeSubsection) : -1;
+                    let nextSectionId = null;
+                    let nextSubsectionId = null;
+                    let nextLabel = '';
+                    if (sectionIdx >= 0 && subsectionIdx >= 0) {
+                      const section = sections[sectionIdx];
+                      // Next subsection in current section
+                      if (subsectionIdx < section.subsections.length - 1) {
+                        nextSectionId = section.id;
+                        nextSubsectionId = section.subsections[subsectionIdx + 1].id;
+                        nextLabel = section.subsections[subsectionIdx + 1].title;
+                      } else if (sectionIdx < sections.length - 1) {
+                        // First subsection of next section
+                        const nextSection = sections[sectionIdx + 1];
+                        nextSectionId = nextSection.id;
+                        nextSubsectionId = nextSection.subsections[0].id;
+                        nextLabel = nextSection.title + ': ' + nextSection.subsections[0].title;
+                      }
+                    }
+                    if (nextSectionId && nextSubsectionId) {
+                      return (
+                        <div className="mt-10 flex justify-end">
+                          <button
+                            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-base transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl"
+                            onClick={() => handleSectionClick(nextSectionId, nextSubsectionId)}
+                          >
+                            Next: {nextLabel}
+                          </button>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               )}
             </div>

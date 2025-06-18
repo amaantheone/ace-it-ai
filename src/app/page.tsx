@@ -1,21 +1,18 @@
 "use client"
 
 import React from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
 import { 
   BookOpen, 
   Brain, 
   CreditCard, 
   FileQuestion, 
-  LogIn,
   Sparkles,
   ArrowRight,
   CheckCircle,
   Zap,
-  Play,
-  Menu
+  Play
 } from 'lucide-react';
+import AppBar from '@/components/AppBar';
 
 function App() {
   const features = [
@@ -65,52 +62,7 @@ function App() {
 
       <div className="relative z-10">
         {/* Navigation */}
-        <nav className="px-4 sm:px-6 py-4 sm:py-6 border-b border-slate-200/10">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-lg relative">
-                <Image 
-                  src="/Ace It AI.png" 
-                  alt="Ace It AI Logo" 
-                  fill
-                  className="object-contain"
-                  priority
-                />
-              </div>
-              <span className="text-xl sm:text-2xl font-bold tracking-tight text-white">
-                Ace It AI
-              </span>
-            </div>
-            
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-8">
-              <a href="#features" className="font-medium transition-colors hover:text-blue-500 text-slate-300">
-                Features
-              </a>
-              <a href="#how-it-works" className="font-medium transition-colors hover:text-blue-500 text-slate-300">
-                How It Works
-              </a>
-              <Link href="/docs" className="font-medium transition-colors hover:text-blue-500 text-slate-300">
-                Documentation
-              </Link>
-              <Link href="/pricing" className="font-medium transition-colors hover:text-blue-500 text-slate-300">
-                Pricing
-              </Link>
-            </div>
-            
-            {/* Mobile menu button */}
-            <div className="flex items-center gap-3">
-              <Link href="/auth/login" className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl text-sm sm:text-base">
-                <LogIn size={14} className="sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Get Started</span>
-                <span className="sm:hidden">Start</span>
-              </Link>
-              <button className="lg:hidden p-2 rounded-xl bg-slate-800/80 text-white border border-slate-700">
-                <Menu size={20} />
-              </button>
-            </div>
-          </div>
-        </nav>
+        <AppBar currentPage="home" />
 
         {/* Hero Section */}
         <section className="px-4 sm:px-6 py-12 sm:py-16 lg:py-24">
@@ -329,12 +281,11 @@ function App() {
         <footer className="px-4 sm:px-6 py-8 sm:py-12 border-t border-slate-700/50">
           <div className="max-w-7xl mx-auto text-center">
             <div className="flex items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-lg relative">
-                <Image 
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-lg">
+                <img 
                   src="/Ace It AI.png" 
                   alt="Ace It AI Logo" 
-                  fill
-                  className="object-contain"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <span className="text-xl sm:text-2xl font-bold tracking-tight text-white">
@@ -360,6 +311,12 @@ function App() {
                 className="transition-colors hover:text-blue-500 font-medium text-slate-400"
               >
                 Terms of Service
+              </a>
+              <a 
+                href="/docs" 
+                className="transition-colors hover:text-blue-500 font-medium text-slate-400"
+              >
+                Documentation
               </a>
             </div>
           </div>
