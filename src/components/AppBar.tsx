@@ -3,16 +3,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LogIn, LogOut, Menu, FileText } from 'lucide-react';
 import Link from 'next/link';
+import useSession from "@/hooks/useNextAuthSession";
+import { signOut } from "next-auth/react";
 
 interface AppBarProps {
   currentPage?: 'home' | 'features' | 'docs' | 'pricing';
   docsNavLinks?: { id: string; title: string; subsections: { id: string; title: string; }[]; }[];
   onDocsNav?: (sectionId: string, subsectionId: string) => void;
 }
-
-// Mock session hook for this example - replace with your actual auth implementation
-const useSession = () => ({ data: null });
-const signOut = () => {};
 
 export default function AppBar({ currentPage }: AppBarProps) {
   const { data: session } = useSession();

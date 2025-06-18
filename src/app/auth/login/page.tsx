@@ -2,9 +2,18 @@
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { signIn } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
+import useSession from "@/hooks/useNextAuthSession";
 
 export default function LoginPage() {
+  const { data: session } = useSession();
+
+  const handleLogin = async () => {
+    if (session) {
+      await signOut({ redirect: false });
+    }
+    await signIn('google', { callbackUrl: '/dashboard' });
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -17,7 +26,7 @@ export default function LoginPage() {
           <Button 
             variant="outline"
             className="w-full"
-            onClick={async () => await signIn('google', { callbackUrl: '/dashboard' })}
+            onClick={handleLogin}
           >
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
               <path
