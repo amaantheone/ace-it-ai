@@ -65,7 +65,7 @@ function App() {
         <AppBar currentPage="home" />
 
         {/* Hero Section */}
-        <section className="px-4 sm:px-6 py-12 sm:py-16 lg:py-24">
+        <section className="px-4 sm:px-6 py-8 sm:py-10 lg:py-16">
           <div className="max-w-7xl mx-auto text-center">
             <div className="animate-fade-in-up">
               <h1 className="text-3xl sm:text-5xl lg:text-7xl font-bold mb-6 sm:mb-8 bg-gradient-to-r from-blue-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent leading-tight tracking-tight">
@@ -73,11 +73,11 @@ function App() {
                 <br />
                 AI-Powered Education
               </h1>
-              <p className="text-lg sm:text-xl lg:text-2xl mb-8 sm:mb-12 max-w-4xl mx-auto leading-relaxed font-light text-slate-300 px-4">
+              <p className="text-lg sm:text-xl lg:text-2xl mb-6 sm:mb-8 max-w-4xl mx-auto leading-relaxed font-light text-slate-300 px-4">
                 Transform your learning experience with personalized AI tutoring, interactive mind maps, 
                 smart flashcards, and adaptive quizzes - all in one powerful platform.
               </p>
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-12 sm:mb-16 px-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-8 sm:mb-10 px-4">
                 <a href="/dashboard" className="w-full sm:w-auto flex items-center justify-center gap-3 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl">
                   <Zap size={18} className="sm:w-5 sm:h-5" />
                   Start Learning Free
@@ -98,7 +98,7 @@ function App() {
         </section>
 
         {/* How It Works Section */}
-        <section id="how-it-works" className="px-4 sm:px-6 py-12 sm:py-16 lg:py-24">
+        <section id="how-it-works" className="px-4 sm:px-6 pt-4 sm:pt-6 lg:pt-8 pb-12 sm:pb-16 lg:pb-24">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12 sm:mb-16 lg:mb-20">
               <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-blue-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent tracking-tight">
