@@ -386,45 +386,45 @@ export default function ChatPage() {
         {/* Suggestions Grid (only if messages aren't loading AND user has sent 0 messages in this session) */}
         {!isLoading && getCurrentSessionMessages().filter(m => m.role === "user").length === 0 && (
           <div className="w-full flex justify-center mt-6 mb-4">
-            <div className="grid grid-cols-2 gap-4 w-full max-w-2xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
               <Card className="p-0 shadow-none border-none bg-transparent">
                 <Button
                   variant="outline"
-                  className="w-full h-24 px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer"
+                  className="w-full px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer min-h-[72px] sm:min-h-[96px]"
                   onClick={() => handleSuggestionClick('Explain the concept of photosynthesis')}
                 >
-                  <span className="font-semibold text-lg leading-tight pl-5 pt-4">Explain the concept</span>
-                  <span className="text-muted-foreground text-sm font-normal pl-5 pb-4 pt-1 group-hover:text-foreground transition-colors">of photosynthesis</span>
+                  <span className="font-semibold text-base sm:text-lg leading-tight pl-4 pt-3 sm:pl-5 sm:pt-4">Explain the concept</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm font-normal pl-4 pb-3 pt-1 sm:pl-5 sm:pb-4 group-hover:text-foreground transition-colors">of photosynthesis</span>
                 </Button>
               </Card>
               <Card className="p-0 shadow-none border-none bg-transparent">
                 <Button
                   variant="outline"
-                  className="w-full h-24 px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer"
+                  className="w-full px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer min-h-[72px] sm:min-h-[96px]"
                   onClick={() => handleSuggestionClick('What is the difference between mitosis and meiosis?')}
                 >
-                  <span className="font-semibold text-lg leading-tight pl-5 pt-4">What is the difference</span>
-                  <span className="text-muted-foreground text-sm font-normal pl-5 pb-4 pt-1 group-hover:text-foreground transition-colors">between mitosis and meiosis?</span>
+                  <span className="font-semibold text-base sm:text-lg leading-tight pl-4 pt-3 sm:pl-5 sm:pt-4">What is the difference</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm font-normal pl-4 pb-3 pt-1 sm:pl-5 sm:pb-4 group-hover:text-foreground transition-colors">between mitosis and meiosis?</span>
                 </Button>
               </Card>
               <Card className="p-0 shadow-none border-none bg-transparent">
                 <Button
                   variant="outline"
-                  className="w-full h-24 px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer"
+                  className="w-full px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer min-h-[72px] sm:min-h-[96px]"
                   onClick={() => handleSuggestionClick('Help me write an essay about silicon valley')}
                 >
-                  <span className="font-semibold text-lg leading-tight pl-5 pt-4">Help me write an essay</span>
-                  <span className="text-muted-foreground text-sm font-normal pl-5 pb-4 pt-1 group-hover:text-foreground transition-colors">about silicon valley</span>
+                  <span className="font-semibold text-base sm:text-lg leading-tight pl-4 pt-3 sm:pl-5 sm:pt-4">Help me write an essay</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm font-normal pl-4 pb-3 pt-1 sm:pl-5 sm:pb-4 group-hover:text-foreground transition-colors">about silicon valley</span>
                 </Button>
               </Card>
               <Card className="p-0 shadow-none border-none bg-transparent">
                 <Button
                   variant="outline"
-                  className="w-full h-24 px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer"
+                  className="w-full px-0 py-0 rounded-xl flex flex-col items-start justify-center text-left group hover:cursor-pointer min-h-[72px] sm:min-h-[96px]"
                   onClick={() => handleSuggestionClick('What is the weather in San Francisco?')}
                 >
-                  <span className="font-semibold text-lg leading-tight pl-5 pt-4">What is the weather</span>
-                  <span className="text-muted-foreground text-sm font-normal pl-5 pb-4 pt-1 group-hover:text-foreground transition-colors">in San Francisco?</span>
+                  <span className="font-semibold text-base sm:text-lg leading-tight pl-4 pt-3 sm:pl-5 sm:pt-4">What is the weather</span>
+                  <span className="text-muted-foreground text-xs sm:text-sm font-normal pl-4 pb-3 pt-1 sm:pl-5 sm:pb-4 group-hover:text-foreground transition-colors">in San Francisco?</span>
                 </Button>
               </Card>
             </div>
