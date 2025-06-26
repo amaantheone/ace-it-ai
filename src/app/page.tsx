@@ -78,7 +78,7 @@ function App() {
                 smart flashcards, and adaptive quizzes - all in one powerful platform.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center mb-8 sm:mb-10 px-4">
-                <a href="/dashboard" className="w-full sm:w-auto flex items-center justify-center gap-3 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl">
+                <a href="/home" className="w-full sm:w-auto flex items-center justify-center gap-3 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl">
                   <Zap size={18} className="sm:w-5 sm:h-5" />
                   Start Learning Free
                   <ArrowRight size={18} className="sm:w-5 sm:h-5" />
@@ -267,9 +267,9 @@ function App() {
                 Be among the first to experience this revolutionary approach to learning with Ace It AI
               </p>
               <div className="flex justify-center">
-                <a href="/dashboard" className="w-full sm:w-auto flex items-center justify-center gap-3 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl">
+                <a href="/home" className="w-full sm:w-auto flex items-center justify-center gap-3 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-semibold text-base sm:text-lg transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl">
                   <Sparkles size={18} className="sm:w-5 sm:h-5" />
-                  Get Started Free
+                  Log In
                   <ArrowRight size={18} className="sm:w-5 sm:h-5" />
                 </a>
               </div>

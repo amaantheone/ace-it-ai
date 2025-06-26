@@ -12,7 +12,7 @@ export default function LoginPage() {
     if (session) {
       await signOut({ redirect: false });
     }
-    await signIn('google', { callbackUrl: '/dashboard' });
+    await signIn('google', { callbackUrl: '/home' });
   };
 
   return (

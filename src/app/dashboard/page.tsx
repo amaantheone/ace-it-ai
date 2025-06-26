@@ -1,163 +1,246 @@
-'use client';
+"use client";
 
+import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  BookOpen,
+  Brain,
+  MessageSquare,
+  FileQuestion,
+  HelpCircle,
+  LogOut,
+  LogIn,
+  User,
+  Zap,
+  BarChart3,
+  PieChart,
+  Menu,
+  X,
+  ChevronUp,
+  ChevronDown
+} from "lucide-react";
+import {
+  ResponsiveContainer,
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  BarChart as RechartsBarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Bar
+} from "recharts";
 import { Button } from "@/components/ui/button";
-import { LogOut, LogIn } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useSession, signOut } from "next-auth/react";
+import Header from "@/components/Header";
 
-export default function Home() {
+export default function Dashboard() {
   const { data: session } = useSession();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const userIconRef = useRef<HTMLButtonElement | null>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+
+  const sidebarItems = [
+    { icon: MessageSquare, label: "Chat", href: "/chat", gradient: "from-blue-500 to-cyan-500" },
+    { icon: Brain, label: "Mind Maps", href: "/mindmap", gradient: "from-purple-500 to-pink-500" },
+    { icon: FileQuestion, label: "Quizzes", href: "/quiz", gradient: "from-indigo-500 to-blue-500" },
+    { icon: BookOpen, label: "Flashcards", href: "/flashcard", gradient: "from-orange-500 to-red-500" },
+  ];
+
+  // Mock data for analytics (replace with real data as needed)
+  const weeklyData = [
+    { day: "Mon", sessions: 4, mindmaps: 2, flashcards: 15, quizzes: 3 },
+    { day: "Tue", sessions: 6, mindmaps: 1, flashcards: 22, quizzes: 5 },
+    { day: "Wed", sessions: 3, mindmaps: 3, flashcards: 18, quizzes: 2 },
+    { day: "Thu", sessions: 8, mindmaps: 2, flashcards: 28, quizzes: 4 },
+    { day: "Fri", sessions: 5, mindmaps: 4, flashcards: 20, quizzes: 6 },
+    { day: "Sat", sessions: 7, mindmaps: 1, flashcards: 12, quizzes: 3 },
+    { day: "Sun", sessions: 4, mindmaps: 2, flashcards: 16, quizzes: 2 }
+  ];
+
+  const distributionData = [
+    { name: "Chat Sessions", value: 37, color: "#3B82F6" },
+    { name: "Mind Maps", value: 15, color: "#8B5CF6" },
+    { name: "Flashcards", value: 131, color: "#F59E0B" },
+    { name: "Quizzes", value: 25, color: "#10B981" }
+  ];
+
+  const summaryStats = [
+    {
+      title: "Total Sessions",
+      value: "37",
+      change: "+8 this week",
+      icon: MessageSquare,
+      gradient: "from-blue-500 to-cyan-500",
+      changeType: "positive"
+    },
+    {
+      title: "Mind Maps Created",
+      value: "15",
+      change: "+3 this week",
+      icon: Brain,
+      gradient: "from-purple-500 to-pink-500",
+      changeType: "positive"
+    },
+    {
+      title: "Flashcards Made",
+      value: "131",
+      change: "+23 this week",
+      icon: BookOpen,
+      gradient: "from-orange-500 to-red-500",
+      changeType: "positive"
+    },
+    {
+      title: "Quizzes Completed",
+      value: "25",
+      change: "+5 this week",
+      icon: FileQuestion,
+      gradient: "from-green-500 to-emerald-500",
+      changeType: "positive"
+    }
+  ];
+
+  useEffect(() => {
+    if (userMenuOpen && userIconRef.current) {
+      const rect = userIconRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + 8,
+        left: rect.right - 224, // 224px = w-56
+      });
+    }
+  }, [userMenuOpen]);
+
+  useEffect(() => {
+    if (session?.user) {
+      console.log('session.user.image:', session.user.image);
+    }
+  }, [session]);
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <main className="container mx-auto space-y-8">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <h1 className="scroll-m-20 text-4xl font-bold tracking-tight">Welcome to Ace It AI</h1>
-            <p className="text-lg text-muted-foreground">
-              Chat, Mindmaps, Flashcards, Quizzes and progress - all in one AI tutor.
-            </p>
+    <div className="min-h-screen transition-colors duration-500 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <Header isLoggedIn={!!session?.user} onToggleAuth={() => session ? signOut() : window.location.href = '/auth/login'} />
+      <div className="pt-24"> {/* Add padding to account for fixed header */}
+        {/* Main Content */}
+        <main className="flex-1 overflow-hidden">
+          {/* Analytics Dashboard */}
+          <div className="p-4 sm:p-6 lg:p-8 h-full overflow-auto">
+            <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                {summaryStats.map((stat) => {
+                  const Icon = stat.icon;
+                  return (
+                    <div
+                      key={stat.title}
+                      className="p-4 sm:p-6 rounded-2xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105"
+                    >
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-r ${stat.gradient} flex items-center justify-center shadow-lg`}>
+                          <Icon size={18} className="sm:w-5 sm:h-5 text-white" />
+                        </div>
+                      </div>
+                      <div className="space-y-1 sm:space-y-2">
+                        <h3 className="text-xs sm:text-sm font-medium text-slate-400 uppercase tracking-wide">{stat.title}</h3>
+                        <div className="text-2xl sm:text-3xl font-bold text-white">{stat.value}</div>
+                        <div className="text-xs sm:text-sm font-medium text-green-400">
+                          {stat.change}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Charts Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+                {/* Weekly Activity Chart */}
+                <div className="p-6 sm:p-8 rounded-2xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shadow-xl">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+                      <BarChart3 size={20} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-bold text-white">Weekly Activity</h3>
+                      <p className="text-sm text-slate-400">Your learning activity this week</p>
+                    </div>
+                  </div>
+                  <div className="h-64 sm:h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsBarChart data={weeklyData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="day" stroke="#9CA3AF" fontSize={12} />
+                        <YAxis stroke="#9CA3AF" fontSize={12} />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#1F2937', 
+                            border: '1px solid #374151',
+                            borderRadius: '8px',
+                            color: '#F9FAFB'
+                          }} 
+                        />
+                        <Bar dataKey="sessions" fill="#3B82F6" name="Sessions" />
+                        <Bar dataKey="mindmaps" fill="#8B5CF6" name="Mind Maps" />
+                        <Bar dataKey="flashcards" fill="#F59E0B" name="Flashcards" />
+                        <Bar dataKey="quizzes" fill="#10B981" name="Quizzes" />
+                      </RechartsBarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                {/* Activity Distribution */}
+                <div className="p-6 sm:p-8 rounded-2xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shadow-xl">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                      <PieChart size={20} className="text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-bold text-white">Activity Distribution</h3>
+                      <p className="text-sm text-slate-400">Breakdown of your learning activities</p>
+                    </div>
+                  </div>
+                  <div className="h-64 sm:h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart>
+                        <Pie
+                          data={distributionData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {distributionData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#1F2937', 
+                            border: '1px solid #374151',
+                            borderRadius: '8px',
+                            color: '#F9FAFB'
+                          }} 
+                        />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    {distributionData.map((item) => (
+                      <div key={item.name} className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="text-xs sm:text-sm text-slate-300">{item.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle className="rounded-full" />
-            {session ? (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => signOut()}
-                className="hover:cursor-pointer flex gap-2 items-center"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </Button>
-            ) : (
-              <Link href="/auth/login">
-                <Button 
-                variant="outline" 
-                size="sm" 
-                className="hover:cursor-pointer flex gap-2 items-center"
-              >
-                <LogIn className="h-4 w-4" />
-                Sign In
-              </Button>
-              </Link>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Link href="/chat" className="block">
-            <Card className="h-full transition-all hover:shadow-md bg-gradient-to-br from-blue-600/60 to-purple-700/60 border-0 dark:from-blue-500/30 dark:to-purple-600/30">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-full bg-white/20 p-3 transition-colors dark:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                      <path d="M12 12c0-3.315-2.685-6-6-6s-6 2.685-6 6 2.685 6 6 6c1.18 0 2.285-.34 3.213-.921" />
-                      <path d="M14 12c0 3.315 2.685 6 6 6s6-2.685 6-6-2.685-6-6-6c-1.18 0-2.285.34-3.213.921" />
-                    </svg>
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-xl text-white">Start Learning</h3>
-                    <p className="text-white/90 text-sm">Begin an interactive learning session</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/mindmap" className="block">
-            <Card className="h-full transition-all hover:shadow-md bg-gradient-to-br from-purple-600/60 to-pink-700/60 border-0 dark:from-purple-500/30 dark:to-pink-600/30">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-full bg-white/20 p-3 transition-colors dark:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                      <circle cx="12" cy="12" r="8"></circle>
-                      <path d="M12 2v4"></path>
-                      <path d="M12 18v4"></path>
-                      <path d="M4.93 4.93l2.83 2.83"></path>
-                      <path d="M16.24 16.24l2.83 2.83"></path>
-                      <path d="M2 12h4"></path>
-                      <path d="M18 12h4"></path>
-                      <path d="M4.93 19.07l2.83-2.83"></path>
-                      <path d="M16.24 7.76l2.83-2.83"></path>
-                    </svg>
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-xl text-white">Mind Map Generator</h3>
-                    <p className="text-white/90 text-sm">Visualize concepts with AI</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/quiz" className="block">
-            <Card className="h-full transition-all hover:shadow-md bg-gradient-to-br from-blue-600/60 to-indigo-700/60 border-0 dark:from-blue-500/30 dark:to-indigo-600/30">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-full bg-white/20 p-3 transition-colors dark:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                      <path d="M8 3v9a4 4 0 0 0 4 4h9" />
-                      <rect x="3" y="8" width="18" height="13" rx="2" />
-                      <path d="M7 14h.01" />
-                      <path d="M12 14h.01" />
-                      <path d="M17 14h.01" />
-                      <path d="M12 19h.01" />
-                    </svg>
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-xl text-white">Quiz Generator</h3>
-                    <p className="text-white/90 text-sm">Test your knowledge with AI quizzes</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-          
-          <Link href="/flashcard" className="block">
-            <Card className="h-full transition-all hover:shadow-md bg-gradient-to-br from-orange-600/60 to-red-700/60 border-0 dark:from-orange-500/30 dark:to-red-600/30">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-full bg-white/20 p-3 transition-colors dark:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                      <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
-                      <path d="M12 8v8" />
-                      <path d="M8 12h8" />
-                    </svg>
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-xl text-white">Flash Card Generator</h3>
-                    <p className="text-white/90 text-sm">Create and review flashcards</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link href="/docs" className="block sm:col-span-2">
-            <Card className="h-full transition-all hover:shadow-md bg-gradient-to-br from-green-600/60 to-teal-700/60 border-0 dark:from-green-500/30 dark:to-teal-600/30">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-full bg-white/20 p-3 transition-colors dark:bg-white/10">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-                      <path d="M8 7h6" />
-                      <path d="M8 11h8" />
-                      <path d="M8 15h6" />
-                    </svg>
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="font-bold text-xl text-white">Documentation</h3>
-                    <p className="text-white/90 text-sm">Learn how to use all the features of Ace It AI</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

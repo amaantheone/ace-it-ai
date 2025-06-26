@@ -46,6 +46,7 @@
     "react-dom": "^19.0.0",
     "react-loading-skeleton": "^3.5.0",
     "react-speech-recognition": "^4.0.1",
+    "recharts": "^3.0.0",
     "remark": "^15.0.1",
     "remark-html": "^16.0.1",
     "remark-parse": "^11.0.0",

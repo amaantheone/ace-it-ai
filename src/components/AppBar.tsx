@@ -114,13 +114,13 @@ export default function AppBar({ currentPage }: AppBarProps) {
               >
                 <LogOut size={14} className="sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Sign Out</span>
-                <span className="sm:hidden">Out</span>
+                <span className="sm:hidden">Sign out</span>
               </button>
             ) : (
               <a href="/auth/login" className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl text-sm sm:text-base">
                 <LogIn size={14} className="sm:w-4 sm:h-4" />
-                <span className="hidden sm:inline">Get Started</span>
-                <span className="sm:hidden">Start</span>
+                <span className="hidden sm:inline">Sign In</span>
+                <span className="sm:hidden">Sign In</span>
               </a>
             )}
             <button className="lg:hidden p-2 rounded-xl bg-slate-800/80 text-white border border-slate-700" onClick={() => setMobileMenuOpen(true)}>
@@ -157,7 +157,7 @@ export default function AppBar({ currentPage }: AppBarProps) {
               </button>
             ) : (
               <Link href="/auth/login" className="flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-600 to-teal-600 text-white hover:from-blue-700 hover:to-teal-700 shadow-lg hover:shadow-xl text-sm" onClick={() => setMobileMenuOpen(false)}>
-                <LogIn size={14} /> Get Started
+                <LogIn size={14} /> Sign In
               </Link>
             )}
           </div>
