@@ -3,6 +3,7 @@ import { LogIn, User, Settings, LogOut, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from "next-auth/react";
+import Image from 'next/image';
 
 export default function Header() {
   const { data: session, status } = useSession();
@@ -25,10 +26,13 @@ export default function Header() {
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <Link href="/home" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-lg flex items-center">
-              <img 
+              <Image 
                 src="/Ace It AI.png" 
                 alt="Ace It AI Logo" 
+                width={40}
+                height={40}
                 className="w-full h-full object-contain"
+                priority
               />
             </Link>
             <Link href="/home" className="text-xl sm:text-2xl font-bold tracking-tight text-white">
@@ -58,7 +62,7 @@ export default function Header() {
           </Link>
           
           {isLoggedIn ? (
-            <div className="relative flex items-center">
+            <div className="relative">
               <button
                 onClick={toggleUserMenu}
                 className="p-0 bg-transparent border-none focus:outline-none flex items-center justify-center align-middle"
@@ -66,13 +70,17 @@ export default function Header() {
                 aria-expanded={isUserMenuOpen}
                 aria-label="User menu"
                 style={{ lineHeight: 0 }}
+                type="button"
               >
                 {session?.user?.image ? (
-                  <img
+                  <Image
                     src={session.user.image}
                     alt="User Avatar"
+                    width={32}
+                    height={32}
                     className="w-8 h-8 rounded-full object-cover border border-slate-600/50 shadow align-middle"
                     style={{ display: 'block' }}
+                    priority
                   />
                 ) : (
                   <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center align-middle">
@@ -80,9 +88,8 @@ export default function Header() {
                   </div>
                 )}
               </button>
-              
               {isUserMenuOpen && (
-                <div className="absolute right-0 mt-1 w-56 bg-slate-800/95 backdrop-blur-md rounded-md shadow-xl border border-slate-700/50 py-1">
+                <div className="absolute right-0 mt-1 w-56 bg-slate-800/95 backdrop-blur-md rounded-md shadow-xl border border-slate-700/50 py-1 z-50">
                   {session?.user?.name && (
                     <div className="px-3 py-2 border-b border-slate-700/50 mb-1">
                       <div className="font-semibold text-base text-white truncate">{session.user.name}</div>

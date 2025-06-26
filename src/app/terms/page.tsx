@@ -2,6 +2,7 @@
 
 import React from 'react';
 import AppBar from '@/components/AppBar';
+import Image from 'next/image';
 
 export default function TermsOfService() {
   return (
@@ -172,11 +173,14 @@ export default function TermsOfService() {
           <div className="max-w-7xl mx-auto text-center">
             <div className="flex items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-lg">
-                <img 
-                  src="/Ace It AI.png" 
-                  alt="Ace It AI Logo" 
-                  className="w-full h-full object-contain"
-                />
+              <Image
+                src="/Ace It AI.png" 
+                alt="Ace It AI Logo" 
+                width={40}
+                height={40}
+                className="w-full h-full object-contain"
+                priority
+              />
               </div>
               <span className="text-xl sm:text-2xl font-bold tracking-tight text-white">
                 Ace It AI

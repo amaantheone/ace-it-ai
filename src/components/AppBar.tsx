@@ -5,6 +5,7 @@ import { LogIn, LogOut, Menu, FileText } from 'lucide-react';
 import Link from 'next/link';
 import useSession from "@/hooks/useNextAuthSession";
 import { signOut } from "next-auth/react";
+import Image from 'next/image';
 
 interface AppBarProps {
   currentPage?: 'home' | 'features' | 'docs' | 'pricing';
@@ -47,10 +48,13 @@ export default function AppBar({ currentPage }: AppBarProps) {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/" className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-lg flex items-center">
-              <img 
+              <Image
                 src="/Ace It AI.png" 
                 alt="Ace It AI Logo" 
+                width={40}
+                height={40}
                 className="w-full h-full object-contain"
+                priority
               />
             </Link>
             <Link href="/" className="text-xl sm:text-2xl font-bold tracking-tight text-white">

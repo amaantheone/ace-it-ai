@@ -1,24 +1,13 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
-import Link from "next/link";
+import React, { useEffect } from "react";
 import {
   BookOpen,
   Brain,
   MessageSquare,
   FileQuestion,
-  HelpCircle,
-  LogOut,
-  LogIn,
-  User,
-  Zap,
   BarChart3,
   PieChart,
-  Menu,
-  X,
-  ChevronUp,
-  ChevronDown
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -32,24 +21,11 @@ import {
   Tooltip,
   Bar
 } from "recharts";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Header from "@/components/Header";
 
 export default function Dashboard() {
   const { data: session } = useSession();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const userIconRef = useRef<HTMLButtonElement | null>(null);
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
-
-  const sidebarItems = [
-    { icon: MessageSquare, label: "Chat", href: "/chat", gradient: "from-blue-500 to-cyan-500" },
-    { icon: Brain, label: "Mind Maps", href: "/mindmap", gradient: "from-purple-500 to-pink-500" },
-    { icon: FileQuestion, label: "Quizzes", href: "/quiz", gradient: "from-indigo-500 to-blue-500" },
-    { icon: BookOpen, label: "Flashcards", href: "/flashcard", gradient: "from-orange-500 to-red-500" },
-  ];
 
   // Mock data for analytics (replace with real data as needed)
   const weeklyData = [
@@ -105,16 +81,6 @@ export default function Dashboard() {
   ];
 
   useEffect(() => {
-    if (userMenuOpen && userIconRef.current) {
-      const rect = userIconRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + 8,
-        left: rect.right - 224, // 224px = w-56
-      });
-    }
-  }, [userMenuOpen]);
-
-  useEffect(() => {
     if (session?.user) {
       console.log('session.user.image:', session.user.image);
     }
@@ -122,7 +88,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen transition-colors duration-500 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <Header isLoggedIn={!!session?.user} onToggleAuth={() => session ? signOut() : window.location.href = '/auth/login'} />
+      <Header />
       <div className="pt-24"> {/* Add padding to account for fixed header */}
         {/* Main Content */}
         <main className="flex-1 overflow-hidden">
