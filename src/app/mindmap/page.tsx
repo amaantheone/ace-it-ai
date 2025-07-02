@@ -286,7 +286,7 @@ export default function MindmapPage() {
             <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
               <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-menu"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
             </Button>
-            <Link href="/dashboard">
+            <Link href="/home">
               <Button variant="ghost" size="icon" className="hover:cursor-pointer">
                 <ArrowLeft className="h-5 w-5" />
               </Button>

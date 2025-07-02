@@ -20,7 +20,7 @@ export function ChatHeader({ onToggleSidebar }: ChatHeaderProps) {
       >
         <PanelLeft className="h-4 w-4" />
       </Button>
-      <Link href="/dashboard">
+      <Link href="/home">
         <Button variant="ghost" size="icon" className="hover:cursor-pointer">
           <ArrowLeft className="h-4 w-4" />
         </Button>
