@@ -89,7 +89,7 @@ function App() {
           {/* Hero Section */}
           <div className="text-center mb-16 animate-fade-in-up">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-6 leading-tight">
-              {`Welcome, ${session?.user?.name?.split(' ')[0] || "Anon"}`}
+              Welcome, {session?.user?.name?.split(' ')[0] || "Anon"}
             </h1>
             <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
               Ready to Ace your Exams? Get started by generating quizzes, flashcards, or mind maps!
