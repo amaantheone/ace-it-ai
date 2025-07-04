@@ -43,44 +43,40 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "Ace It AI",
-    "description": "AI-powered learning platform for generating quizzes, flashcards, and mind maps",
-    "url": "https://ace-it-ai-wine.vercel.app",
-    "applicationCategory": "EducationalApplication",
-    "operatingSystem": "Web",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    }
-  };
-
   return (
     <html lang="en" className="dark" data-theme="dark" style={{ colorScheme: 'normal' }} suppressHydrationWarning>
-      <head>
+      <body className={`antialiased`}>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          dangerouslySetInnerHTML={{ 
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              "name": "Ace It AI",
+              "description": "AI-powered learning platform for generating quizzes, flashcards, and mind maps",
+              "url": "https://ace-it-ai-wine.vercel.app",
+              "applicationCategory": "EducationalApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            })
+          }}
         />
-      </head>
-      <body
-        className={`antialiased`}
-      >
-          <ThemeProvider>
-            <SessionProviderWrapper>
-              <NextAuthProvider>
-                <GuestProvider>
-                  <FlashCardProvider>
-                    {children}
-                    <SpeedInsights />
-                  </FlashCardProvider>
-                </GuestProvider>
-              </NextAuthProvider>
-            </SessionProviderWrapper>
-          </ThemeProvider>
+        <ThemeProvider>
+          <SessionProviderWrapper>
+            <NextAuthProvider>
+              <GuestProvider>
+                <FlashCardProvider>
+                  {children}
+                  <SpeedInsights />
+                </FlashCardProvider>
+              </GuestProvider>
+            </NextAuthProvider>
+          </SessionProviderWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );
