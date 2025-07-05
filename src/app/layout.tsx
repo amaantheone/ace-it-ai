@@ -6,9 +6,11 @@ import { SessionProviderWrapper } from "../contexts/SessionContext";
 import { NextAuthProvider } from "../components/providers/NextAuthProvider";
 import { FlashCardProvider } from "../contexts/FlashCardContext";
 import { GuestProvider } from "../contexts/GuestContext";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
-  title: "Ace It AI - AI-Powered Learning Platform",
+  metadataBase: new URL("https://ace-it-ai-wine.vercel.app"),
+  title: "Ace It AI",
   description: "Ready to Ace your Exams? Generate quizzes, flashcards, and mind maps with AI. Interactive learning sessions powered by artificial intelligence.",
   keywords: "Ace It AI, AI learning, quiz generator, flashcards, mind maps, study tools, exam preparation",
   authors: [{ name: "Ace It AI" }],
@@ -45,31 +47,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" data-theme="dark" style={{ colorScheme: 'normal' }} suppressHydrationWarning>
       <body className={`antialiased`}>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ 
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebApplication",
-              "name": "Ace It AI",
-              "description": "AI-powered learning platform for generating quizzes, flashcards, and mind maps",
-              "url": "https://ace-it-ai-wine.vercel.app",
-              "applicationCategory": "EducationalApplication",
-              "operatingSystem": "Web",
-              "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
-              }
-            })
-          }}
-        />
         <ThemeProvider>
           <SessionProviderWrapper>
             <NextAuthProvider>
               <GuestProvider>
                 <FlashCardProvider>
                   {children}
+                  <SpeedInsights />
                 </FlashCardProvider>
               </GuestProvider>
             </NextAuthProvider>

@@ -73,6 +73,25 @@ function App() {
   const bottomFeatures = features.filter(f => f.position === "bottom");
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 font-inter">
+      <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ 
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebApplication",
+              "name": "Ace It AI",
+              "description": "AI-powered learning platform for generating quizzes, flashcards, and mind maps",
+              "url": "https://ace-it-ai-wine.vercel.app",
+              "applicationCategory": "EducationalApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            })
+          }}
+        />
       {/* Background Pattern */}
       <div className="fixed inset-0 opacity-5 pointer-events-none">
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10" />
