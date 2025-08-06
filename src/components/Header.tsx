@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from "next-auth/react";
 import Image from 'next/image';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export default function Header() {
   const { data: session, status } = useSession();
@@ -41,6 +42,12 @@ export default function Header() {
         </div>
         
         <div className="flex items-center space-x-2">
+          <ThemeToggle 
+            variant="ghost" 
+            size="icon"
+            className="text-slate-400 hover:text-white hover:bg-slate-800/50 w-8 h-8"
+          />
+          
           <Link 
             href="/docs" 
             target="_blank" 

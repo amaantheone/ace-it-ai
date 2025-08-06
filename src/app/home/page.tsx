@@ -1,175 +1,128 @@
 "use client";
 
 import React from 'react';
-import { 
-  MessageCircle, 
-  Lightbulb, 
-  Brain, 
-  CreditCard
-} from 'lucide-react';
 import { useSession } from "next-auth/react";
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
-import FeatureCard from '@/components/ui/FeatureCard';
+import { StartLearningIcon, MindMapIcon, QuizIcon, FlashCardIcon } from '@/components/Icons';
 
 function App() {
   const { data: session } = useSession();
   const router = useRouter();
 
-  const features = [
-    {
-      icon: MessageCircle,
-      title: "Start Learning",
-      description: "Begin an interactive learning session",
-      gradientFrom: "from-indigo-600",
-      gradientTo: "to-blue-700",
-      textColor: "text-indigo-100",
-      className: "md:col-span-2 lg:col-span-1",
-      isPrimary: true,
-      position: "center",
-      onClick: () => router.push('/chat')
-    },
-    {
-      icon: Lightbulb,
-      title: "Mind Map Generator",
-      description: "Visualize concepts with AI-powered mind mapping",
-      gradientFrom: "from-purple-600",
-      gradientTo: "to-pink-600",
-      textColor: "text-purple-100",
-      className: "md:col-span-1 lg:col-span-1",
-      isPrimary: false,
-      position: "top-left",
-      onClick: () => router.push('/mindmap')
-    },
-    {
-      icon: Brain,
-      title: "Quiz Generator",
-      description: "Test your knowledge with intelligent quizzes",
-      gradientFrom: "from-cyan-600",
-      gradientTo: "to-blue-600",
-      textColor: "text-cyan-100",
-      className: "md:col-span-1 lg:col-span-1",
-      isPrimary: false,
-      position: "top-right",
-      onClick: () => router.push('/quiz')
-    },
-    {
-      icon: CreditCard,
-      title: "Flash Card Generator",
-      description: "Create and review personalized flashcards",
-      gradientFrom: "from-orange-500",
-      gradientTo: "to-red-600",
-      textColor: "text-orange-100",
-      className: "md:col-span-1 lg:col-span-1",
-      isPrimary: false,
-      position: "bottom",
-      onClick: () => router.push('/flashcard')
-    }
-  ];
-
-  // Organize features by position for the centered layout
-  const centerFeature = features.find(f => f.position === "center");
-  const topFeatures = features.filter(f => f.position?.startsWith("top"));
-  const bottomFeatures = features.filter(f => f.position === "bottom");
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 font-inter">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-500">
       <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ 
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebApplication",
-              "name": "Ace It AI",
-              "description": "AI-powered learning platform for generating quizzes, flashcards, and mind maps",
-              "url": "https://ace-it-ai-wine.vercel.app",
-              "applicationCategory": "EducationalApplication",
-              "operatingSystem": "Web",
-              "offers": {
-                "@type": "Offer",
-                "price": "0",
-                "priceCurrency": "USD"
-              }
-            })
-          }}
-        />
-      {/* Background Pattern */}
-      <div className="fixed inset-0 opacity-5 pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10" />
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
-      </div>
-
-      {/* Header */}
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ 
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "Ace It AI",
+            "description": "AI-powered learning platform for generating quizzes, flashcards, and mind maps",
+            "url": "https://ace-it-ai-wine.vercel.app",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Web",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
+          })
+        }}
+      />
+      
       <Header />
-
-      {/* Main Content */}
-      <main className="relative z-10 px-4 sm:px-6 py-12 sm:py-16 pt-24 sm:pt-28">
-        <div className="max-w-7xl mx-auto">
-          {/* Hero Section */}
-          <div className="text-center mb-16 animate-fade-in-up">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-6 leading-tight">
+      
+      <div className="pt-24 p-8 flex items-center justify-center min-h-screen">
+        <div className="max-w-4xl w-full">
+          {/* Header */}
+          <div className="text-center mb-16">
+            <h1 className="text-5xl font-light text-slate-800 dark:text-slate-100 mb-6 tracking-tight">
               Welcome, {session?.user?.name?.split(' ')[0] || "Anon"}
             </h1>
-            <p className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto leading-relaxed">
-              Ready to Ace your Exams? Get started by generating quizzes, flashcards, or mind maps!
+            <p className="text-slate-600 dark:text-slate-300 text-lg font-light">
+              AI-powered tools to accelerate your learning journey
             </p>
           </div>
 
-          {/* Centered Layout */}
-          <div className="max-w-4xl mx-auto">
-            {/* Top Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {topFeatures.map((feature) => (
-                <FeatureCard
-                  key={feature.title}
-                  icon={feature.icon}
-                  title={feature.title}
-                  description={feature.description}
-                  gradientFrom={feature.gradientFrom}
-                  gradientTo={feature.gradientTo}
-                  textColor={feature.textColor}
-                  isPrimary={feature.isPrimary}
-                  onClick={feature.onClick}
-                />
-              ))}
-            </div>
-
-            {/* Center Feature */}
-            {centerFeature && (
-              <div className="mb-6">
-                <FeatureCard
-                  key={centerFeature.title}
-                  icon={centerFeature.icon}
-                  title={centerFeature.title}
-                  description={centerFeature.description}
-                  gradientFrom={centerFeature.gradientFrom}
-                  gradientTo={centerFeature.gradientTo}
-                  textColor={centerFeature.textColor}
-                  isPrimary={centerFeature.isPrimary}
-                  onClick={centerFeature.onClick}
-                />
+          {/* Start Learning - Primary Focus */}
+          <div className="mb-12">
+            <div 
+              className="group bg-slate-800 dark:bg-slate-700 text-slate-50 dark:text-slate-100 rounded-lg p-12 cursor-pointer transform transition-all duration-300 hover:bg-opacity-90 border border-slate-800 dark:border-slate-600 hover:shadow-xl shadow-slate-800/10 dark:shadow-slate-900/30"
+              onClick={() => router.push('/chat')}
+            >
+              <div className="flex items-center justify-center gap-6 mb-6">
+                <StartLearningIcon />
+                <div>
+                  <h2 className="text-3xl font-light mb-2 text-slate-50 dark:text-slate-100">Start Learning</h2>
+                  <p className="text-slate-50/80 dark:text-slate-100/80 text-lg font-light">
+                    Begin an interactive learning session
+                  </p>
+                </div>
               </div>
-            )}
-
-            {/* Bottom Row */}
-            <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-              {bottomFeatures.map((feature) => (
-                <FeatureCard
-                  key={feature.title}
-                  icon={feature.icon}
-                  title={feature.title}
-                  description={feature.description}
-                  gradientFrom={feature.gradientFrom}
-                  gradientTo={feature.gradientTo}
-                  textColor={feature.textColor}
-                  isPrimary={feature.isPrimary}
-                  onClick={feature.onClick}
-                />
-              ))}
             </div>
           </div>
+
+          {/* Secondary Tools */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Mind Map Generator */}
+            <div 
+              className="group bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-8 cursor-pointer transform transition-all duration-300 hover:border-purple-400 dark:hover:border-purple-500 hover:shadow-lg hover:bg-white dark:hover:bg-slate-750 rounded-lg"
+              onClick={() => router.push('/mindmap')}
+            >
+              <div className="text-center mb-6">
+                <div className="mx-auto mb-4 w-8 h-8 flex items-center justify-center text-purple-500 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors duration-200">
+                  <MindMapIcon />
+                </div>
+                <h3 className="text-xl font-light text-slate-800 dark:text-slate-200 mb-3">Mind Map Generator</h3>
+                <p className="text-slate-600 dark:text-slate-400 font-light text-sm leading-relaxed">
+                  Visualize concepts with AI-powered mind mapping
+                </p>
+              </div>
+            </div>
+
+            {/* Quiz Generator */}
+            <div 
+              className="group bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-8 cursor-pointer transform transition-all duration-300 hover:border-green-400 dark:hover:border-green-500 hover:shadow-lg hover:bg-white dark:hover:bg-slate-750 rounded-lg"
+              onClick={() => router.push('/quiz')}
+            >
+              <div className="text-center mb-6">
+                <div className="mx-auto mb-4 w-8 h-8 flex items-center justify-center text-green-500 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-200">
+                  <QuizIcon />
+                </div>
+                <h3 className="text-xl font-light text-slate-800 dark:text-slate-200 mb-3">Quiz Generator</h3>
+                <p className="text-slate-600 dark:text-slate-400 font-light text-sm leading-relaxed">
+                  Test your knowledge with intelligent quizzes
+                </p>
+              </div>
+            </div>
+
+            {/* Flash Card Generator */}
+            <div 
+              className="group bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-8 cursor-pointer transform transition-all duration-300 hover:border-orange-400 dark:hover:border-orange-500 hover:shadow-lg hover:bg-white dark:hover:bg-slate-750 rounded-lg"
+              onClick={() => router.push('/flashcard')}
+            >
+              <div className="text-center mb-6">
+                <div className="mx-auto mb-4 w-8 h-8 flex items-center justify-center text-orange-500 group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors duration-200">
+                  <FlashCardIcon />
+                </div>
+                <h3 className="text-xl font-light text-slate-800 dark:text-slate-200 mb-3">Flash Card Generator</h3>
+                <p className="text-slate-600 dark:text-slate-400 font-light text-sm leading-relaxed">
+                  Create and review personalized flashcards
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="text-center mt-16">
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-light">
+              Choose your preferred learning method and let AI guide your progress
+            </p>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
