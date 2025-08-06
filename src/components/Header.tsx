@@ -5,13 +5,18 @@ import { usePathname } from 'next/navigation';
 import { signOut, useSession } from "next-auth/react";
 import Image from 'next/image';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { useUser } from '@/contexts/UserContext';
 
 export default function Header() {
   const { data: session, status } = useSession();
+  const { user } = useUser();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const pathname = usePathname();
 
   const isLoggedIn = status === "authenticated";
+
+  // Use cached user data if available, fallback to session
+  const displayUser = user || session?.user;
 
   const toggleUserMenu = () => {
     setIsUserMenuOpen(!isUserMenuOpen);
@@ -79,9 +84,9 @@ export default function Header() {
                 style={{ lineHeight: 0 }}
                 type="button"
               >
-                {session?.user?.image ? (
+                {displayUser?.image ? (
                   <Image
-                    src={session.user.image}
+                    src={displayUser.image}
                     alt="User Avatar"
                     width={32}
                     height={32}
@@ -97,11 +102,11 @@ export default function Header() {
               </button>
               {isUserMenuOpen && (
                 <div className="absolute right-0 mt-1 w-56 bg-slate-800/95 backdrop-blur-md rounded-md shadow-xl border border-slate-700/50 py-1 z-50">
-                  {session?.user?.name && (
+                  {displayUser?.name && (
                     <div className="px-3 py-2 border-b border-slate-700/50 mb-1">
-                      <div className="font-semibold text-base text-white truncate">{session.user.name}</div>
-                      {session.user.email && (
-                        <div className="text-xs text-slate-400 truncate">{session.user.email}</div>
+                      <div className="font-semibold text-base text-white truncate">{displayUser.name}</div>
+                      {displayUser.email && (
+                        <div className="text-xs text-slate-400 truncate">{displayUser.email}</div>
                       )}
                     </div>
                   )}

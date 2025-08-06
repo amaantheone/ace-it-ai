@@ -6,6 +6,7 @@ import { SessionProviderWrapper } from "../contexts/SessionContext";
 import { NextAuthProvider } from "../components/providers/NextAuthProvider";
 import { FlashCardProvider } from "../contexts/FlashCardContext";
 import { GuestProvider } from "../contexts/GuestContext";
+import { UserProvider } from "../contexts/UserContext";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
@@ -50,12 +51,14 @@ export default function RootLayout({
         <ThemeProvider>
           <SessionProviderWrapper>
             <NextAuthProvider>
-              <GuestProvider>
-                <FlashCardProvider>
-                  {children}
-                  <SpeedInsights />
-                </FlashCardProvider>
-              </GuestProvider>
+              <UserProvider>
+                <GuestProvider>
+                  <FlashCardProvider>
+                    {children}
+                    <SpeedInsights />
+                  </FlashCardProvider>
+                </GuestProvider>
+              </UserProvider>
             </NextAuthProvider>
           </SessionProviderWrapper>
         </ThemeProvider>

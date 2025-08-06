@@ -1,14 +1,20 @@
 "use client";
 
 import React from 'react';
-import { useSession } from "next-auth/react";
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import { StartLearningIcon, MindMapIcon, QuizIcon, FlashCardIcon } from '@/components/Icons';
+import { useUser } from '@/contexts/UserContext';
 
 function App() {
-  const { data: session } = useSession();
+  const { user, isLoading } = useUser();
   const router = useRouter();
+
+  // Get first name from user
+  const getDisplayName = () => {
+    if (isLoading) return "...";
+    return user?.name?.split(' ')[0] || "Anon";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-500">
@@ -39,7 +45,7 @@ function App() {
           {/* Header */}
           <div className="text-center mb-16">
             <h1 className="text-5xl font-light text-slate-800 dark:text-slate-100 mb-6 tracking-tight">
-              Welcome, {session?.user?.name?.split(' ')[0] || "Anon"}
+              Welcome, {getDisplayName()}
             </h1>
             <p className="text-slate-600 dark:text-slate-300 text-lg font-light">
               AI-powered tools to accelerate your learning journey
