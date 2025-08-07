@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, User, Settings, LogOut, FileText } from 'lucide-react';
+import { LogIn, User, Settings, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from "next-auth/react";
@@ -47,22 +47,13 @@ export default function Header() {
         </div>
         
         <div className="flex items-center space-x-2">
-          <ThemeToggle 
-            variant="ghost" 
-            size="icon"
-            className="text-slate-400 hover:text-white hover:bg-slate-800/50 w-8 h-8"
-          />
-          
-          <Link 
-            href="/docs" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="flex items-center space-x-1 px-2 py-1 text-slate-400 hover:text-white transition-colors duration-200 rounded-md hover:bg-slate-800/50 text-xs font-medium"
-            aria-label="Documentation"
-          >
-            <FileText className="w-3 h-3" />
-            <span>Docs</span>
-          </Link>
+          {pathname !== '/dashboard' && (
+            <ThemeToggle 
+              variant="ghost" 
+              size="icon"
+              className="text-slate-400 hover:text-white hover:bg-slate-800/50 w-8 h-8"
+            />
+          )}
 
           <Link
             href="/dashboard"

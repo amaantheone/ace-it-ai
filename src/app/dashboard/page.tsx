@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   BookOpen,
   Brain,
@@ -24,56 +24,126 @@ import {
 import { useSession } from "next-auth/react";
 import Header from "@/components/Header";
 
+interface WeeklyDataItem {
+  day: string;
+  sessions: number;
+  mindmaps: number;
+  flashcards: number;
+  quizzes: number;
+}
+
+interface DistributionDataItem {
+  name: string;
+  value: number;
+  color: string;
+}
+
+interface SummaryStatItem {
+  title: string;
+  value: string;
+  change: string;
+  icon: string;
+  gradient: string;
+  changeType: string;
+}
+
+interface SummaryStatWithIcon {
+  title: string;
+  value: string;
+  change: string;
+  icon: React.ComponentType<{size?: number; className?: string}>;
+  gradient: string;
+  changeType: string;
+}
+
+interface AnalyticsData {
+  weeklyData: WeeklyDataItem[];
+  distributionData: DistributionDataItem[];
+  summaryStats: SummaryStatItem[];
+}
+
 export default function Dashboard() {
   const { data: session } = useSession();
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
 
-  // Mock data for analytics (replace with real data as needed)
-  const weeklyData = [
-    { day: "Mon", sessions: 4, mindmaps: 2, flashcards: 15, quizzes: 3 },
-    { day: "Tue", sessions: 6, mindmaps: 1, flashcards: 22, quizzes: 5 },
-    { day: "Wed", sessions: 3, mindmaps: 3, flashcards: 18, quizzes: 2 },
-    { day: "Thu", sessions: 8, mindmaps: 2, flashcards: 28, quizzes: 4 },
-    { day: "Fri", sessions: 5, mindmaps: 4, flashcards: 20, quizzes: 6 },
-    { day: "Sat", sessions: 7, mindmaps: 1, flashcards: 12, quizzes: 3 },
-    { day: "Sun", sessions: 4, mindmaps: 2, flashcards: 16, quizzes: 2 }
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      if (!session?.user?.email) {
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/dashboard/analytics');
+        if (response.ok) {
+          const data = await response.json();
+          setAnalytics(data);
+        } else {
+          console.error('Failed to fetch analytics');
+        }
+      } catch (error) {
+        console.error('Error fetching analytics:', error);
+      }
+    };
+
+    fetchAnalytics();
+  }, [session]);
+
+  // Fallback data for when user is not logged in or data is loading
+  const fallbackWeeklyData = [
+    { day: "Mon", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Tue", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Wed", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Thu", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Fri", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Sat", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Sun", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 }
   ];
 
-  const distributionData = [
-    { name: "Chat Sessions", value: 37, color: "#3B82F6" },
-    { name: "Mind Maps", value: 15, color: "#8B5CF6" },
-    { name: "Flashcards", value: 131, color: "#F59E0B" },
-    { name: "Quizzes", value: 25, color: "#10B981" }
+  const fallbackDistributionData = [
+    { name: "Chat Sessions", value: 0, color: "#3B82F6" },
+    { name: "Mind Maps", value: 0, color: "#8B5CF6" },
+    { name: "Flashcards", value: 0, color: "#F59E0B" },
+    { name: "Quizzes", value: 0, color: "#10B981" }
   ];
 
-  const summaryStats = [
+  // Use real data if available, otherwise use fallback
+  const weeklyData = analytics?.weeklyData || fallbackWeeklyData;
+  const distributionData = analytics?.distributionData || fallbackDistributionData;
+  const summaryStats: SummaryStatWithIcon[] = analytics?.summaryStats ? analytics.summaryStats.map((stat: SummaryStatItem) => ({
+    ...stat,
+    icon: stat.icon === "MessageSquare" ? MessageSquare :
+          stat.icon === "Brain" ? Brain :
+          stat.icon === "BookOpen" ? BookOpen :
+          stat.icon === "FileQuestion" ? FileQuestion : MessageSquare
+  })) : [
     {
       title: "Total Sessions",
-      value: "37",
-      change: "+8 this week",
+      value: "0",
+      change: "",
       icon: MessageSquare,
       gradient: "from-blue-500 to-cyan-500",
       changeType: "positive"
     },
     {
       title: "Mind Maps Created",
-      value: "15",
-      change: "+3 this week",
+      value: "0",
+      change: "",
       icon: Brain,
       gradient: "from-purple-500 to-pink-500",
       changeType: "positive"
     },
     {
       title: "Flashcards Made",
-      value: "131",
-      change: "+23 this week",
+      value: "0",
+      change: "",
       icon: BookOpen,
       gradient: "from-orange-500 to-red-500",
       changeType: "positive"
     },
     {
       title: "Quizzes Completed",
-      value: "25",
-      change: "+5 this week",
+      value: "0",
+      change: "",
       icon: FileQuestion,
       gradient: "from-green-500 to-emerald-500",
       changeType: "positive"
@@ -86,6 +156,49 @@ export default function Dashboard() {
     }
   }, [session]);
 
+  // Show sign-in prompt for non-authenticated users
+  if (!session?.user?.email) {
+    return (
+      <div className="min-h-screen transition-colors duration-500 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <Header />
+        <div className="pt-24">
+          <main className="flex-1 overflow-hidden">
+            <div className="p-4 sm:p-6 lg:p-8 h-full overflow-auto">
+              <div className="max-w-4xl mx-auto">
+                <div className="text-center py-16 sm:py-24">
+                  <div className="p-8 sm:p-12 rounded-2xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shadow-xl">
+                    <div className="w-16 h-16 mx-auto mb-6 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                      <BarChart3 size={32} className="text-white" />
+                    </div>
+                    <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+                      Welcome to Your Analytics Dashboard
+                    </h1>
+                    <p className="text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
+                      Track your learning progress, view detailed analytics, and get insights into your study habits. 
+                      Sign in to start building your personalized learning journey.
+                    </p>
+                    <div className="space-y-4">
+                      <button
+                        onClick={() => window.location.href = '/auth/login'}
+                        className="inline-flex items-center px-8 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 shadow-lg hover:shadow-xl"
+                      >
+                        <MessageSquare size={20} className="mr-2" />
+                        Sign In to Get Started
+                      </button>
+                      <p className="text-sm text-slate-400">
+                        Already have an account? Sign in to see your learning analytics and progress.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen transition-colors duration-500 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <Header />
@@ -97,7 +210,7 @@ export default function Dashboard() {
             <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
               {/* Summary Stats */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-                {summaryStats.map((stat) => {
+                {summaryStats.map((stat: SummaryStatWithIcon) => {
                   const Icon = stat.icon;
                   return (
                     <div
@@ -112,9 +225,11 @@ export default function Dashboard() {
                       <div className="space-y-1 sm:space-y-2">
                         <h3 className="text-xs sm:text-sm font-medium text-slate-400 uppercase tracking-wide">{stat.title}</h3>
                         <div className="text-2xl sm:text-3xl font-bold text-white">{stat.value}</div>
-                        <div className="text-xs sm:text-sm font-medium text-green-400">
-                          {stat.change}
-                        </div>
+                        {stat.change && (
+                          <div className="text-xs sm:text-sm font-medium text-green-400">
+                            {stat.change}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -178,13 +293,13 @@ export default function Dashboard() {
                           paddingAngle={5}
                           dataKey="value"
                         >
-                          {distributionData.map((entry, index) => (
+                          {distributionData.map((entry: DistributionDataItem, index: number) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
                         <Tooltip 
                           contentStyle={{ 
-                            backgroundColor: '#1F2937', 
+                            backgroundColor: '#F9FAFB', 
                             border: '1px solid #374151',
                             borderRadius: '8px',
                             color: '#F9FAFB'
@@ -194,7 +309,7 @@ export default function Dashboard() {
                     </ResponsiveContainer>
                   </div>
                   <div className="grid grid-cols-2 gap-3 mt-4">
-                    {distributionData.map((item) => (
+                    {distributionData.map((item: DistributionDataItem) => (
                       <div key={item.name} className="flex items-center gap-2">
                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                         <span className="text-xs sm:text-sm text-slate-300">{item.name}</span>
