@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
   BookOpen,
   Brain,
@@ -23,28 +23,13 @@ import {
 } from "recharts";
 import { useSession } from "next-auth/react";
 import Header from "@/components/Header";
-
-interface WeeklyDataItem {
-  day: string;
-  sessions: number;
-  mindmaps: number;
-  flashcards: number;
-  quizzes: number;
-}
+import { useAnalytics } from "@/hooks/useAnalytics";
+import { DashboardSkeleton } from "@/components/ui/dashboard-skeleton";
 
 interface DistributionDataItem {
   name: string;
   value: number;
   color: string;
-}
-
-interface SummaryStatItem {
-  title: string;
-  value: string;
-  change: string;
-  icon: string;
-  gradient: string;
-  changeType: string;
 }
 
 interface SummaryStatWithIcon {
@@ -56,99 +41,9 @@ interface SummaryStatWithIcon {
   changeType: string;
 }
 
-interface AnalyticsData {
-  weeklyData: WeeklyDataItem[];
-  distributionData: DistributionDataItem[];
-  summaryStats: SummaryStatItem[];
-}
-
 export default function Dashboard() {
   const { data: session } = useSession();
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-
-  useEffect(() => {
-    const fetchAnalytics = async () => {
-      if (!session?.user?.email) {
-        return;
-      }
-
-      try {
-        const response = await fetch('/api/dashboard/analytics');
-        if (response.ok) {
-          const data = await response.json();
-          setAnalytics(data);
-        } else {
-          console.error('Failed to fetch analytics');
-        }
-      } catch (error) {
-        console.error('Error fetching analytics:', error);
-      }
-    };
-
-    fetchAnalytics();
-  }, [session]);
-
-  // Fallback data for when user is not logged in or data is loading
-  const fallbackWeeklyData = [
-    { day: "Mon", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
-    { day: "Tue", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
-    { day: "Wed", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
-    { day: "Thu", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
-    { day: "Fri", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
-    { day: "Sat", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
-    { day: "Sun", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 }
-  ];
-
-  const fallbackDistributionData = [
-    { name: "Chat Sessions", value: 0, color: "#3B82F6" },
-    { name: "Mind Maps", value: 0, color: "#8B5CF6" },
-    { name: "Flashcards", value: 0, color: "#F59E0B" },
-    { name: "Quizzes", value: 0, color: "#10B981" }
-  ];
-
-  // Use real data if available, otherwise use fallback
-  const weeklyData = analytics?.weeklyData || fallbackWeeklyData;
-  const distributionData = analytics?.distributionData || fallbackDistributionData;
-  const summaryStats: SummaryStatWithIcon[] = analytics?.summaryStats ? analytics.summaryStats.map((stat: SummaryStatItem) => ({
-    ...stat,
-    icon: stat.icon === "MessageSquare" ? MessageSquare :
-          stat.icon === "Brain" ? Brain :
-          stat.icon === "BookOpen" ? BookOpen :
-          stat.icon === "FileQuestion" ? FileQuestion : MessageSquare
-  })) : [
-    {
-      title: "Total Sessions",
-      value: "0",
-      change: "",
-      icon: MessageSquare,
-      gradient: "from-blue-500 to-cyan-500",
-      changeType: "positive"
-    },
-    {
-      title: "Mind Maps Created",
-      value: "0",
-      change: "",
-      icon: Brain,
-      gradient: "from-purple-500 to-pink-500",
-      changeType: "positive"
-    },
-    {
-      title: "Flashcards Made",
-      value: "0",
-      change: "",
-      icon: BookOpen,
-      gradient: "from-orange-500 to-red-500",
-      changeType: "positive"
-    },
-    {
-      title: "Quizzes Completed",
-      value: "0",
-      change: "",
-      icon: FileQuestion,
-      gradient: "from-green-500 to-emerald-500",
-      changeType: "positive"
-    }
-  ];
+  const { analytics, isLoading, error } = useAnalytics();
 
   useEffect(() => {
     if (session?.user) {
@@ -198,6 +93,105 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // Show loading skeleton while fetching data
+  if (isLoading && !analytics) {
+    return (
+      <>
+        <Header />
+        <DashboardSkeleton />
+      </>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen transition-colors duration-500 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <Header />
+        <div className="pt-24">
+          <main className="flex-1 overflow-hidden">
+            <div className="p-4 sm:p-6 lg:p-8 h-full overflow-auto">
+              <div className="max-w-4xl mx-auto text-center py-16">
+                <div className="p-8 rounded-2xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shadow-xl">
+                  <h2 className="text-2xl font-bold text-white mb-4">Failed to Load Analytics</h2>
+                  <p className="text-slate-300 mb-6">We&apos;re having trouble loading your dashboard data. Please try refreshing the page.</p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-all duration-300"
+                  >
+                    Refresh Page
+                  </button>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback data for when data is not yet loaded
+  const fallbackWeeklyData = [
+    { day: "Mon", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Tue", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Wed", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Thu", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Fri", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Sat", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 },
+    { day: "Sun", sessions: 0, mindmaps: 0, flashcards: 0, quizzes: 0 }
+  ];
+
+  const fallbackDistributionData = [
+    { name: "Chat Sessions", value: 0, color: "#3B82F6" },
+    { name: "Mind Maps", value: 0, color: "#8B5CF6" },
+    { name: "Flashcards", value: 0, color: "#F59E0B" },
+    { name: "Quizzes", value: 0, color: "#10B981" }
+  ];
+
+  // Use real data if available, otherwise use fallback
+  const weeklyData = analytics?.weeklyData || fallbackWeeklyData;
+  const distributionData = analytics?.distributionData || fallbackDistributionData;
+  const summaryStats: SummaryStatWithIcon[] = analytics?.summaryStats ? analytics.summaryStats.map((stat) => ({
+    ...stat,
+    icon: stat.icon === "MessageSquare" ? MessageSquare :
+          stat.icon === "Brain" ? Brain :
+          stat.icon === "BookOpen" ? BookOpen :
+          stat.icon === "FileQuestion" ? FileQuestion : MessageSquare
+  })) : [
+    {
+      title: "Total Sessions",
+      value: "0",
+      change: "",
+      icon: MessageSquare,
+      gradient: "from-blue-500 to-cyan-500",
+      changeType: "positive"
+    },
+    {
+      title: "Mind Maps Created",
+      value: "0",
+      change: "",
+      icon: Brain,
+      gradient: "from-purple-500 to-pink-500",
+      changeType: "positive"
+    },
+    {
+      title: "Flashcards Made",
+      value: "0",
+      change: "",
+      icon: BookOpen,
+      gradient: "from-orange-500 to-red-500",
+      changeType: "positive"
+    },
+    {
+      title: "Quizzes Completed",
+      value: "0",
+      change: "",
+      icon: FileQuestion,
+      gradient: "from-green-500 to-emerald-500",
+      changeType: "positive"
+    }
+  ];
 
   return (
     <div className="min-h-screen transition-colors duration-500 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

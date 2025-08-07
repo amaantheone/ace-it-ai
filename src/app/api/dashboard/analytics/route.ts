@@ -158,7 +158,11 @@ export async function GET() {
       ],
     };
 
-    return NextResponse.json(analytics);
+    return NextResponse.json(analytics, {
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+      },
+    });
   } catch (error) {
     console.error("Error fetching analytics:", error);
     return NextResponse.json(

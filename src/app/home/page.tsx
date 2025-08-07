@@ -5,10 +5,14 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import { StartLearningIcon, MindMapIcon, QuizIcon, FlashCardIcon } from '@/components/Icons';
 import { useUser } from '@/contexts/UserContext';
+import { usePrefetchAnalytics } from '@/hooks/usePrefetchAnalytics';
 
 function App() {
   const { user, isLoading } = useUser();
   const router = useRouter();
+  
+  // Prefetch analytics data in the background
+  usePrefetchAnalytics();
 
   // Get first name from user
   const getDisplayName = () => {
