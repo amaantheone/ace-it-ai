@@ -93,7 +93,7 @@ export const handleSendMessage = async (
       const formData = new FormData();
       formData.append("message", currentInput);
       formData.append("sessionId", currentSessionId);
-      formData.append("pdf", selectedFile);
+      formData.append("file", selectedFile);
 
       // Add guest mode data if applicable
       if (isGuestMode) {

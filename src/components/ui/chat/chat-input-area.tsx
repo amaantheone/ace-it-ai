@@ -89,7 +89,7 @@ export function ChatInputArea({
               ) : (
                 <div className="flex items-center gap-1 text-sm">
                   <span className="inline-block bg-gray-200 rounded p-1 text-xs">
-                    PDF
+                    {selectedFile.type.startsWith("image/") ? "IMG" : "PDF"}
                   </span>
                   <span>{selectedFile.name}</span>
                 </div>
@@ -124,7 +124,7 @@ export function ChatInputArea({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,image/*"
                 className="hidden"
                 onChange={handleFileChange}
               />

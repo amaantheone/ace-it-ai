@@ -5,6 +5,10 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
 import { authOptions } from "@/config/auth";
 import { processPDF } from "@/utils/chatFunctions/pdf-utils";
+import {
+  processImage,
+  isSupportedImageType,
+} from "@/utils/chatFunctions/image-utils";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { Document } from "@langchain/core/documents";
@@ -27,6 +31,13 @@ PDF_CONTEXT:
   - Reference specific pages or sections when answering questions about the PDF.
   - If the user asks about a table or diagram, describe it textually as best as possible.
   - Always cite the PDF context you use in your answer (e.g., "According to page X...").
+
+IMAGE_CONTEXT:
+  - If an image is provided, analyze it thoroughly and provide detailed explanations.
+  - Describe what you see in the image including text, diagrams, charts, mathematical formulas, or other visual elements.
+  - Help explain concepts shown in the image and relate them to the user's learning goals.
+  - If the image contains problems or exercises, help guide the user through understanding them.
+  - Point out important details that might be relevant for studying or understanding the content.
 
 RULES:
   - You are not allowed to provide any medical, legal, or financial advice.
@@ -56,7 +67,8 @@ export async function POST(req: Request) {
     // Check if the request is multipart/form-data
     const contentType = req.headers.get("content-type") || "";
     let message: string = "";
-    let pdfBuffer: Buffer | null = null;
+    let fileBuffer: Buffer | null = null;
+    let fileType: string | null = null;
     let sessionId: string = "";
     let userMessageId: string | undefined;
     let isGuestMode: boolean = false;
@@ -73,17 +85,18 @@ export async function POST(req: Request) {
       if (guestMessagesStr) {
         guestMessages = JSON.parse(guestMessagesStr);
       }
-      const file = formData.get("pdf") as File | null;
+      const file = formData.get("file") as File | null;
       if (file) {
         if (file.size > 10 * 1024 * 1024) {
           return NextResponse.json(
-            { error: "PDF file too large (max 10MB)" },
+            { error: "File too large (max 10MB)" },
             { status: 400 }
           );
         }
         // Read file into buffer
         const arrayBuffer = await file.arrayBuffer();
-        pdfBuffer = Buffer.from(arrayBuffer);
+        fileBuffer = Buffer.from(arrayBuffer);
+        fileType = file.type;
       }
     } else {
       // Fallback to JSON body
@@ -146,36 +159,52 @@ export async function POST(req: Request) {
       messages.push([role, msg.content]);
     }
     let pdfContext = "";
-    if (pdfBuffer) {
+    let imageContext = "";
+
+    if (fileBuffer && fileType) {
       try {
-        // Process PDF and split into chunks
-        const pdfText = await processPDF(pdfBuffer);
-        // Split into chunks for vector storage
-        const chunks = pdfText
-          .split(/\n{2,}/)
-          .map(
-            (chunk, idx) =>
-              new Document({ pageContent: chunk, metadata: { page: idx + 1 } })
+        if (fileType === "application/pdf") {
+          // Process PDF and split into chunks
+          const pdfText = await processPDF(fileBuffer);
+          // Split into chunks for vector storage
+          const chunks = pdfText
+            .split(/\n{2,}/)
+            .map(
+              (chunk, idx) =>
+                new Document({
+                  pageContent: chunk,
+                  metadata: { page: idx + 1 },
+                })
+            );
+          // Create embeddings and vector store
+          const embeddings = new GoogleGenerativeAIEmbeddings({
+            model: "embedding-001",
+          });
+          const vectorStore = await MemoryVectorStore.fromDocuments(
+            chunks,
+            embeddings
           );
-        // Create embeddings and vector store
-        const embeddings = new GoogleGenerativeAIEmbeddings({
-          model: "embedding-001",
-        });
-        const vectorStore = await MemoryVectorStore.fromDocuments(
-          chunks,
-          embeddings
-        );
-        // Perform similarity search with user's message
-        const topChunks = await vectorStore.similaritySearch(message, 4);
-        pdfContext = topChunks
-          .map(
-            (doc) =>
-              `--- PDF Chunk #${doc.metadata.page} ---\n${doc.pageContent}`
-          )
-          .join("\n\n");
+          // Perform similarity search with user's message
+          const topChunks = await vectorStore.similaritySearch(message, 4);
+          pdfContext = topChunks
+            .map(
+              (doc) =>
+                `--- PDF Chunk #${doc.metadata.page} ---\n${doc.pageContent}`
+            )
+            .join("\n\n");
+        } else if (isSupportedImageType(fileType)) {
+          // Process image
+          const base64Image = await processImage(fileBuffer, fileType);
+          imageContext = base64Image;
+        } else {
+          return NextResponse.json(
+            { error: "Unsupported file type" },
+            { status: 400 }
+          );
+        }
       } catch {
         return NextResponse.json(
-          { error: "Failed to process PDF" },
+          { error: "Failed to process file" },
           { status: 400 }
         );
       }
@@ -185,14 +214,57 @@ export async function POST(req: Request) {
     if (pdfContext) {
       systemPrompt += `\n\nRelevant PDF Chunks:\n${pdfContext}`;
     }
-    // Compose messages for LLM
+
+    // Prepare messages for LLM
     const llmMessages: [string, string][] = [
       ["system", systemPrompt],
       ...messages.slice(1),
-      ["human", message],
     ];
-    // Call the LLM with the conversation history and PDF context
-    const response = await llm.invoke(llmMessages);
+
+    // If we have an image, we need to handle it differently for Gemini Vision
+    if (imageContext) {
+      // For image analysis, add the image to the human message
+      llmMessages.push([
+        "human",
+        `${message}\n\n[Image provided for analysis]`,
+      ]);
+    } else {
+      llmMessages.push(["human", message]);
+    }
+    // Call the LLM with the conversation history and context
+    let response;
+    if (imageContext) {
+      // For image analysis, we need to use a vision-capable model
+      const visionLlm = new ChatGoogleGenerativeAI({
+        model: "gemini-2.0-flash",
+        temperature: 0.5,
+        maxOutputTokens: 2048,
+        streaming: false,
+      });
+
+      // Create message with image
+      const messageWithImage = {
+        role: "user" as const,
+        content: [
+          { type: "text" as const, text: message },
+          {
+            type: "image_url" as const,
+            image_url: { url: imageContext },
+          },
+        ],
+      };
+
+      response = await visionLlm.invoke([
+        { role: "system", content: systemPrompt },
+        ...messages.slice(1).map(([role, content]) => ({
+          role: role === "human" ? ("user" as const) : ("assistant" as const),
+          content,
+        })),
+        messageWithImage,
+      ]);
+    } else {
+      response = await llm.invoke(llmMessages);
+    }
     const responseText = String(response.content);
 
     // (Removed unused lastUserMsg logic; handled by userMessageId and message scan above)
