@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
@@ -10,7 +10,7 @@ interface VoiceInputProps {
 
 const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscription, disabled }) => {
   const [listening, setListening] = useState(false);
-  const [autoSendTimeout, setAutoSendTimeout] = useState<NodeJS.Timeout | null>(null);
+  const autoStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const {
     transcript,
     resetTranscript,
@@ -18,45 +18,69 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscription, disabled }) =>
     isMicrophoneAvailable,
   } = useSpeechRecognition();
 
-  const prevTranscript = useRef("");
+  const handleStopListening = useCallback(() => {
+    // Always stop speech recognition first
+    SpeechRecognition.stopListening();
+    setListening(false);
+    
+    // Clear timeout
+    if (autoStopTimeoutRef.current) {
+      clearTimeout(autoStopTimeoutRef.current);
+      autoStopTimeoutRef.current = null;
+    }
 
+    // Process transcript if available
+    if (transcript.trim()) {
+      onTranscription(transcript.trim());
+    }
+    resetTranscript();
+  }, [transcript, onTranscription, resetTranscript]);
+
+  // Auto-stop listening after 3 seconds of silence
   useEffect(() => {
     if (!listening) return;
-    if (transcript !== prevTranscript.current) {
-      if (autoSendTimeout) clearTimeout(autoSendTimeout);
-      const timeout = setTimeout(() => {
-        if (transcript.trim()) {
-          onTranscription(transcript.trim());
-          resetTranscript();
-          setListening(false);
-          SpeechRecognition.stopListening();
-        }
-      }, 2000);
-      setAutoSendTimeout(timeout as unknown as NodeJS.Timeout);
-      prevTranscript.current = transcript;
-    }
-  }, [transcript, listening, autoSendTimeout, onTranscription, resetTranscript]);
 
-  useEffect(() => {
-    if (!listening) {
-      if (autoSendTimeout) clearTimeout(autoSendTimeout);
-      prevTranscript.current = "";
+    // Clear existing timeout
+    if (autoStopTimeoutRef.current) {
+      clearTimeout(autoStopTimeoutRef.current);
     }
-  }, [listening, autoSendTimeout]);
+
+    // Set new timeout to stop listening after silence
+    const timeout = setTimeout(() => {
+      handleStopListening();
+    }, 3000);
+
+    autoStopTimeoutRef.current = timeout;
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [transcript, listening, handleStopListening]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      SpeechRecognition.stopListening();
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleMicClick = () => {
     if (!browserSupportsSpeechRecognition || !isMicrophoneAvailable) return;
+    
     if (listening) {
-      // If user stops listening, send transcript if available
-      if (transcript.trim()) {
-        onTranscription(transcript.trim());
-        resetTranscript();
-      }
-      setListening(false);
-      SpeechRecognition.stopListening();
+      handleStopListening();
     } else {
-      setListening(true);
+      // Clear any existing timeouts before starting
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
+        autoStopTimeoutRef.current = null;
+      }
+      
       resetTranscript();
+      setListening(true);
       SpeechRecognition.startListening({ continuous: true, language: "en-US" });
     }
   };
@@ -85,11 +109,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onTranscription, disabled }) =>
       {listening && (
         <span className="text-muted-foreground text-sm flex items-center gap-1">
           <Loader2 className="w-3 h-3 animate-spin" /> Listening...
-        </span>
-      )}
-      {transcript && (
-        <span className="ml-2 px-2 py-1 rounded bg-muted text-foreground text-xs max-w-xs truncate">
-          {transcript}
         </span>
       )}
       {!isMicrophoneAvailable && (

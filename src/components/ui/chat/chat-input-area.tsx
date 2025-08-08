@@ -36,7 +36,6 @@ export function ChatInputArea({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [voiceTranscript, setVoiceTranscript] = useState("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -48,18 +47,14 @@ export function ChatInputArea({
     }
   };
 
-  // Combine typed and voice input
-  const combinedInput = input + (voiceTranscript ? (input ? " " : "") + voiceTranscript : "");
-
-  // When voice input is sent, append to input and clear transcript
+  // When voice input is complete, update the input field
   const handleVoiceTranscription = (text: string) => {
-    setVoiceTranscript("");
     if (text) {
-      // If there's already typed input, add a space
+      // If there's already typed input, add a space before the voice text
+      const newValue = input ? input + " " + text : text;
       onChange({
-        target: { value: (input ? input + " " : "") + text },
+        target: { value: newValue },
       } as React.ChangeEvent<HTMLTextAreaElement>);
-      // Optionally, auto-submit here if desired
     }
   };
 
@@ -74,15 +69,11 @@ export function ChatInputArea({
           <div className="flex items-center gap-2">
             <BaseChatInput
               ref={inputRef}
-              value={combinedInput}
+              value={input}
               onKeyDown={onKeyDown}
               onChange={onChange}
               placeholder="Ask anything..."
               className="min-h-[60px] md:min-h-[80px] resize-none rounded-lg bg-muted border-border p-3 text-foreground placeholder:text-muted-foreground"
-            />
-            <VoiceInput
-              onTranscription={handleVoiceTranscription}
-              disabled={isLoading}
             />
           </div>
           {selectedFile && (
@@ -126,6 +117,10 @@ export function ChatInputArea({
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
+              <VoiceInput
+                onTranscription={handleVoiceTranscription}
+                disabled={isLoading}
+              />
               <input
                 ref={fileInputRef}
                 type="file"
@@ -135,7 +130,7 @@ export function ChatInputArea({
               />
             </div>
             <SendButton
-              input={combinedInput}
+              input={input}
               isLoading={isLoading}
               onSubmit={onSubmit}
               formRef={formRef}
