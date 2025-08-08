@@ -1,6 +1,6 @@
 'use client';
 
-import { Paperclip } from "lucide-react";
+import { Paperclip, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatInput as BaseChatInput } from "./chat-input";
 import { SendButton } from "./send-button";
@@ -20,6 +20,8 @@ interface ChatInputAreaProps {
   selectedFile: File | null;
   onFileChange: (file: File | null) => void;
   onRemoveFile: () => void;
+  showScrollToBottom?: boolean;
+  onScrollToBottom?: () => void;
 }
 
 export function ChatInputArea({
@@ -31,6 +33,8 @@ export function ChatInputArea({
   selectedFile,
   onFileChange,
   onRemoveFile,
+  showScrollToBottom = false,
+  onScrollToBottom,
 }: ChatInputAreaProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -59,7 +63,22 @@ export function ChatInputArea({
   };
 
   return (
-    <div className="p-2 md:p-4 bg-background">
+    <div className="p-2 md:p-4 bg-background relative">
+      {/* Scroll to Bottom Button */}
+      {showScrollToBottom && onScrollToBottom && (
+        <div className="absolute -top-12 left-0 right-0 flex justify-center z-10">
+          <Button
+            onClick={onScrollToBottom}
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-background/80 backdrop-blur-sm border border-white/20 dark:border-white/20 shadow-md hover:shadow-lg transition-all duration-200 hover:bg-background/90"
+            size="icon"
+            variant="outline"
+            aria-label="Scroll to bottom"
+          >
+            <ArrowDown className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
+      )}
+      
       <div className="max-w-3xl mx-auto">
         <form
           ref={formRef}

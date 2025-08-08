@@ -45,6 +45,7 @@ export default function ChatPage() {
   const { theme, toggleTheme } = useTheme();
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -53,6 +54,7 @@ export default function ChatPage() {
   const avatar = session?.user?.image;
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -71,12 +73,21 @@ export default function ChatPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop =
-        messagesContainerRef.current.scrollHeight;
+    // Handle scroll detection for scroll-to-bottom button
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight > 100) {  // 100px threshold
+      setShowScrollToBottom(true);
+    } else {
+      setShowScrollToBottom(false);
     }
-  }, [messages]);
+  };
+
+  // Function to scroll to bottom
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setShowScrollToBottom(false);
+  }, []);
 
   // Click outside handler for user menu
   useEffect(() => {
@@ -376,10 +387,11 @@ export default function ChatPage() {
       <div className="flex-1 flex flex-col h-screen bg-background relative">
         <ChatHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto flex flex-col relative">
+        <div className="flex-1 overflow-y-auto flex flex-col relative" onScroll={handleScroll}>
           <ChatMessages
             messages={getCurrentSessionMessages()}
             messagesContainerRef={messagesContainerRef}
+            bottomRef={bottomRef}
             isLoading={isLoading}
           />
         </div>
@@ -439,6 +451,8 @@ export default function ChatPage() {
           selectedFile={selectedFile}
           onFileChange={setSelectedFile}
           onRemoveFile={() => setSelectedFile(null)}
+          showScrollToBottom={showScrollToBottom}
+          onScrollToBottom={scrollToBottom}
         />
       </div>
     </div>

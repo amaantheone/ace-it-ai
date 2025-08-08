@@ -29,10 +29,11 @@ interface Message {
 interface ChatMessagesProps {
   messages: Message[];
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
+  bottomRef?: React.RefObject<HTMLDivElement | null>;
   isLoading?: boolean;
 }
 
-export function ChatMessages({ messages, messagesContainerRef, isLoading = false }: ChatMessagesProps) {
+export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoading = false }: ChatMessagesProps) {
   const getMessageVariant = (role?: string) => role === "ai" ? "received" : "sent";
 
   // Find the index of the last AI message
@@ -171,6 +172,8 @@ export function ChatMessages({ messages, messagesContainerRef, isLoading = false
             );
           })}
         </AnimatePresence>
+        {/* Invisible element to mark the bottom for scroll-to-bottom functionality */}
+        <div ref={bottomRef} />
       </ChatMessageList>
     </div>
   );
