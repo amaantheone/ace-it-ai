@@ -44,6 +44,7 @@ function FlashCardPageContent() {
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [cardsInFolder, setCardsInFolder] = useState<FlashCardData[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [isGuestCardModalOpen, setIsGuestCardModalOpen] = useState(false);
 
   // --- LocalStorage Caching Helpers ---
   const FLASHCARD_LIST_KEY = 'flashcard_list';
@@ -211,6 +212,13 @@ function FlashCardPageContent() {
       setIsSidebarOpen(false);
     }
   }, [currentCard, isMobileView]);
+
+  // Open the flashcard modal when in guest mode and a card is present
+  useEffect(() => {
+    if (isGuest && currentCard) {
+      setIsGuestCardModalOpen(true);
+    }
+  }, [isGuest, currentCard]);
 
   // Fetch the specific card if an ID is provided in the URL
   useEffect(() => {
@@ -589,9 +597,6 @@ function FlashCardPageContent() {
           <h1 className="text-xl sm:text-2xl font-bold">Flash Card Generator</h1>
           {isGuest ? (
             <div className="ml-auto flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-3">
-              <div className="text-xs sm:text-sm text-muted-foreground text-right sm:text-left">
-                Guest Mode - {3 - guestIndividualFlashcardCount} flashcards remaining
-              </div>
               <Link href="/auth/login">
                 <Button size="sm" variant="outline" className="text-xs h-7 px-2 sm:px-3 hover:cursor-pointer whitespace-nowrap">
                   Sign in
@@ -672,68 +677,51 @@ function FlashCardPageContent() {
                       }}
                     />
                   </div>
-                  {!isGuest && (
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-1 text-sm cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={isBulk}
-                          onChange={() => setIsBulk((prev) => !prev)}
-                          className="accent-primary"
-                        />
-                        Pack
-                      </label>
-                    </div>
-                  )}
                 </div>
                 {!isGuest && isBulk && (
-                  <>
-                    <div className="flex items-center gap-2 mt-2">
-                      <label htmlFor="bulk-count" className="text-sm">Number of flashcards</label>
-                      <input
-                        id="bulk-count"
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={bulkCount}
-                        onChange={(e) => setBulkCount(Number(e.target.value))}
-                        className="w-20 border rounded px-2 py-1 text-sm"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <label htmlFor="pdf-upload">
-                        <Button variant="outline" className="px-4 py-2 cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer" asChild>
-                          <span>{pdfFile ? "Change PDF" : "Choose PDF"}</span>
-                        </Button>
-                      </label>
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        id="pdf-upload"
-                        className="hidden"
-                        onChange={e => setPdfFile(e.target.files?.[0] || null)}
-                        disabled={isLoading}
-                      />
-                      {pdfFile && (
-                        <div className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs shadow-sm">
-                          <span className="truncate max-w-[140px] font-medium">{pdfFile.name}</span>
-                          <button
-                            type="button"
-                            className="ml-1 text-muted-foreground hover:text-destructive"
-                            onClick={() => setPdfFile(null)}
-                            aria-label="Remove file"
-                            disabled={isLoading}
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <label htmlFor="bulk-count" className="text-sm">Number of flashcards</label>
+                    <input
+                      id="bulk-count"
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={bulkCount}
+                      onChange={(e) => setBulkCount(Number(e.target.value))}
+                      className="w-20 border rounded px-2 py-1 text-sm"
+                    />
+                    <label htmlFor="pdf-upload">
+                      <Button variant="outline" className="px-4 py-2 cursor-pointer rounded-lg shadow-sm border-muted/60 hover:cursor-pointer" asChild>
+                        <span>{pdfFile ? "Change PDF" : "Choose PDF"}</span>
+                      </Button>
+                    </label>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      id="pdf-upload"
+                      className="hidden"
+                      onChange={e => setPdfFile(e.target.files?.[0] || null)}
+                      disabled={isLoading}
+                    />
+                    {pdfFile && (
+                      <div className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs shadow-sm">
+                        <span className="truncate max-w-[140px] font-medium">{pdfFile.name}</span>
+                        <button
+                          type="button"
+                          className="ml-1 text-muted-foreground hover:text-destructive"
+                          onClick={() => setPdfFile(null)}
+                          aria-label="Remove file"
+                          disabled={isLoading}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
                 <div className="flex items-center gap-2 mt-2">
                   <Button 
-                    type="submit" 
+                    type="submit"
                     disabled={isLoading} 
                     className="cursor-pointer hover:opacity-90"
                   >
@@ -743,13 +731,28 @@ function FlashCardPageContent() {
                         : 'Generating...'
                     ) : 'Generate'}
                   </Button>
+                  {!isGuest && (
+                    <label
+                      className="inline-flex items-center gap-2 text-sm cursor-pointer select-none rounded-md border border-muted/60 px-3 py-1.5 shadow-sm hover:bg-accent transition-colors"
+                      title="Generate multiple flashcards from this topic"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isBulk}
+                        onChange={() => setIsBulk((prev) => !prev)}
+                        className="accent-primary"
+                      />
+                      <span className="font-medium">Generate a pack</span>
+                    </label>
+                  )}
                 </div>
               </form>
               {error && <p className="text-destructive mt-2">{error}</p>}
             </CardContent>
           </Card>
           
-          {currentCard && (
+          {/* For authenticated users: render inline */}
+          {!isGuest && currentCard && (
             <div className="flex flex-col items-center">
               <div className="flex justify-center items-center space-x-2 sm:space-x-4 w-full max-w-full sm:max-w-[600px]">
                 {currentCard.folderId && currentIndex > 0 && (
@@ -794,6 +797,43 @@ function FlashCardPageContent() {
           onClose={() => setShowFlashcardLoginPopup(false)}
           closable={true}
         />
+      )}
+
+      {/* Guest Flashcard Modal Overlay */}
+      {isGuest && isGuestCardModalOpen && currentCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="relative bg-background border border-border rounded-xl w-[95vw] max-w-[720px] max-h-[90vh] p-4 shadow-lg">
+            <button
+              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+              aria-label="Close"
+              onClick={() => {
+                setIsGuestCardModalOpen(false);
+                setCurrentCard(null);
+                // Clear id from URL if present
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('id')) {
+                  router.replace('/flashcard');
+                }
+              }}
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-full">
+                <FlashCard
+                  {...currentCard}
+                  onEdit={handleEditCard}
+                  onDelete={handleDeleteCard}
+                />
+              </div>
+              <div className="flex justify-end w-full">
+                <Link href="/auth/login">
+                  <Button variant="outline" size="sm">Sign in to save</Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

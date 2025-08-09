@@ -35,6 +35,10 @@ export const handleSendMessage = async (
     selectedFile,
     setSelectedFile,
     isGuestMode,
+    incrementGuestMessageCount,
+    setShowChatLoginPopup,
+    guestMessageLimit,
+    setLoginPopupVariant,
   }: {
     input: string;
     currentSessionId: string;
@@ -49,10 +53,25 @@ export const handleSendMessage = async (
     selectedFile?: File | null;
     setSelectedFile?: (file: File | null) => void;
     isGuestMode?: boolean;
+    incrementGuestMessageCount?: () => number;
+    setShowChatLoginPopup?: (open: boolean) => void;
+    guestMessageLimit?: number;
+    setLoginPopupVariant?: (variant: "limit" | "newSession") => void;
   }
 ) => {
   e.preventDefault();
   if (!input || !currentSessionId) return;
+
+  // Guest gating
+  if (isGuestMode && incrementGuestMessageCount && setShowChatLoginPopup) {
+    const allowed = enforceGuestMessageLimit({
+      incrementGuestMessageCount,
+      setShowChatLoginPopup,
+      limit: guestMessageLimit,
+      setLoginPopupVariant,
+    });
+    if (!allowed) return;
+  }
 
   const messageId = crypto.randomUUID();
   const userMessage: Message = {
@@ -214,4 +233,111 @@ export const handleKeyDown = (
   if (e.key === "Enter" && !e.shiftKey) {
     handleSendMessage(e as unknown as React.FormEvent<HTMLFormElement>);
   }
+};
+
+export const enforceGuestMessageLimit = ({
+  incrementGuestMessageCount,
+  setShowChatLoginPopup,
+  limit = 4,
+  setLoginPopupVariant,
+}: {
+  incrementGuestMessageCount: () => number;
+  setShowChatLoginPopup: (open: boolean) => void;
+  limit?: number;
+  setLoginPopupVariant?: (variant: "limit" | "newSession") => void;
+}) => {
+  const newCount = incrementGuestMessageCount();
+  if (newCount >= limit) {
+    if (setLoginPopupVariant) setLoginPopupVariant("limit");
+    setShowChatLoginPopup(true);
+    return false;
+  }
+  return true;
+};
+
+export const sendSuggestionMessage = async (
+  text: string,
+  {
+    currentSessionId,
+    isGuestMode,
+    incrementGuestMessageCount,
+    setShowChatLoginPopup,
+    avatar,
+    username,
+    messages,
+    setMessages,
+    setInput,
+    setIsLoading,
+    formRef,
+    sessions,
+    setSessions,
+    setLoginPopupVariant,
+  }: {
+    currentSessionId: string | null;
+    isGuestMode: boolean;
+    incrementGuestMessageCount: () => number;
+    setShowChatLoginPopup: (open: boolean) => void;
+    avatar: string | null | undefined;
+    username: string;
+    messages: Record<string, Message[]>;
+    setMessages: (sessionId: string, messages: Message[]) => void;
+    setInput: (val: string) => void;
+    setIsLoading: (val: boolean) => void;
+    formRef: React.RefObject<HTMLFormElement> | null;
+    sessions: Session[];
+    setSessions: (sessions: Session[]) => void;
+    setLoginPopupVariant?: (variant: "limit" | "newSession") => void;
+  }
+) => {
+  if (!currentSessionId) return;
+
+  // Guest gate
+  if (isGuestMode) {
+    const allowed = enforceGuestMessageLimit({
+      incrementGuestMessageCount,
+      setShowChatLoginPopup,
+      setLoginPopupVariant,
+    });
+    if (!allowed) return;
+  }
+
+  // Optimistic user message
+  const userMessage: Message = {
+    id: crypto.randomUUID(),
+    avatar: avatar || "",
+    name: username,
+    role: "user",
+    message: text,
+    className: "",
+  };
+  setMessages(currentSessionId, [
+    ...(messages[currentSessionId] || []),
+    userMessage,
+  ]);
+  setInput("");
+  setIsLoading(true);
+
+  // Reuse existing send handler
+  await handleSendMessage(
+    {
+      preventDefault: () => {},
+      target: formRef?.current as HTMLFormElement,
+    } as unknown as React.FormEvent<HTMLFormElement>,
+    {
+      input: text,
+      currentSessionId,
+      username,
+      avatar,
+      messages,
+      setInput,
+      setMessages,
+      setSessions,
+      sessions,
+      formRef: (formRef || {
+        current: null,
+      }) as React.RefObject<HTMLFormElement>,
+      isGuestMode,
+    }
+  );
+  setIsLoading(false);
 };

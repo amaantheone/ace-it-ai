@@ -16,6 +16,7 @@ interface SidebarProps {
   isMobileView: boolean;
   isUserMenuOpen: boolean;
   theme: string;
+  isGuest?: boolean;
   selectedUser?: {
     avatar: string;
     name: string;
@@ -38,6 +39,7 @@ export function Sidebar({
   isMobileView,
   isUserMenuOpen,
   theme,
+  isGuest = false,
   username,
   avatar,
   onNewChat,
@@ -80,7 +82,17 @@ export function Sidebar({
       <div className="flex flex-col h-full">
         <SidebarHeader onNewChat={onNewChat} />
         <div className="flex-1 overflow-y-auto">
-          <SessionList sessions={sessions} currentSessionId={currentSessionId} handleSessionSelect={handleSessionSelect} />
+          {isGuest ? (
+            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+              Sign in to view and manage your chats.
+            </div>
+          ) : (
+            <SessionList
+              sessions={sessions}
+              currentSessionId={currentSessionId}
+              handleSessionSelect={handleSessionSelect}
+            />
+          )}
         </div>
         <div className="mt-auto relative" ref={menuRef}>
           <UserMenuDropdown isUserMenuOpen={isUserMenuOpen} theme={theme} onToggleTheme={onToggleTheme} />
