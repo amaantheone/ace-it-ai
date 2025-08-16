@@ -16,6 +16,12 @@ export const metadata: Metadata = {
   description: "Ready to Ace your Exams? Generate quizzes, flashcards, and mind maps with AI. Interactive learning sessions powered by artificial intelligence.",
   keywords: "Ace It AI, AI learning, quiz generator, flashcards, mind maps, study tools, exam preparation",
   authors: [{ name: "Ace It AI" }],
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
   verification: {
     google: "BZ9QNKtlxe57HZ-HLfplUwAW9I7Od4HvaJ2wXLWxxw4"
   },

@@ -91,7 +91,7 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
       
       setMessageDimensions({
         width: isSmallMessage ? Math.max(rect.width * 2.5, 250) : rect.width, // 2.5x wider or minimum 250px
-        height: rect.height  // 2x taller or minimum 80px
+        height: rect.height
       });
     }
     
@@ -201,14 +201,14 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
   // When loading, always show skeleton regardless of message count
   if (isLoading) {
     return (
-      <div className="w-full max-w-3xl mx-auto px-2 md:px-0">
+      <div className="w-full max-w-3xl mx-auto px-2 md:px-4 overflow-hidden">
         <SkeletonTheme 
           baseColor={isDarkMode ? '#202020' : '#ebebeb'} 
           highlightColor={isDarkMode ? '#444' : '#f5f5f5'}
         >
           <div className="py-4 space-y-6">
             {Array(3).fill(0).map((_, index) => (
-              <div key={index} className={`${index % 2 === 0 ? 'ml-auto w-4/5' : 'mr-auto w-4/5'}`}>
+              <div key={index} className={`${index % 2 === 0 ? 'ml-auto w-4/5 max-w-sm' : 'mr-auto w-4/5 max-w-full'} min-w-0`}>
                 <div className="mb-1">
                   <Skeleton width={80} height={16} />
                 </div>
@@ -232,7 +232,7 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-2 md:px-0">
+    <div className="w-full max-w-3xl mx-auto px-2 md:px-4 overflow-hidden">
       <ChatMessageList ref={messagesContainerRef}>
         <AnimatePresence>
           {messages.map((message, index) => {
@@ -253,11 +253,11 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                   },
                 }}
                 style={{ originX: 0.5, originY: 0.5 }}
-                className="flex flex-col gap-2 p-2 md:p-4 w-full"
+                className="flex flex-col gap-2 p-2 md:p-4 w-full min-w-0"
               >
                 {message.role === "ai" ? (
                   // AI Response without bubble
-                  <div className="w-full">
+                  <div className="w-full min-w-0 overflow-hidden">
                     <div className="space-y-2">
                       <div className="flex md:hidden items-center gap-2 mb-1 text-xs text-muted-foreground">
                         Ace
@@ -274,22 +274,32 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                           </div>
                         </SkeletonTheme>
                       ) : (
-                        <div className="prose dark:prose-invert max-w-none text-foreground">
+                        <div className="prose dark:prose-invert max-w-none text-foreground break-words overflow-wrap-anywhere">
                           <Markdown options={{
                             overrides: {
                               p: {
                                 props: {
-                                  className: 'mb-2'
+                                  className: 'mb-2 break-words'
                                 }
                               },
                               ul: {
                                 props: {
-                                  className: 'list-disc pl-4 mb-2 space-y-1'
+                                  className: 'list-disc pl-4 mb-2 space-y-1 break-words'
                                 }
                               },
                               li: {
                                 props: {
-                                  className: 'ml-2'
+                                  className: 'ml-2 break-words'
+                                }
+                              },
+                              code: {
+                                props: {
+                                  className: 'break-words overflow-x-auto text-xs md:text-sm'
+                                }
+                              },
+                              pre: {
+                                props: {
+                                  className: 'break-words overflow-x-auto text-xs md:text-sm whitespace-pre-wrap'
                                 }
                               }
                             }
@@ -332,8 +342,8 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                   </div>
                 ) : (
                   // User message with bubble  
-                  <div className="relative group w-full flex justify-end">
-                    <ChatBubble variant={variant} className={editingMessageIndex === index ? "max-w-full md:max-w-[95%]" : "max-w-full md:max-w-[85%]"}>
+                  <div className="relative group w-full flex justify-end min-w-0">
+                    <ChatBubble variant={variant} className={editingMessageIndex === index ? "max-w-full md:max-w-[95%] min-w-0" : "max-w-full md:max-w-[85%] min-w-0"}>
                       <Avatar className="hidden md:flex">
                         <AvatarImage
                           src={message.avatar}
@@ -345,7 +355,7 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                       </Avatar>
                       <ChatBubbleMessage 
                         isLoading={message.isLoading}
-                        className={`bg-primary/10 border border-border text-foreground ${editingMessageIndex === index ? "w-full" : "w-full md:w-auto"}`}
+                        className={`bg-primary/10 border border-border text-foreground break-words overflow-wrap-anywhere ${editingMessageIndex === index ? "w-full min-w-0" : "w-full md:w-auto min-w-0"}`}
                       >
                         <div className="flex md:hidden items-center gap-2 mb-1 text-xs text-muted-foreground">
                           You
@@ -368,7 +378,7 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                           />
                         ) : (
                           // View mode - show message
-                          <div ref={messageRef} className="prose dark:prose-invert max-w-none">
+                          <div ref={messageRef} className="prose dark:prose-invert max-w-none break-words overflow-wrap-anywhere">
                             {message.message}
                           </div>
                         )}
