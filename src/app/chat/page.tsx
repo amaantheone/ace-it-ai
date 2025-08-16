@@ -383,7 +383,7 @@ export default function ChatPage() {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen bg-background text-foreground">
+    <div className="flex h-screen w-screen min-h-0 bg-background text-foreground">
       {/* Login Popup for guests after 3 messages */}
       <LoginPopup 
         isOpen={showChatLoginPopup}
@@ -454,11 +454,11 @@ export default function ChatPage() {
         </>
       )}
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-screen bg-background relative">
+  {/* Main Chat Area */}
+  <div className="flex-1 min-h-0 flex flex-col bg-background relative">
         <ChatHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto flex flex-col relative" onScroll={handleScroll}>
+  {/* Messages Area */}
+  <div className="flex-1 min-h-0 overflow-y-auto flex flex-col relative" onScroll={handleScroll}>
           <ChatMessages
             messages={getCurrentSessionMessages()}
             messagesContainerRef={messagesContainerRef}

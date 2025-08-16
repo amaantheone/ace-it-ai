@@ -232,7 +232,7 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-2 md:px-4 overflow-hidden">
+    <div className="w-full max-w-3xl mx-auto px-2 md:px-4">
       <ChatMessageList ref={messagesContainerRef}>
         <AnimatePresence>
           {messages.map((message, index) => {
@@ -367,6 +367,7 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                             value={editingText}
                             onChange={(e) => setEditingText(e.target.value)}
                             onKeyDown={handleKeyDown}
+                            onBlur={handleEditCancel}
                             className="resize-none bg-transparent border-none text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
                             style={{
                               width: messageDimensions?.width ? `${messageDimensions.width}px` : 'auto',

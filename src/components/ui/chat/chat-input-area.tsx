@@ -66,10 +66,10 @@ export function ChatInputArea({
     <div className="p-2 md:p-4 bg-background relative">
       {/* Scroll to Bottom Button */}
       {showScrollToBottom && onScrollToBottom && (
-        <div className="absolute -top-12 left-0 right-0 flex justify-center z-10">
+        <div className="absolute -top-12 left-0 right-0 flex justify-center z-10 pointer-events-none">
           <Button
             onClick={onScrollToBottom}
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-background/80 backdrop-blur-sm border border-white/20 dark:border-white/20 shadow-md hover:shadow-lg transition-all duration-200 hover:bg-background/90"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-background/80 backdrop-blur-sm border border-white/20 dark:border-white/20 shadow-md hover:shadow-lg transition-all duration-200 hover:bg-background/90 pointer-events-auto"
             size="icon"
             variant="outline"
             aria-label="Scroll to bottom"
