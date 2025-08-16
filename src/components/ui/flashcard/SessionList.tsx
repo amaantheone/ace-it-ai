@@ -39,12 +39,9 @@ export function SessionList({
         >
           <span className="truncate flex-1 text-left">
             {session.topic || (session.id === currentSessionId ? (
-              <span className="text-muted-foreground italic">Generating title...</span>
+              <span className="text-muted-foreground italic">New Chat</span>
             ) : "New Chat")}
           </span>
-          {!session.topic && session.id === currentSessionId && (
-            <span className="w-3 h-3 rounded-full border-2 border-t-transparent border-muted-foreground/50 animate-spin ml-2" />
-          )}
           {!session.topic && session.id !== currentSessionId && (
             <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap text-foreground/80">
               Start new conversation

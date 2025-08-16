@@ -1,20 +1,21 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
 import { ChatMessageList } from "./chat-message-list";
 import {
   ChatBubble,
   ChatBubbleMessage,
   ChatBubbleAction
 } from "./chat-bubble";
-import { MessageSkeleton } from "./message-skeleton";
-import Skeleton from 'react-loading-skeleton';
+import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { RefreshCcw, CopyIcon } from "lucide-react";
+import { RefreshCcw, CopyIcon, Edit2 } from "lucide-react";
 import Markdown from 'markdown-to-jsx';
 import { useSessionStore } from '@/hooks/useSessionStore';
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface Message {
   id: string | number;
@@ -31,33 +32,201 @@ interface ChatMessagesProps {
   messagesContainerRef: React.RefObject<HTMLDivElement | null>;
   bottomRef?: React.RefObject<HTMLDivElement | null>;
   isLoading?: boolean;
+  isGuestMode?: boolean;
+  onGuestMessageEdit?: (messageIndex: number, newContent: string) => void;
+  onGuestRegenerate?: () => void;
 }
 
-export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoading = false }: ChatMessagesProps) {
+export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoading = false, isGuestMode = false, onGuestMessageEdit, onGuestRegenerate }: ChatMessagesProps) {
   const getMessageVariant = (role?: string) => role === "ai" ? "received" : "sent";
+  const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState<string>("");
+  const [messageDimensions, setMessageDimensions] = useState<{width: number, height: number} | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messageRef = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark';
 
   // Find the index of the last AI message
   const lastAiIndex = [...messages].reverse().findIndex(m => m.role === "ai");
   const lastAiMessageIndex = lastAiIndex === -1 ? -1 : messages.length - 1 - lastAiIndex;
 
+  // Find the index of the last user message
+  const lastUserIndex = [...messages].reverse().findIndex(m => m.role === "user");
+  const lastUserMessageIndex = lastUserIndex === -1 ? -1 : messages.length - 1 - lastUserIndex;
+
+  // Auto-resize textarea and focus when editing starts
+  useEffect(() => {
+    if (editingMessageIndex !== null && textareaRef.current) {
+      const textarea = textareaRef.current;
+      textarea.focus();
+      
+      // Position cursor at the end of the text
+      const textLength = textarea.value.length;
+      textarea.setSelectionRange(textLength, textLength);
+      
+      // Auto-resize function
+      const autoResize = () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+      };
+      
+      autoResize();
+      textarea.addEventListener('input', autoResize);
+      
+      return () => {
+        textarea.removeEventListener('input', autoResize);
+      };
+    }
+  }, [editingMessageIndex]);
+
+  const handleEditStart = (index: number, currentMessage: string) => {
+    // Step 1: Get the width and height of the message in view mode
+    if (messageRef.current) {
+      const rect = messageRef.current.getBoundingClientRect();
+      
+      // Check if the message is too small (1-2 words)
+      const wordCount = currentMessage.trim().split(/\s+/).length;
+      const isSmallMessage = wordCount <= 2 || rect.width < 120; // Less than 120px width or 2 words
+      
+      setMessageDimensions({
+        width: isSmallMessage ? Math.max(rect.width * 2.5, 250) : rect.width, // 2.5x wider or minimum 250px
+        height: rect.height  // 2x taller or minimum 80px
+      });
+    }
+    
+    setEditingMessageIndex(index);
+    setEditingText(currentMessage);
+  };
+
+  const handleEditCancel = () => {
+    setEditingMessageIndex(null);
+    setEditingText("");
+  };
+
+  const handleEditSave = async () => {
+    if (editingMessageIndex === null) return;
+    
+    const messageToEdit = messages[editingMessageIndex];
+    if (!messageToEdit || !messageToEdit.id) return;
+
+    try {
+      // Get session data from useSessionStore
+      const sessionStore = useSessionStore.getState();
+      const currentSessionId = sessionStore.currentSessionId;
+      
+      if (!currentSessionId && !isGuestMode) {
+        console.error('No current session ID');
+        return;
+      }
+
+      // For guest users, handle edit locally without API call
+      if (isGuestMode) {
+        // For guest mode, call the callback to handle the edit in the parent component
+        if (onGuestMessageEdit) {
+          onGuestMessageEdit(editingMessageIndex, editingText);
+        }
+        
+        // Exit edit mode
+        setEditingMessageIndex(null);
+        setEditingText("");
+        return;
+      }
+
+      // For authenticated users, make API call
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: editingText,
+          sessionId: currentSessionId,
+          isEdit: true,
+          editMessageId: messageToEdit.id,
+          isGuestMode: false,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (data.edited && data.messages) {
+          // This was an edit + regenerate, replace all session messages with the updated ones
+          sessionStore.setMessages(currentSessionId!, data.messages);
+        } else if (data.edited && data.message) {
+          // This was an edit + regenerate (fallback if messages array not provided)
+          // Update the user message content
+          sessionStore.updateMessage(currentSessionId!, String(messageToEdit.id), {
+            message: editingText
+          });
+          
+          // Add the new AI response
+          const newAiMessage = {
+            id: crypto.randomUUID(),
+            role: "ai" as const,
+            message: data.message,
+            isLoading: false,
+          };
+          sessionStore.addMessage(currentSessionId!, newAiMessage);
+        } else {
+          // Just an edit, update the user message
+          sessionStore.updateMessage(currentSessionId!, String(messageToEdit.id), {
+            message: editingText
+          });
+        }
+      }
+
+      // Exit edit mode
+      setEditingMessageIndex(null);
+      setEditingText("");
+    } catch (error) {
+      console.error('Error saving edited message:', error);
+      // Still exit edit mode on error
+      setEditingMessageIndex(null);
+      setEditingText("");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleEditSave();
+    }
+    if (e.key === 'Escape') {
+      handleEditCancel();
+    }
+  };
+
   // When loading, always show skeleton regardless of message count
   if (isLoading) {
     return (
       <div className="w-full max-w-3xl mx-auto px-2 md:px-0">
-        <div className="py-4">
-          <MessageSkeleton count={3} />
-        </div>
-      </div>
-    );
-  }
-
-  if (messages.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-center p-4 md:p-8">
-        <div className="space-y-2">
-          <h2 className="text-xl md:text-2xl font-semibold text-foreground">Hello there!</h2>
-          <p className="text-muted-foreground">How can I help you today?</p>
-        </div>
+        <SkeletonTheme 
+          baseColor={isDarkMode ? '#202020' : '#ebebeb'} 
+          highlightColor={isDarkMode ? '#444' : '#f5f5f5'}
+        >
+          <div className="py-4 space-y-6">
+            {Array(3).fill(0).map((_, index) => (
+              <div key={index} className={`${index % 2 === 0 ? 'ml-auto w-4/5' : 'mr-auto w-4/5'}`}>
+                <div className="mb-1">
+                  <Skeleton width={80} height={16} />
+                </div>
+                {index % 2 === 0 ? (
+                  // User-like message skeleton
+                  <Skeleton height={40} />
+                ) : (
+                  // AI-like message skeleton (multiple lines)
+                  <div className="space-y-2">
+                    <Skeleton height={20} width="100%" />
+                    <Skeleton height={20} width="100%" />
+                    <Skeleton height={20} width="85%" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </SkeletonTheme>
       </div>
     );
   }
@@ -86,31 +255,26 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                 style={{ originX: 0.5, originY: 0.5 }}
                 className="flex flex-col gap-2 p-2 md:p-4 w-full"
               >
-                <ChatBubble variant={variant} className="max-w-full md:max-w-[85%]">
-                  <Avatar className="hidden md:flex">
-                    <AvatarImage
-                      src={message.role === "ai" ? undefined : message.avatar}
-                      alt="Avatar"
-                      className={message.role === "ai" ? "dark:invert" : ""}
-                    />
-                    <AvatarFallback className="bg-muted text-foreground">
-                      {message.role === "ai" ? "🤖" : "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <ChatBubbleMessage 
-                    isLoading={message.isLoading}
-                    className={`${message.role === "ai" ? "bg-muted" : "bg-primary/10"} border border-border text-foreground w-full md:w-auto`}
-                  >
-                    <div className="flex md:hidden items-center gap-2 mb-1 text-xs text-muted-foreground">
-                      {message.role === "ai" ? "AI Tutor" : "You"}
-                    </div>
-                    {message.isLoading && message.role === "ai" ? (
-                      <div className="prose dark:prose-invert max-w-none">
-                        <Skeleton count={3} height={20} />
+                {message.role === "ai" ? (
+                  // AI Response without bubble
+                  <div className="w-full">
+                    <div className="space-y-2">
+                      <div className="flex md:hidden items-center gap-2 mb-1 text-xs text-muted-foreground">
+                        Ace
                       </div>
-                    ) : (
-                      <div className="prose dark:prose-invert max-w-none">
-                        {message.role === "ai" ? (
+                      {message.isLoading ? (
+                        <SkeletonTheme 
+                          baseColor={isDarkMode ? '#202020' : '#ebebeb'} 
+                          highlightColor={isDarkMode ? '#444' : '#f5f5f5'}
+                        >
+                          <div className="w-full space-y-2">
+                            <Skeleton height={20} width="100%" />
+                            <Skeleton height={20} width="100%" />
+                            <Skeleton height={20} width="85%" />
+                          </div>
+                        </SkeletonTheme>
+                      ) : (
+                        <div className="prose dark:prose-invert max-w-none text-foreground">
                           <Markdown options={{
                             overrides: {
                               p: {
@@ -132,16 +296,11 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                           }}>
                             {message.message || ''}
                           </Markdown>
-                        ) : (
-                          message.message
-                        )}
-                      </div>
-                    )}
-                    {message.role === "ai" && (
+                        </div>
+                      )}
                       <div className="flex items-center mt-1.5 gap-1">
                         {!message.isLoading && (
                           <>
-                            {/* Only show Save Note for all AI, but Explain Again only for latest AI */}
                             <ChatBubbleAction
                               key="save-note"
                               variant="outline"
@@ -158,16 +317,86 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                                 className="size-6 bg-background border-border hover:bg-foreground transition-colors group cursor-pointer"
                                 icon={<RefreshCcw className="size-3 text-foreground group-hover:text-background transition-colors" />}
                                 onClick={() => {
-                                  useSessionStore.getState().regenerateResponse();
+                                  if (isGuestMode && onGuestRegenerate) {
+                                    onGuestRegenerate();
+                                  } else {
+                                    useSessionStore.getState().regenerateResponse();
+                                  }
                                 }}
                               />
                             )}
                           </>
                         )}
                       </div>
-                    )}
-                  </ChatBubbleMessage>
-                </ChatBubble>
+                    </div>
+                  </div>
+                ) : (
+                  // User message with bubble  
+                  <div className="relative group w-full flex justify-end">
+                    <ChatBubble variant={variant} className={editingMessageIndex === index ? "max-w-full md:max-w-[95%]" : "max-w-full md:max-w-[85%]"}>
+                      <Avatar className="hidden md:flex">
+                        <AvatarImage
+                          src={message.avatar}
+                          alt="Avatar"
+                        />
+                        <AvatarFallback className="bg-muted text-foreground">
+                          U
+                        </AvatarFallback>
+                      </Avatar>
+                      <ChatBubbleMessage 
+                        isLoading={message.isLoading}
+                        className={`bg-primary/10 border border-border text-foreground ${editingMessageIndex === index ? "w-full" : "w-full md:w-auto"}`}
+                      >
+                        <div className="flex md:hidden items-center gap-2 mb-1 text-xs text-muted-foreground">
+                          You
+                        </div>
+                        {editingMessageIndex === index ? (
+                          // Edit mode - show textarea with same dimensions as view mode
+                          <Textarea
+                            ref={textareaRef}
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="resize-none bg-transparent border-none text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+                            style={{
+                              width: messageDimensions?.width ? `${messageDimensions.width}px` : 'auto',
+                              height: messageDimensions?.height ? `${messageDimensions.height}px` : 'auto',
+                              minHeight: messageDimensions?.height ? `${messageDimensions.height}px` : '90px',
+                              minWidth: '200px' // Ensure minimum width for comfortable editing
+                            }}
+                            placeholder="Edit your message..."
+                          />
+                        ) : (
+                          // View mode - show message
+                          <div ref={messageRef} className="prose dark:prose-invert max-w-none">
+                            {message.message}
+                          </div>
+                        )}
+                      </ChatBubbleMessage>
+                    </ChatBubble>
+                    {/* Hover icons for user messages */}
+                    <div className="absolute top-full mt-1 right-2 md:right-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 flex gap-1 z-10">
+                      {index === lastUserMessageIndex && (
+                        <ChatBubbleAction
+                          variant="outline"
+                          className="size-6 bg-background border-border hover:bg-foreground transition-colors shadow-sm group/btn"
+                          icon={<Edit2 className="size-3 text-foreground group-hover/btn:text-background transition-colors" />}
+                          onClick={() => {
+                            handleEditStart(index, message.message || "");
+                          }}
+                        />
+                      )}
+                      <ChatBubbleAction
+                        variant="outline"
+                        className="size-6 bg-background border-border hover:bg-foreground transition-colors shadow-sm group/btn"
+                        icon={<CopyIcon className="size-3 text-foreground group-hover/btn:text-background transition-colors" />}
+                        onClick={() => {
+                          navigator.clipboard.writeText(message.message || "");
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </motion.div>
             );
           })}

@@ -73,6 +73,8 @@ export async function POST(req: Request) {
     let userMessageId: string | undefined;
     let isGuestMode: boolean = false;
     let guestMessages: { role: string; content: string; id?: string }[] = [];
+    let isEdit: boolean = false;
+    let editMessageId: string | undefined;
 
     if (contentType.includes("multipart/form-data")) {
       // Parse multipart form data
@@ -81,6 +83,8 @@ export async function POST(req: Request) {
       sessionId = formData.get("sessionId") as string;
       userMessageId = formData.get("userMessageId") as string | undefined;
       isGuestMode = formData.get("isGuestMode") === "true";
+      isEdit = formData.get("isEdit") === "true";
+      editMessageId = formData.get("editMessageId") as string | undefined;
       const guestMessagesStr = formData.get("guestMessages") as string;
       if (guestMessagesStr) {
         guestMessages = JSON.parse(guestMessagesStr);
@@ -105,6 +109,8 @@ export async function POST(req: Request) {
       sessionId = body.sessionId;
       userMessageId = body.userMessageId;
       isGuestMode = body.isGuestMode || false;
+      isEdit = body.isEdit || false;
+      editMessageId = body.editMessageId;
       guestMessages = body.guestMessages || [];
     }
     if (!sessionId) throw new Error("Session ID is required");
@@ -167,15 +173,13 @@ export async function POST(req: Request) {
           // Process PDF and split into chunks
           const pdfText = await processPDF(fileBuffer);
           // Split into chunks for vector storage
-          const chunks = pdfText
-            .split(/\n{2,}/)
-            .map(
-              (chunk, idx) =>
-                new Document({
-                  pageContent: chunk,
-                  metadata: { page: idx + 1 },
-                })
-            );
+          const chunks = pdfText.split(/\n{2,}/).map(
+            (chunk, idx) =>
+              new Document({
+                pageContent: chunk,
+                metadata: { page: idx + 1 },
+              })
+          );
           // Create embeddings and vector store
           const embeddings = new GoogleGenerativeAIEmbeddings({
             model: "embedding-001",
@@ -267,6 +271,98 @@ export async function POST(req: Request) {
     }
     const responseText = String(response.content);
 
+    // Handle edit operations
+    if (isEdit && editMessageId) {
+      if (!isGuestMode && user) {
+        // For authenticated users, update the message in the database
+        await prisma.message.update({
+          where: {
+            id: editMessageId,
+            userId: user.id, // Ensure user can only edit their own messages
+          },
+          data: {
+            content: message,
+          },
+        });
+
+        // After updating, trigger a regenerate with the updated message
+        // Find and delete any AI response that follows this edited message
+        const messages = await prisma.message.findMany({
+          where: { sessionId },
+          orderBy: { createdAt: "asc" },
+        });
+
+        const editedMsgIndex = messages.findIndex(
+          (m) => m.id === editMessageId
+        );
+        if (
+          editedMsgIndex !== -1 &&
+          editedMsgIndex + 1 < messages.length &&
+          messages[editedMsgIndex + 1].role === "ai"
+        ) {
+          // Delete the AI response that follows the edited message
+          await prisma.message.delete({
+            where: { id: messages[editedMsgIndex + 1].id },
+          });
+        }
+
+        // Build conversation history up to and including the edited message
+        const messagesForLLM: [string, string][] = [["system", SYSTEM_MESSAGE]];
+        for (let i = 0; i <= editedMsgIndex; i++) {
+          const msg = messages[i];
+          const content = msg.id === editMessageId ? message : msg.content; // Use updated content for edited message
+          messagesForLLM.push([msg.role === "user" ? "human" : "ai", content]);
+        }
+
+        // Generate new AI response
+        const regenerateResponse = await llm.invoke(messagesForLLM);
+        const regenerateResponseText = String(regenerateResponse.content);
+
+        // Insert the new AI message
+        let createdAt = new Date();
+        if (editedMsgIndex !== -1 && messages[editedMsgIndex]?.createdAt) {
+          createdAt = new Date(
+            new Date(messages[editedMsgIndex].createdAt).getTime() + 1
+          );
+        }
+
+        await prisma.message.create({
+          data: {
+            role: "ai",
+            content: regenerateResponseText,
+            sessionId,
+            userId: user.id,
+            createdAt,
+          },
+        });
+
+        // Return the full updated messages array
+        const allMessages = await prisma.message.findMany({
+          where: { sessionId },
+          orderBy: { createdAt: "asc" },
+        });
+
+        return NextResponse.json({
+          success: true,
+          message: regenerateResponseText,
+          messages: allMessages.map((msg) => ({
+            id: msg.id,
+            message: msg.content,
+            role: msg.role,
+            name: msg.role === "ai" ? "AI Tutor" : undefined,
+          })),
+          edited: true,
+        });
+      } else {
+        // For guest mode, just return success (frontend handles the update and regenerate)
+        return NextResponse.json({
+          success: true,
+          message: "Message updated successfully",
+          edited: true,
+        });
+      }
+    }
+
     // (Removed unused lastUserMsg logic; handled by userMessageId and message scan above)
 
     if (req.headers.get("x-regenerate") === "true") {
@@ -345,8 +441,31 @@ export async function POST(req: Request) {
         });
         return NextResponse.json({ message: responseText });
       } else {
-        // Guest mode regeneration: just return new response without database operations
-        return NextResponse.json({ message: responseText });
+        // Guest mode regeneration: build conversation history and generate new response
+        const messagesForLLM: [string, string][] = [["system", SYSTEM_MESSAGE]];
+
+        // Use guestMessages for conversation history if available
+        if (guestMessages.length > 0) {
+          for (const msg of guestMessages) {
+            messagesForLLM.push([
+              msg.role === "user" ? "human" : "ai",
+              msg.content,
+            ]);
+          }
+        }
+
+        // Add the current user message if it's not already the last message
+        if (
+          !guestMessages.length ||
+          guestMessages[guestMessages.length - 1].content !== message
+        ) {
+          messagesForLLM.push(["human", message]);
+        }
+
+        const response = await llm.invoke(messagesForLLM);
+        const guestResponseText = String(response.content);
+
+        return NextResponse.json({ message: guestResponseText });
       }
     } else {
       // Normal flow: create messages for authenticated users, just return response for guests

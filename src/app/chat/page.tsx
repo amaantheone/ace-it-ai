@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useGuest } from "../../contexts/GuestContext";
-import { useSessionStore, Session } from "../../hooks/useSessionStore";
+import { useSessionStore, Session, Message } from "../../hooks/useSessionStore";
 import { useSession } from "next-auth/react";
 import { Sidebar } from "../../components/ui/chat/sidebar";
 import { ChatHeader } from "../../components/ui/chat/chat-header";
@@ -177,6 +177,185 @@ export default function ChatPage() {
     });
   };
 
+  const handleGuestMessageEdit = useCallback(async (messageIndex: number, newContent: string) => {
+    if (!currentSessionId) return;
+
+    try {
+      // Get current session messages
+      const currentMessages = getCurrentSessionMessages();
+      
+      // Get the message ID from the index
+      const messageToEdit = currentMessages[messageIndex];
+      if (!messageToEdit) return;
+      
+      // Remove any AI response that follows the edited message (for regeneration)
+      let messagesToKeep = currentMessages.slice(0, messageIndex + 1);
+      
+      // Update the specific message content
+      messagesToKeep = messagesToKeep.map((msg: Message, index: number) => 
+        index === messageIndex ? { ...msg, message: newContent } : msg
+      );
+      
+      // Update local state with messages up to the edited one
+      setMessages(currentSessionId, messagesToKeep);
+
+      // Save to guest storage
+      const allMessages = { ...messages, [currentSessionId]: messagesToKeep };
+      saveGuestData('messages', allMessages);
+
+      // Trigger regeneration by sending to the API
+      setIsLoading(true);
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          message: newContent,
+          username,
+          avatar,
+          isGuestMode: true,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate response');
+      }
+
+      const data = await response.json();
+      
+      // Add the new AI response to the messages
+      const newAiMessage: Message = {
+        id: crypto.randomUUID(),
+        message: data.message,
+        role: "ai",
+        name: "AI Tutor",
+      };
+      
+      const finalMessages = [...messagesToKeep, newAiMessage];
+      setMessages(currentSessionId, finalMessages);
+      
+      // Update guest storage with final messages
+      const finalAllMessages = { ...messages, [currentSessionId]: finalMessages };
+      saveGuestData('messages', finalAllMessages);
+    } catch (error) {
+      console.error('Failed to edit guest message:', error);
+      // Revert the message change on error
+      if (currentSessionId) {
+        const currentMessages = getCurrentSessionMessages();
+        setMessages(currentSessionId, currentMessages);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentSessionId, messages, setMessages, saveGuestData, username, avatar, setIsLoading, getCurrentSessionMessages]);
+
+  const handleGuestRegenerate = useCallback(async () => {
+    if (!currentSessionId) return;
+
+    try {
+      // Get current session messages
+      const currentMessages = getCurrentSessionMessages();
+      
+      // Find the last user message
+      const lastUserIndex = [...currentMessages]
+        .map((m, i) => ({ ...m, i }))
+        .reverse()
+        .find((m) => m.role === "user");
+      
+      if (!lastUserIndex?.message) return;
+      
+      const userIdx = lastUserIndex.i;
+      
+      // Find the last AI message after the last user message
+      const aiIdx = currentMessages
+        .slice(userIdx + 1)
+        .findIndex((m) => m.role === "ai");
+      const aiMessageIdx = aiIdx !== -1 ? userIdx + 1 + aiIdx : -1;
+
+      // Remove the last AI message if it exists
+      let newMessages = currentMessages.slice(
+        0,
+        aiMessageIdx !== -1 ? aiMessageIdx : currentMessages.length
+      );
+
+      // Add loading message
+      const loadingMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "ai",
+        message: "",
+        isLoading: true,
+      };
+      newMessages = [...newMessages, loadingMessage];
+      
+      // Update local state with loading message
+      setMessages(currentSessionId, newMessages);
+      
+      // Save to guest storage
+      const allMessages = { ...messages, [currentSessionId]: newMessages };
+      saveGuestData('messages', allMessages);
+
+      // Call API for regeneration
+      setIsLoading(true);
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-regenerate': 'true',
+        },
+        body: JSON.stringify({
+          sessionId: currentSessionId,
+          message: lastUserIndex.message,
+          isGuestMode: true,
+          guestMessages: newMessages.slice(0, -1).map(msg => ({
+            role: msg.role,
+            content: msg.message || '',
+            id: msg.id,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to regenerate response');
+      }
+
+      const data = await response.json();
+      
+      // Replace the loading message with the actual response
+      const finalMessages = newMessages.map((msg) =>
+        msg.id === loadingMessage.id
+          ? {
+              ...msg,
+              message: data.message,
+              isLoading: false,
+              name: "AI Tutor",
+            }
+          : msg
+      );
+      
+      setMessages(currentSessionId, finalMessages);
+      
+      // Update guest storage with final messages
+      const finalAllMessages = { ...messages, [currentSessionId]: finalMessages };
+      saveGuestData('messages', finalAllMessages);
+    } catch (error) {
+      console.error('Failed to regenerate guest response:', error);
+      
+      // Remove loading message on error and revert to original state
+      if (currentSessionId) {
+        const currentMessages = getCurrentSessionMessages();
+        const messagesWithoutLoading = currentMessages.filter(msg => !msg.isLoading);
+        setMessages(currentSessionId, messagesWithoutLoading);
+        
+        const allMessages = { ...messages, [currentSessionId]: messagesWithoutLoading };
+        saveGuestData('messages', allMessages);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentSessionId, messages, setMessages, saveGuestData, setIsLoading, getCurrentSessionMessages]);
+
   // Handler to send a suggestion as a user message
   const handleSuggestionClick = async (text: string) => {
     await sendSuggestionMessage(text, {
@@ -285,6 +464,9 @@ export default function ChatPage() {
             messagesContainerRef={messagesContainerRef}
             bottomRef={bottomRef}
             isLoading={isLoading}
+            isGuestMode={isGuest}
+            onGuestMessageEdit={handleGuestMessageEdit}
+            onGuestRegenerate={handleGuestRegenerate}
           />
         </div>
         {/* Suggestions Grid (only if messages aren't loading AND user has sent 0 messages in this session) */}
