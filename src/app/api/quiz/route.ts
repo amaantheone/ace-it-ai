@@ -19,14 +19,20 @@ const withTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
 
 // Dynamically generate the subtopic system message for the correct count
 const SUBTOPIC_SYSTEM_MESSAGE_TEMPLATE = ({ count }: { count: number }) =>
-  `You are a helpful assistant. Given a topic and optional context, generate a list of ${count} diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at a BASIC introductory level suitable for 9th-10th grade students (ages 14-16). Focus on fundamental concepts, not advanced applications. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
+  `You are a helpful assistant. Given a topic and optional context, generate a list of ${count} diverse, non-overlapping subtopics or key concepts that together cover the breadth of the topic at an accessible introductory level suitable for a broad range of learners. Focus on fundamental concepts and avoid niche advanced details. Use the provided context if available. Return only a JSON array of strings, no explanations.`;
 
-const QUIZ_SYSTEM_MESSAGE = `Generate a simple multiple-choice question for 9th-10th grade students. The question should test basic understanding of the given subtopic.
+const QUIZ_SYSTEM_MESSAGE = `Generate a clear multiple-choice question suitable for a broad range of learners. The question should test understanding of the given Subtopic in the context of the provided Main Topic.
+
+Inputs you will receive:
+- Main Topic
+- Subtopic
+- Optional Context (from PDF)
 
 Requirements:
+- Ensure the question clearly relates to the Main Topic (stay within its domain) while focusing on the Subtopic concept
 - 4 clear, simple options
-- Basic vocabulary (15-year-old level)
-- Test fundamental concepts only
+- Plain, age-agnostic language
+- Emphasize fundamental concepts
 - Short options (under 8 words each)
 
 Return JSON format:
@@ -177,8 +183,8 @@ export async function POST(req: Request) {
 
     for (const subtopic of subtopics) {
       const questionPrompt = context
-        ? `Subtopic: ${subtopic}\nContext: ${context}`
-        : `Subtopic: ${subtopic}`;
+        ? `Main Topic: ${topic}\nSubtopic: ${subtopic}\nContext: ${context}`
+        : `Main Topic: ${topic}\nSubtopic: ${subtopic}`;
 
       let questionGenerated = false;
 

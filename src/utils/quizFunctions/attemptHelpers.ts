@@ -38,6 +38,16 @@ export async function updateQuizScore(
   return (await res.json()).quiz;
 }
 
+export async function updateAttemptScore(attemptId: string, score: number) {
+  const res = await fetch("/api/quiz/attempt/score", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ attemptId, score }),
+  });
+  if (!res.ok) throw new Error("Failed to update attempt score");
+  return (await res.json()).attempt;
+}
+
 export async function getAttempt(quizId: string) {
   const res = await fetch(`/api/quiz/attempt/by-quiz/${quizId}`);
   if (!res.ok) return null;
