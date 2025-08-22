@@ -27,7 +27,8 @@ export const LoginPopup: React.FC<LoginPopupProps> = ({
   if (!isOpen) return null;
 
   const handleSignIn = () => {
-    signIn('google', { callbackUrl: window.location.href });
+    // Prefer sending users to the app home after login
+    signIn('google', { callbackUrl: '/home' });
   };
 
   const handleReturnHome = () => {

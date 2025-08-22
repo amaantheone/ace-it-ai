@@ -3,10 +3,19 @@
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { signIn, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import useSession from "@/hooks/useNextAuthSession";
 
 export default function LoginPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      router.replace('/home');
+    }
+  }, [status, router]);
 
   const handleLogin = async () => {
     if (session) {
