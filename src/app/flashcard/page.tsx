@@ -533,16 +533,8 @@ function FlashCardPageContent() {
           router.replace('/flashcard');
         }
       } else {
-        // For authenticated users, delete via API
-        const response = await fetch(`/api/flashcard/${id}/delete`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete flashcard');
-        }
-
-        deleteFlashCard(id);
+        // For authenticated users, use the context function which handles the API call
+        await deleteFlashCard(id);
         removeFlashCardFromCache(id); // Remove from localStorage
         setCurrentCard(null);
         
