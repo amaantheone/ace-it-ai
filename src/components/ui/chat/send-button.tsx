@@ -12,18 +12,15 @@ interface SendButtonProps {
 }
 
 export function SendButton({ input, isLoading, onSubmit, formRef }: SendButtonProps) {
-  const { isGuest, incrementGuestMessageCount, setShowChatLoginPopup } = useGuest();
+  const { isGuest, guestMessageCount, setShowChatLoginPopup } = useGuest();
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     
     // Check guest message count and show popup if limit reached (4 messages)
-    if (isGuest) {
-      const newCount = incrementGuestMessageCount();
-      if (newCount >= 4) {
-        setShowChatLoginPopup(true);
-        return; // Prevent sending more messages if limit reached
-      }
+    if (isGuest && guestMessageCount >= 4) {
+      setShowChatLoginPopup(true);
+      return; // Prevent sending more messages if limit reached
     }
 
     // Manually submit the form

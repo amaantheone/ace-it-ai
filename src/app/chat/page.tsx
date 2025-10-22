@@ -19,6 +19,7 @@ export default function ChatPage() {
   const { data: session } = useSession();
   const { 
     isGuest, 
+    guestMessageCount,
     incrementGuestMessageCount, 
     showChatLoginPopup,
     setShowChatLoginPopup,
@@ -150,11 +151,12 @@ export default function ChatPage() {
   }, [sessions, setSessions, setCurrentSessionId, setMessages, isMobileView, isGuest, setShowChatLoginPopup]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    handleKeyDownUtil(e, handleSendMessage);
+    handleKeyDownUtil(e, handleSendMessage, isLoading);
   };
 
   const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
-    if (!currentSessionId) return;
+    e.preventDefault();
+    if (!currentSessionId || isLoading) return; // Prevent submission if already loading
 
     handleSendMessageUtil(e, {
       input,
@@ -170,10 +172,13 @@ export default function ChatPage() {
       selectedFile,
       setSelectedFile,
       isGuestMode: isGuest,
-  incrementGuestMessageCount,
-  setShowChatLoginPopup,
-  guestMessageLimit: 4,
-  setLoginPopupVariant,
+      guestMessageCount,
+      incrementGuestMessageCount,
+      setShowChatLoginPopup,
+      guestMessageLimit: 4,
+      setLoginPopupVariant,
+      isLoading,
+      setIsLoading,
     });
   };
 
@@ -361,6 +366,7 @@ export default function ChatPage() {
     await sendSuggestionMessage(text, {
       currentSessionId,
       isGuestMode: isGuest,
+      guestMessageCount,
       incrementGuestMessageCount,
       setShowChatLoginPopup,
       avatar,
@@ -369,10 +375,10 @@ export default function ChatPage() {
       setMessages,
       setInput,
       setIsLoading,
-  formRef: formRef as React.RefObject<HTMLFormElement>,
+      formRef: formRef as React.RefObject<HTMLFormElement>,
       sessions: sessions as Session[],
       setSessions,
-  setLoginPopupVariant,
+      setLoginPopupVariant,
     });
   };
 

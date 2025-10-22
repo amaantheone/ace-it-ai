@@ -35,10 +35,13 @@ export const handleSendMessage = async (
     selectedFile,
     setSelectedFile,
     isGuestMode,
+    guestMessageCount,
     incrementGuestMessageCount,
     setShowChatLoginPopup,
     guestMessageLimit,
     setLoginPopupVariant,
+    isLoading,
+    setIsLoading,
   }: {
     input: string;
     currentSessionId: string;
@@ -53,24 +56,45 @@ export const handleSendMessage = async (
     selectedFile?: File | null;
     setSelectedFile?: (file: File | null) => void;
     isGuestMode?: boolean;
+    guestMessageCount?: number;
     incrementGuestMessageCount?: () => number;
     setShowChatLoginPopup?: (open: boolean) => void;
     guestMessageLimit?: number;
     setLoginPopupVariant?: (variant: "limit" | "newSession") => void;
+    isLoading?: boolean;
+    setIsLoading?: (loading: boolean) => void;
   }
 ) => {
   e.preventDefault();
-  if (!input || !currentSessionId) return;
+
+  // Prevent multiple simultaneous requests
+  if (isLoading) {
+    console.log("Request already in progress, ignoring duplicate");
+    return;
+  }
+
+  if (!input.trim() || !currentSessionId) return;
+
+  // Set loading state immediately to prevent duplicate requests
+  if (setIsLoading) setIsLoading(true);
 
   // Guest gating
-  if (isGuestMode && incrementGuestMessageCount && setShowChatLoginPopup) {
+  if (isGuestMode && setShowChatLoginPopup && guestMessageCount !== undefined) {
     const allowed = enforceGuestMessageLimit({
-      incrementGuestMessageCount,
+      guestMessageCount,
       setShowChatLoginPopup,
       limit: guestMessageLimit,
       setLoginPopupVariant,
     });
-    if (!allowed) return;
+    if (!allowed) {
+      if (setIsLoading) setIsLoading(false);
+      return;
+    }
+
+    // Only increment the count after we know the message will be sent
+    if (incrementGuestMessageCount) {
+      incrementGuestMessageCount();
+    }
   }
 
   const messageId = crypto.randomUUID();
@@ -223,31 +247,43 @@ export const handleSendMessage = async (
       ...currentMessages.filter((msg) => !msg.isLoading),
       errorMessage,
     ]);
+  } finally {
+    // Always reset loading state
+    if (setIsLoading) setIsLoading(false);
   }
 };
 
 export const handleKeyDown = (
   e: React.KeyboardEvent<HTMLTextAreaElement>,
-  handleSendMessage: (e: React.FormEvent<HTMLFormElement>) => void
+  handleSendMessage: (e: React.FormEvent<HTMLFormElement>) => void,
+  isLoading?: boolean
 ) => {
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (e.key === "Enter" && !e.shiftKey && !isLoading) {
+    e.preventDefault(); // Prevent default to avoid multiple submissions
     handleSendMessage(e as unknown as React.FormEvent<HTMLFormElement>);
   }
 };
 
 export const enforceGuestMessageLimit = ({
   incrementGuestMessageCount,
+  guestMessageCount,
   setShowChatLoginPopup,
   limit = 4,
   setLoginPopupVariant,
 }: {
-  incrementGuestMessageCount: () => number;
+  incrementGuestMessageCount?: () => number;
+  guestMessageCount?: number;
   setShowChatLoginPopup: (open: boolean) => void;
   limit?: number;
   setLoginPopupVariant?: (variant: "limit" | "newSession") => void;
 }) => {
-  const newCount = incrementGuestMessageCount();
-  if (newCount >= limit) {
+  // Use current count if provided, otherwise get it from the increment function
+  const currentCount =
+    guestMessageCount ??
+    (incrementGuestMessageCount ? incrementGuestMessageCount() - 1 : 0);
+
+  // Check if the user has already reached the limit
+  if (currentCount >= limit) {
     if (setLoginPopupVariant) setLoginPopupVariant("limit");
     setShowChatLoginPopup(true);
     return false;
@@ -260,6 +296,7 @@ export const sendSuggestionMessage = async (
   {
     currentSessionId,
     isGuestMode,
+    guestMessageCount,
     incrementGuestMessageCount,
     setShowChatLoginPopup,
     avatar,
@@ -275,6 +312,7 @@ export const sendSuggestionMessage = async (
   }: {
     currentSessionId: string | null;
     isGuestMode: boolean;
+    guestMessageCount?: number;
     incrementGuestMessageCount: () => number;
     setShowChatLoginPopup: (open: boolean) => void;
     avatar: string | null | undefined;
@@ -292,9 +330,9 @@ export const sendSuggestionMessage = async (
   if (!currentSessionId) return;
 
   // Guest gate
-  if (isGuestMode) {
+  if (isGuestMode && guestMessageCount !== undefined) {
     const allowed = enforceGuestMessageLimit({
-      incrementGuestMessageCount,
+      guestMessageCount,
       setShowChatLoginPopup,
       setLoginPopupVariant,
     });
@@ -337,6 +375,9 @@ export const sendSuggestionMessage = async (
         current: null,
       }) as React.RefObject<HTMLFormElement>,
       isGuestMode,
+      guestMessageCount,
+      incrementGuestMessageCount,
+      setIsLoading,
     }
   );
   setIsLoading(false);
