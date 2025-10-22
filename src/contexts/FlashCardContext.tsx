@@ -165,8 +165,15 @@ export function FlashCardProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const deleteFolder = useCallback(async (folderId: string) => {
+    // Store the folder data for potential rollback
+    const folderToDelete = folders.find(f => f.id === folderId);
+    const cardsToDelete = folderToDelete ? folderToDelete.cardIds : [];
+    
     // Update local state first for immediate UI feedback
     setFolders(prev => prev.filter(folder => folder.id !== folderId));
+    
+    // Remove flashcards that were in this folder from local state
+    setFlashCards(prev => prev.filter(card => !cardsToDelete.includes(card.id!)));
     
     // If the deleted folder is the current folder, reset current folder
     if (currentFolder === folderId) {
@@ -176,14 +183,35 @@ export function FlashCardProvider({ children }: { children: React.ReactNode }) {
     // Delete from database if it's a database folder (not a local folder)
     if (!folderId.startsWith('folder_')) {
       try {
-        await fetch(`/api/flashcard/folder/${folderId}`, {
+        const response = await fetch(`/api/flashcard/folder/${folderId}`, {
           method: 'DELETE',
         });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.details || errorData.error || 'Failed to delete folder');
+        }
+
+        const result = await response.json();
+        console.log('Folder deleted successfully:', result.message);
+        
       } catch (error) {
         console.error('Error deleting folder from database:', error);
+        
+        // Revert the local state changes since the API call failed
+        if (folderToDelete) {
+          setFolders(prev => [...prev, folderToDelete]);
+        }
+        
+        // Restore the deleted flashcards
+        const cardsToRestore = flashCards.filter(card => cardsToDelete.includes(card.id!));
+        setFlashCards(prev => [...prev, ...cardsToRestore]);
+        
+        // Re-throw the error so the caller can handle it
+        throw error;
       }
     }
-  }, [currentFolder]);
+  }, [currentFolder, folders, flashCards]);
 
   const addCardToFolder = useCallback(async (cardId: string, folderId: string) => {
     // Update local state first for immediate UI feedback

@@ -17,6 +17,7 @@ export function FlashCardSidebar() {
     setFlashCards,
     setFolders, 
     deleteFlashCard,
+    deleteFolder,
     getFolderCards,
     setCurrentFolder,
     addCardToFolder
@@ -521,27 +522,25 @@ export function FlashCardSidebar() {
             setShowConfirm(null);
             if (folderId) {
               try {
-                // Find all card ids in this folder
+                // Find the folder and check if current card is in it
                 const folder = folders.find(f => f.id === folderId);
-                const cardIds = folder ? folder.cardIds.map(String) : [];
                 const urlParams = new URLSearchParams(window.location.search);
                 const currentId = urlParams.get('id');
-                await fetch(`/api/flashcard/folder/${folderId}`, { method: 'DELETE' });
-                setFolders(folders.filter(f => f.id !== folderId));
-                // Remove all cards that were in this folder from local state
-                if (folder) {
-                  setFlashCards(flashCards.filter(card => !folder.cardIds.includes(card.id!)));
-                }
-                // If the currentId is in the deleted folder, redirect to /flashcard
-                if (currentId && cardIds.includes(String(currentId))) {
+                const isCurrentCardInFolder = currentId && folder?.cardIds.includes(currentId);
+                
+                // Use the context's deleteFolder function which handles the API call properly
+                await deleteFolder(folderId);
+                
+                // If the current card was in the deleted folder, redirect to main flashcard page
+                if (isCurrentCardInFolder) {
                   window.location.href = '/flashcard';
-                  return;
-                } else if (!currentId) {
+                } else {
+                  // Just reload to refresh the folder list and card collection
                   window.location.reload();
                 }
               } catch (error) {
                 console.error('Error deleting folder:', error);
-                setError('Failed to delete folder');
+                setError(error instanceof Error ? error.message : 'Failed to delete folder');
               }
             }
           }}

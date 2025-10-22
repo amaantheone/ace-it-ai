@@ -120,10 +120,9 @@ export async function PATCH(req: NextRequest, context: unknown) {
 }
 
 // Delete folder
-export async function DELETE(context: unknown) {
+export async function DELETE(req: NextRequest, context: unknown) {
   const { folderId } = (context as { params: { folderId: string } }).params;
   try {
-    // Fix: use getServerSession(authOptions) for proper authentication
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user?.email) {
@@ -141,6 +140,7 @@ export async function DELETE(context: unknown) {
     // Check if the folder belongs to the user
     const folder = await prisma.flashCardFolder.findUnique({
       where: { id: folderId },
+      include: { cards: true }, // Include cards to check folder contents
     });
 
     if (!folder) {
@@ -151,21 +151,37 @@ export async function DELETE(context: unknown) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // When a folder is deleted, also delete all its flashcards
-    await prisma.flashCard.deleteMany({
-      where: { folderId },
+    // Use a transaction to ensure data consistency
+    await prisma.$transaction(async (tx) => {
+      // First, delete all flashcards in this folder
+      await tx.flashCard.deleteMany({
+        where: { folderId },
+      });
+
+      // Then delete the folder
+      await tx.flashCardFolder.delete({
+        where: { id: folderId },
+      });
     });
 
-    // Now delete the folder
-    await prisma.flashCardFolder.delete({
-      where: { id: folderId },
+    return NextResponse.json({
+      success: true,
+      message: `Folder and ${folder.cards.length} flashcards deleted successfully.`,
     });
-
-    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting folder:", error);
+
+    // More detailed error logging
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
+
     return NextResponse.json(
-      { error: "Failed to delete folder" },
+      {
+        error: "Failed to delete folder",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
