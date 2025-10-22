@@ -18,11 +18,15 @@ function FlashCardPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const {
+    flashCards,
+    folders,
     setFlashCards,
     setFolders,
     addFlashCard,
     updateFlashCard,
     deleteFlashCard,
+    getCurrentFolder,
+    getFolderCards,
   } = useFlashCards();
   const {
     isGuest,
@@ -41,8 +45,6 @@ function FlashCardPageContent() {
   const [isBulk, setIsBulk] = useState(false);
   const [bulkCount, setBulkCount] = useState(10);
   const [bulkCardsGenerated, setBulkCardsGenerated] = useState(0);
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [cardsInFolder, setCardsInFolder] = useState<FlashCardData[]>([]);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isGuestCardModalOpen, setIsGuestCardModalOpen] = useState(false);
 
@@ -152,16 +154,7 @@ function FlashCardPageContent() {
     const cached = loadFlashCardFromCache(id);
     if (cached) {
       setCurrentCard(cached);
-      // If the card has a folderId, fetch all cards in that folder (from state or cache)
-      if (cached.folderId && !isGuest) {
-        const folder = (loadFoldersFromCache() || []).find(f => f.id === cached.folderId);
-        if (folder) {
-          const folderCards = (loadFlashCardListFromCache() || []).filter(card => folder.cardIds.includes(card.id!));
-          setCardsInFolder(folderCards);
-          const index = folderCards.findIndex((card: FlashCardData) => card.id === id);
-          setCurrentIndex(index);
-        }
-      }
+      saveFlashCardToCache(id, cached);
       return;
     }
     
@@ -177,21 +170,11 @@ function FlashCardPageContent() {
       const data = await response.json();
       setCurrentCard(data.flashCard);
       saveFlashCardToCache(id, data.flashCard);
-      // If the card has a folderId, try to get folder cards from cache
-      if (data.flashCard.folderId) {
-        const folder = (loadFoldersFromCache() || []).find(f => f.id === data.flashCard.folderId);
-        if (folder) {
-          const folderCards = (loadFlashCardListFromCache() || []).filter(card => folder.cardIds.includes(card.id!));
-          setCardsInFolder(folderCards);
-          const index = folderCards.findIndex((card: FlashCardData) => card.id === id);
-          setCurrentIndex(index);
-        }
-      }
     } catch (err) {
       console.error('Error fetching flash card:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch flash card');
     }
-  }, [loadFlashCardFromCache, setCurrentCard, loadFoldersFromCache, loadFlashCardListFromCache, setCardsInFolder, setCurrentIndex, setError, saveFlashCardToCache, isGuest]);
+  }, [loadFlashCardFromCache, setCurrentCard, setError, saveFlashCardToCache, isGuest]);
 
   // Handle window resize
   useEffect(() => {
@@ -228,19 +211,92 @@ function FlashCardPageContent() {
     }
   }, [searchParams, fetchCard]);
 
-  const goToNextCard = () => {
-    if (currentIndex < cardsInFolder.length - 1) {
-      const prevCard = cardsInFolder[currentIndex + 1];
-      router.push(`/flashcard?id=${prevCard.id}`);
+  // === NAVIGATION SYSTEM ===
+  // Context-aware navigation that works for both folder cards and standalone cards
+  
+  // Helper function to get navigation cards based on current context
+  const getNavigationCards = useCallback((): FlashCardData[] => {
+    if (!currentCard) return [];
+    
+    // Check if current card is in a folder
+    const cardFolder = folders.find(folder => folder.cardIds.includes(currentCard.id!));
+    
+    if (cardFolder) {
+      // Return cards from the folder
+      return getFolderCards(cardFolder.id);
+    } else {
+      // Return standalone cards (not in any folder)
+      const allFolderCardIds = folders.flatMap(folder => folder.cardIds);
+      return flashCards.filter(card => !allFolderCardIds.includes(card.id!));
     }
-  };
+  }, [currentCard, folders, flashCards, getFolderCards]);
 
-  const goToPreviousCard = () => {
-    if (currentIndex > 0) {
-      const nextCard = cardsInFolder[currentIndex - 1];
+  // Helper function to get current card index in navigation context
+  const getCurrentCardIndex = useCallback((): number => {
+    if (!currentCard) return -1;
+    const navCards = getNavigationCards();
+    return navCards.findIndex(card => card.id === currentCard.id);
+  }, [currentCard, getNavigationCards]);
+
+  // Navigate to previous card (ChevronLeft)
+  const goToPrevious = useCallback(() => {
+    const navCards = getNavigationCards();
+    const currentIndex = getCurrentCardIndex();
+    
+    if (navCards.length === 0 || currentIndex <= 0) return;
+    
+    const previousCard = navCards[currentIndex - 1];
+    if (previousCard?.id) {
+      router.push(`/flashcard?id=${previousCard.id}`);
+    }
+  }, [getNavigationCards, getCurrentCardIndex, router]);
+
+  // Navigate to next card (ChevronRight)
+  const goToNext = useCallback(() => {
+    const navCards = getNavigationCards();
+    const currentIndex = getCurrentCardIndex();
+    
+    if (navCards.length === 0 || currentIndex >= navCards.length - 1) return;
+    
+    const nextCard = navCards[currentIndex + 1];
+    if (nextCard?.id) {
       router.push(`/flashcard?id=${nextCard.id}`);
     }
-  };
+  }, [getNavigationCards, getCurrentCardIndex, router]);
+
+  // Check if previous navigation is available
+  const hasPrevious = useCallback((): boolean => {
+    const currentIndex = getCurrentCardIndex();
+    return currentIndex > 0;
+  }, [getCurrentCardIndex]);
+
+  // Check if next navigation is available
+  const hasNext = useCallback((): boolean => {
+    const navCards = getNavigationCards();
+    const currentIndex = getCurrentCardIndex();
+    return currentIndex >= 0 && currentIndex < navCards.length - 1;
+  }, [getNavigationCards, getCurrentCardIndex]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle navigation if not typing in an input field
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      if (event.key === 'ArrowLeft' && hasPrevious()) {
+        event.preventDefault();
+        goToPrevious();
+      } else if (event.key === 'ArrowRight' && hasNext()) {
+        event.preventDefault();
+        goToNext();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [goToPrevious, goToNext, hasPrevious, hasNext]);
 
   const generateBulkFlashCards = async () => {
     if (!topic.trim()) {
@@ -512,8 +568,72 @@ function FlashCardPageContent() {
     }
   };
 
+  // Helper function to find the next available flashcard after deletion
+  const findNextFlashcard = useCallback((deletedCardId: string): string | null => {
+    // First, determine which collection the deleted card belongs to
+    const deletedCard = flashCards.find(card => card.id === deletedCardId);
+    if (!deletedCard) return null;
+
+    // Check if the deleted card is in a folder
+    const cardFolder = folders.find(folder => folder.cardIds.includes(deletedCardId));
+    const currentFolderId = getCurrentFolder();
+
+    let availableCards: FlashCardData[] = [];
+    let contextCards: FlashCardData[] = [];
+
+    if (cardFolder && currentFolderId === cardFolder.id) {
+      // User is viewing a card in the current folder context
+      contextCards = getFolderCards(cardFolder.id);
+      availableCards = contextCards.filter(card => card.id !== deletedCardId);
+    } else if (cardFolder) {
+      // Card is in a folder but user might not be in that folder context
+      // Prioritize cards from the same folder
+      contextCards = getFolderCards(cardFolder.id);
+      availableCards = contextCards.filter(card => card.id !== deletedCardId);
+      
+      // If no cards left in the folder, fall back to main collection
+      if (availableCards.length === 0) {
+        const allFolderCardIds = folders.flatMap(folder => folder.cardIds);
+        availableCards = flashCards.filter(card => 
+          card.id !== deletedCardId && !allFolderCardIds.includes(card.id!)
+        );
+        contextCards = availableCards;
+      }
+    } else {
+      // Card is in main collection (not in any folder)
+      const allFolderCardIds = folders.flatMap(folder => folder.cardIds);
+      contextCards = flashCards.filter(card => !allFolderCardIds.includes(card.id!));
+      availableCards = contextCards.filter(card => card.id !== deletedCardId);
+    }
+
+    if (availableCards.length === 0) {
+      // No cards in current context, try to find any available card
+      const anyAvailableCard = flashCards.find(card => card.id !== deletedCardId);
+      return anyAvailableCard?.id || null;
+    }
+
+    // Find the index of the deleted card in the context
+    const deletedIndex = contextCards.findIndex(card => card.id === deletedCardId);
+    
+    if (deletedIndex === -1) {
+      // Card not found in current context, return first available
+      return availableCards[0]?.id || null;
+    }
+
+    // Try to get the card at the same index position (becomes "next" after deletion)
+    if (deletedIndex < availableCards.length) {
+      return availableCards[deletedIndex]?.id || null;
+    }
+    
+    // If deleted card was last, get the previous one (last available)
+    return availableCards[availableCards.length - 1]?.id || null;
+  }, [flashCards, folders, getCurrentFolder, getFolderCards]);
+
   const handleDeleteCard = async (id: string) => {
     try {
+      // Find the next card before deletion
+      const nextCardId = findNextFlashcard(id);
+      
       if (isGuest) {
         // For guests, remove from localStorage only
         deleteFlashCard(id);
@@ -527,10 +647,14 @@ function FlashCardPageContent() {
         
         setCurrentCard(null);
         
-        // If the deleted card is in the URL, redirect to /flashcard
+        // Redirect to next card or main page
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('id') === id) {
-          router.replace('/flashcard');
+          if (nextCardId) {
+            router.replace(`/flashcard?id=${nextCardId}`);
+          } else {
+            router.replace('/flashcard');
+          }
         }
       } else {
         // For authenticated users, use the context function which handles the API call
@@ -538,10 +662,14 @@ function FlashCardPageContent() {
         removeFlashCardFromCache(id); // Remove from localStorage
         setCurrentCard(null);
         
-        // If the deleted card is in the URL, redirect to /flashcard
+        // Redirect to next card or main page
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('id') === id) {
-          router.replace('/flashcard');
+          if (nextCardId) {
+            router.replace(`/flashcard?id=${nextCardId}`);
+          } else {
+            router.replace('/flashcard');
+          }
         }
       }
     } catch (error) {
@@ -747,11 +875,11 @@ function FlashCardPageContent() {
           {!isGuest && currentCard && (
             <div className="flex flex-col items-center">
               <div className="flex justify-center items-center space-x-2 sm:space-x-4 w-full max-w-full sm:max-w-[600px]">
-                {currentCard.folderId && currentIndex > 0 && (
+                {hasPrevious() && (
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={goToPreviousCard}
+                    onClick={goToPrevious}
                     className="hover:bg-accent h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0"
                   >
                     <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -766,11 +894,11 @@ function FlashCardPageContent() {
                   />
                 </div>
 
-                {currentCard.folderId && currentIndex < cardsInFolder.length - 1 && (
+                {hasNext() && (
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={goToNextCard}
+                    onClick={goToNext}
                     className="hover:bg-accent h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0"
                   >
                     <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
