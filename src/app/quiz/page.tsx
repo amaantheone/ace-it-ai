@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { X } from "lucide-react";
 import { QuizSidebar } from "@/components/ui/quiz/quiz-sidebar";
-import { createAttempt, saveQuestionAnswer, getAttempt, getAttemptQuestions, updateQuizScore, updateAttemptScore } from "@/utils/quizFunctions/attemptHelpers";
+import { createAttempt, saveQuestionAnswer, getAttempt, getAttemptQuestions, updateQuizScore, updateAttemptScore, fetchQuizzes, updateQuizzesCache, deleteQuiz, removeQuizFromCache, QuizMeta } from "@/utils/quizFunctions/attemptHelpers";
 import { generateQuizStreaming } from "@/utils/quizFunctions/streamingQuiz";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -38,8 +38,6 @@ interface QuizAttempt {
   createdAt: string;
   questions: QuizAttemptQuestion[];
 }
-
-type QuizMeta = { id: string; title: string; score: number | null; totalQuestions: number };
 
 export default function QuizPage() {
   const router = useRouter();
@@ -75,24 +73,37 @@ export default function QuizPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const quizGenerationInProgress = useRef(false);
 
-  // Load quizzes for sidebar from localStorage, and if empty, fetch from DB
+  // Load quizzes for sidebar - always fetch fresh data from DB first
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = localStorage.getItem("quizzes");
-    if (stored && JSON.parse(stored).length > 0) {
-      setSidebarQuizzes(JSON.parse(stored));
-    } else {
-      // If no quizzes in localStorage, fetch from DB
-      fetch("/api/quiz/list", { credentials: "include" })
-        .then(res => res.ok ? res.json() : Promise.reject())
-        .then((data) => {
-          if (data.quizzes && Array.isArray(data.quizzes)) {
-            setSidebarQuizzes(data.quizzes);
-            localStorage.setItem("quizzes", JSON.stringify(data.quizzes));
+    
+    // Always fetch fresh data from database
+    const loadQuizzes = async () => {
+      try {
+        const quizzes = await fetchQuizzes();
+        setSidebarQuizzes(quizzes);
+        // Update localStorage with fresh data
+        updateQuizzesCache(quizzes);
+      } catch (error) {
+        console.error("Failed to fetch quizzes from database:", error);
+        
+        // Fallback to localStorage only if database fetch fails
+        const stored = localStorage.getItem("quizzes");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              setSidebarQuizzes(parsed);
+            }
+          } catch (error) {
+            console.error("Failed to parse stored quizzes:", error);
+            localStorage.removeItem("quizzes"); // Remove corrupted data
           }
-        })
-        .catch(() => {});
-    }
+        }
+      }
+    };
+    
+    loadQuizzes();
   }, []);
 
   // When a quiz is generated, create it in DB but don't add to sidebar/localStorage until finished
@@ -138,7 +149,7 @@ export default function QuizPage() {
 
           setSidebarQuizzes((prev) => {
             const updated = [newQuiz, ...prev.filter((q) => q.id !== quizId)];
-            localStorage.setItem("quizzes", JSON.stringify(updated));
+            updateQuizzesCache(updated);
             return updated;
           });
 
@@ -210,20 +221,19 @@ export default function QuizPage() {
     // If not in localStorage/sidebar, fetch from DB
     if (!quizMeta) {
       try {
-        const res = await fetch(`/api/quiz/list`, { credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          const found = (data.quizzes as QuizMeta[] | undefined)?.find(q => q.id === quizId) || null;
-          if (found) {
-            quizMeta = found;
-            setSidebarQuizzes(prev => {
-              const updated = [found, ...prev.filter(q => q.id !== found.id)];
-              localStorage.setItem("quizzes", JSON.stringify(updated));
-              return updated;
-            });
-          }
+        const quizzes = await fetchQuizzes();
+        const found = quizzes.find(q => q.id === quizId) || null;
+        if (found) {
+          quizMeta = found;
+          setSidebarQuizzes(prev => {
+            const updated = [found, ...prev.filter(q => q.id !== found.id)];
+            updateQuizzesCache(updated);
+            return updated;
+          });
         }
-      } catch {}
+      } catch (error) {
+        console.error("Failed to fetch quiz from database:", error);
+      }
     }
     if (quizMeta) setShowScoreFor(quizMeta);
     setReviewAttempt(null);
@@ -395,6 +405,28 @@ export default function QuizPage() {
     }
   };
 
+  // Handler for deleting a quiz
+  const handleDeleteQuiz = async (quizId: string) => {
+    try {
+      await deleteQuiz(quizId);
+      
+      // Update sidebar by removing the deleted quiz
+      setSidebarQuizzes(prev => {
+        const updated = prev.filter(q => q.id !== quizId);
+        updateQuizzesCache(updated);
+        return updated;
+      });
+
+      // If we're currently viewing the deleted quiz, reset to main view
+      if (showScoreFor?.id === quizId) {
+        resetQuizState();
+      }
+    } catch (error) {
+      console.error("Failed to delete quiz:", error);
+      alert("Failed to delete quiz. Please try again.");
+    }
+  };
+
   // Reusable Review Attempt section to avoid duplication
   const ReviewAttemptSection = () => {
     return (
@@ -499,7 +531,7 @@ export default function QuizPage() {
   return (
   <div className="min-h-[100dvh] flex flex-row items-stretch justify-center bg-gradient-to-br from-background to-muted/60 p-2">
       {/* The QuizSidebar component now handles its own visibility */}
-      <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} onNewQuiz={resetQuizState} />
+      <QuizSidebar onSelectQuiz={handleSidebarSelect} quizzes={sidebarQuizzes} onNewQuiz={resetQuizState} onDeleteQuiz={handleDeleteQuiz} />
       
       {/* Add ThemeToggle in the top right corner */}
       <div className="absolute top-4 right-4 z-40">

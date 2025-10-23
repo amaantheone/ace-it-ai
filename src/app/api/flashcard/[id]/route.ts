@@ -5,7 +5,8 @@ import { authOptions } from "@/config/auth";
 
 export async function GET(_req: Request, context: unknown) {
   const session = await getServerSession(authOptions);
-  const { id } = (context as { params: { id: string } }).params;
+  const params = await (context as { params: Promise<{ id: string }> }).params;
+  const { id } = params;
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -38,7 +39,8 @@ export async function GET(_req: Request, context: unknown) {
 
 export async function PUT(req: Request, context: unknown) {
   const session = await getServerSession(authOptions);
-  const { id } = (context as { params: { id: string } }).params;
+  const params = await (context as { params: Promise<{ id: string }> }).params;
+  const { id } = params;
 
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

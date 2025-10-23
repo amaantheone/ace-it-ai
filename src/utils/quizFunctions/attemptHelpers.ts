@@ -1,5 +1,12 @@
 import { AttemptQuestionInput } from "@/app/api/quiz/attempt/create/route";
 
+export interface QuizMeta {
+  id: string;
+  title: string;
+  score: number | null;
+  totalQuestions: number;
+}
+
 export async function createAttempt(quizId: string, score = 0) {
   const res = await fetch("/api/quiz/attempt/create", {
     method: "POST",
@@ -67,4 +74,59 @@ export async function getAttemptQuestions(attemptId: string) {
     (a: QuizAttemptQuestion, b: QuizAttemptQuestion) =>
       a.questionIndex - b.questionIndex
   );
+}
+
+// Quiz management functions
+export async function deleteQuiz(quizId: string) {
+  const res = await fetch(`/api/quiz/${quizId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to delete quiz");
+  return await res.json();
+}
+
+export async function fetchQuizzes(): Promise<QuizMeta[]> {
+  const res = await fetch("/api/quiz/list", { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch quizzes");
+  const data = await res.json();
+  return data.quizzes || [];
+}
+
+// Cache management functions
+export function updateQuizzesCache(quizzes: QuizMeta[]) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("quizzes", JSON.stringify(quizzes));
+  }
+}
+
+export function removeQuizFromCache(quizId: string): QuizMeta[] {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("quizzes");
+    if (stored) {
+      try {
+        const quizzes: QuizMeta[] = JSON.parse(stored);
+        const filtered = quizzes.filter((q: QuizMeta) => q.id !== quizId);
+        localStorage.setItem("quizzes", JSON.stringify(filtered));
+        return filtered;
+      } catch (error) {
+        console.error("Failed to update cache:", error);
+      }
+    }
+  }
+  return [];
+}
+
+export function getQuizzesFromCache(): QuizMeta[] {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("quizzes");
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (error) {
+        console.error("Failed to parse cached quizzes:", error);
+        localStorage.removeItem("quizzes");
+      }
+    }
+  }
+  return [];
 }

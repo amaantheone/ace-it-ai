@@ -1,22 +1,26 @@
 "use client";
 
-import { BookOpen, ChevronLeft, Plus } from "lucide-react";
+import { BookOpen, ChevronLeft, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function QuizSidebar({
   quizzes = [],
   onSelectQuiz,
   onNewQuiz,
+  onDeleteQuiz,
 }: {
   quizzes?: { id: string; title: string; score: number | null }[];
   onSelectQuiz?: (id: string) => void;
   onNewQuiz?: () => void;
+  onDeleteQuiz?: (id: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<string | null>(null);
   const [quizScore, setQuizScore] = useState<number | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [deleteConfirmQuiz, setDeleteConfirmQuiz] = useState<{id: string, title: string} | null>(null);
 
   // Detect mobile view
   useEffect(() => {
@@ -129,28 +133,44 @@ export function QuizSidebar({
               <Plus className="w-5 h-5" />
             </button>
           </div>
-          <div className={`flex flex-col flex-1 ${isMobileView ? 'px-3' : 'px-4'} py-2`}>
-            <div className="flex flex-col gap-1">
+          <div className={`flex flex-col flex-1 ${isMobileView ? 'px-3' : 'px-4'} py-2 overflow-hidden`}>
+            <div className="flex flex-col gap-1 overflow-y-auto min-h-0 flex-1">
               {quizzes.length === 0 ? (
                 <div className="text-sm text-muted-foreground italic">No quizzes yet</div>
               ) : (
                 quizzes.map(q => (
-                  <button
+                  <div
                     key={q.id}
-                    className={`flex items-center gap-2 ${isMobileView ? 'px-2' : 'px-3'} py-2 rounded text-sm font-medium transition-colors w-full text-left hover:bg-accent/60 ${selectedQuiz === q.id ? "bg-primary/10 text-primary" : ""}`}
-                    onClick={() => {
-                      setSelectedQuiz(q.id);
-                      setQuizScore(q.score ?? null);
-                      if (onSelectQuiz) {
-                        onSelectQuiz(q.id);
-                        if (isMobileView) {
-                          setMobileOpen(false);
-                        }
-                      }
-                    }}
+                    className={`flex items-center gap-2 ${isMobileView ? 'px-2' : 'px-3'} py-2 rounded text-sm font-medium transition-colors w-full hover:bg-accent/60 group ${selectedQuiz === q.id ? "bg-primary/10 text-primary" : ""} min-w-0`}
                   >
-                    <span className="truncate">{q.title}</span>
-                  </button>
+                    <button
+                      className="flex items-center gap-2 flex-1 text-left min-w-0"
+                      onClick={() => {
+                        setSelectedQuiz(q.id);
+                        setQuizScore(q.score ?? null);
+                        if (onSelectQuiz) {
+                          onSelectQuiz(q.id);
+                          if (isMobileView) {
+                            setMobileOpen(false);
+                          }
+                        }
+                      }}
+                    >
+                      <span className="truncate min-w-0 flex-1">{q.title}</span>
+                    </button>
+                    {onDeleteQuiz && (
+                      <button
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/20 hover:text-destructive transition-all flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteConfirmQuiz({ id: q.id, title: q.title });
+                        }}
+                        aria-label={`Delete quiz "${q.title}"`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 ))
               )}
             </div>
@@ -160,6 +180,22 @@ export function QuizSidebar({
           </div>
         </aside>
       </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteConfirmQuiz !== null}
+        onCancel={() => setDeleteConfirmQuiz(null)}
+        onConfirm={() => {
+          if (deleteConfirmQuiz && onDeleteQuiz) {
+            onDeleteQuiz(deleteConfirmQuiz.id);
+          }
+          setDeleteConfirmQuiz(null);
+        }}
+        title="Delete Quiz"
+        description={`Are you sure you want to delete "${deleteConfirmQuiz?.title || 'this quiz'}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   );
 }

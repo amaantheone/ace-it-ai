@@ -147,12 +147,23 @@ export async function POST(req: Request) {
     let subtopics: SubTopic[] = [];
     try {
       const responseText = String(subtopicsResponse.content);
-      const jsonMatch =
-        responseText.match(/```json\n([\s\S]*?)\n```/) ||
-        responseText.match(/\[([\s\S]*?)\]/);
 
-      const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : responseText;
-      subtopics = JSON.parse(jsonStr) as SubTopic[];
+      // First try to extract from code blocks
+      const codeBlockMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
+      if (codeBlockMatch) {
+        const jsonStr = codeBlockMatch[1];
+        subtopics = JSON.parse(jsonStr) as SubTopic[];
+      } else {
+        // Try to extract JSON array directly
+        const arrayMatch = responseText.match(/\[[\s\S]*?\]/);
+        if (arrayMatch) {
+          const jsonStr = arrayMatch[0];
+          subtopics = JSON.parse(jsonStr) as SubTopic[];
+        } else {
+          // Fall back to treating the entire response as JSON
+          subtopics = JSON.parse(responseText) as SubTopic[];
+        }
+      }
 
       // Limit to the requested count
       subtopics = subtopics.slice(0, adjustedCount);
@@ -220,14 +231,26 @@ export async function POST(req: Request) {
             ]);
 
             const responseText = String(flashcardResponse.content);
-            const jsonMatch =
-              responseText.match(/```json\n([\s\S]*?)\n```/) ||
-              responseText.match(/{[\s\S]*}/);
 
-            const jsonStr = jsonMatch
-              ? jsonMatch[1] || jsonMatch[0]
-              : responseText;
-            const parsedData = JSON.parse(jsonStr) as FlashCard;
+            // First try to extract from code blocks
+            let parsedData: FlashCard;
+            const codeBlockMatch = responseText.match(
+              /```json\n([\s\S]*?)\n```/
+            );
+            if (codeBlockMatch) {
+              const jsonStr = codeBlockMatch[1];
+              parsedData = JSON.parse(jsonStr) as FlashCard;
+            } else {
+              // Try to extract JSON object directly
+              const objectMatch = responseText.match(/{[\s\S]*}/);
+              if (objectMatch) {
+                const jsonStr = objectMatch[0];
+                parsedData = JSON.parse(jsonStr) as FlashCard;
+              } else {
+                // Fall back to treating the entire response as JSON
+                parsedData = JSON.parse(responseText) as FlashCard;
+              }
+            }
 
             // Validate required fields
             const requiredFields = [
