@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import {
   BookOpen,
   Brain,
@@ -44,12 +44,6 @@ interface SummaryStatWithIcon {
 export default function Dashboard() {
   const { data: session } = useSession();
   const { analytics, isLoading, error } = useAnalytics();
-
-  useEffect(() => {
-    if (session?.user) {
-      console.log('session.user.image:', session.user.image);
-    }
-  }, [session]);
 
   // Show sign-in prompt for non-authenticated users
   if (!session?.user?.email) {

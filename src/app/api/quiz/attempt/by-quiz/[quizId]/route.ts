@@ -4,7 +4,8 @@ import { authOptions } from "@/config/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(_req: Request, context: unknown) {
-  const params = await (context as { params: Promise<Record<string, string>> }).params;
+  const params = await (context as { params: Promise<Record<string, string>> })
+    .params;
   const { quizId } = params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {

@@ -65,7 +65,6 @@ export async function POST(req: Request) {
 
     // Check if the request is multipart (PDF upload)
     const contentType = req.headers.get("content-type") || "";
-    console.log("Quiz generation started for topic:", topic);
 
     if (contentType.startsWith("multipart/form-data")) {
       const formData = await req.formData();
@@ -73,15 +72,10 @@ export async function POST(req: Request) {
       const pdfFile = formData.get("pdf");
 
       if (pdfFile && typeof pdfFile === "object" && "arrayBuffer" in pdfFile) {
-        console.log("Processing PDF file:", pdfFile.name || "unknown");
         try {
           const buffer = Buffer.from(await pdfFile.arrayBuffer());
           pdfText = await withTimeout(processPDF(buffer), 30000); // 30 second timeout for PDF processing
           context = pdfText.slice(0, 8000); // Limit context for LLM input
-          console.log(
-            "PDF processed successfully, extracted text length:",
-            pdfText.length
-          );
         } catch (pdfError) {
           console.error("PDF processing failed:", pdfError);
           if (
@@ -119,7 +113,6 @@ export async function POST(req: Request) {
       : `Topic: ${topic}`;
     const subtopicSystemMessage = SUBTOPIC_SYSTEM_MESSAGE_TEMPLATE({ count });
 
-    console.log("Generating subtopics for topic:", topic);
     let subtopicRes;
     try {
       subtopicRes = await withTimeout(
@@ -161,7 +154,6 @@ export async function POST(req: Request) {
       subtopics = subtopics
         .filter((s) => typeof s === "string")
         .slice(0, count);
-      console.log("Generated subtopics:", subtopics.length);
     } catch (parseError) {
       console.error("Failed to parse subtopics:", parseError);
       return NextResponse.json(
@@ -195,10 +187,6 @@ export async function POST(req: Request) {
         attempt++
       ) {
         try {
-          console.log(
-            `Generating question for subtopic "${subtopic}" (attempt ${attempt}/${maxRetries})`
-          );
-
           const response = await withTimeout(
             llm.invoke([
               ["system", QUIZ_SYSTEM_MESSAGE],
@@ -228,9 +216,6 @@ export async function POST(req: Request) {
 
           questions.push(questionObj);
           questionGenerated = true;
-          console.log(
-            `Successfully generated question for subtopic "${subtopic}"`
-          );
         } catch (questionError) {
           console.error(
             `Question generation failed for subtopic "${subtopic}" on attempt ${attempt}:`,
@@ -238,9 +223,6 @@ export async function POST(req: Request) {
           );
 
           if (attempt < maxRetries) {
-            console.log(
-              `Retrying question generation for subtopic "${subtopic}"...`
-            );
             // Wait a bit before retrying
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
@@ -249,7 +231,6 @@ export async function POST(req: Request) {
 
       // If question generation failed after all retries, create a fallback question
       if (!questionGenerated) {
-        console.log(`Creating fallback question for subtopic "${subtopic}"`);
         const fallbackQuestion = {
           question: `What is a key concept related to ${subtopic}?`,
           options: [
@@ -270,13 +251,9 @@ export async function POST(req: Request) {
           },
         };
         questions.push(fallbackQuestion);
-        console.log(`Added fallback question for subtopic "${subtopic}"`);
       }
     }
 
-    console.log(
-      `Quiz generation completed: ${questions.length} questions generated`
-    );
     return NextResponse.json({ questions });
   } catch {
     return NextResponse.json(

@@ -61,9 +61,9 @@ export async function DELETE(_req: Request, context: unknown) {
       where: { id },
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Quiz deleted successfully" 
+    return NextResponse.json({
+      success: true,
+      message: "Quiz deleted successfully",
     });
   } catch (error) {
     console.error("Error deleting quiz:", error);

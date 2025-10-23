@@ -67,18 +67,10 @@ export async function POST(req: Request) {
       const pdfFile = formData.get("pdf");
 
       if (pdfFile && typeof pdfFile === "object" && "arrayBuffer" in pdfFile) {
-        console.log(
-          "Processing PDF file for streaming quiz:",
-          pdfFile.name || "unknown"
-        );
         try {
           const buffer = Buffer.from(await pdfFile.arrayBuffer());
           pdfText = await withTimeout(processPDF(buffer), 25000); // 25 second timeout for PDF processing
           context = pdfText.slice(0, 8000); // Limit context for LLM input
-          console.log(
-            "PDF processed successfully, extracted text length:",
-            pdfText.length
-          );
         } catch (pdfError) {
           console.error("PDF processing failed:", pdfError);
           return NextResponse.json(
@@ -164,8 +156,6 @@ export async function POST(req: Request) {
             } else {
               contentStr = String(subtopicRes.content || "");
             }
-
-            console.log("Subtopic LLM response:", contentStr);
 
             if (!contentStr || contentStr.length === 0) {
               throw new Error("Empty content received from LLM");
@@ -287,8 +277,6 @@ export async function POST(req: Request) {
               } else {
                 responseText = String(response.content || "");
               }
-
-              console.log(`Question ${i + 1} LLM response:`, responseText);
 
               if (!responseText || responseText.length === 0) {
                 throw new Error("Empty response content received");
