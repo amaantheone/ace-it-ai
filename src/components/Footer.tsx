@@ -1,6 +1,11 @@
+"use client"
+
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 
 export default function Footer() {
+  const pathname = usePathname();
+
   return (
     <footer className="px-4 sm:px-6 py-8 sm:py-12 border-t border-slate-700/50">
       <div className="max-w-7xl mx-auto text-center">
@@ -24,24 +29,26 @@ export default function Footer() {
         </p>
         <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 text-sm">
           <a
-            href="https://www.termsfeed.com/live/a5fe202d-3d6d-430d-a64a-5c7dd09ca1c2"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition-colors hover:text-blue-500 font-medium text-slate-400"
+            href="/privacy"
+            className={`transition-colors hover:text-blue-500 font-medium ${
+              pathname === '/privacy' ? 'text-blue-500' : 'text-slate-400'
+            }`}
           >
             Privacy Policy
           </a>
           <a
             href="/terms"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition-colors hover:text-blue-500 font-medium text-slate-400"
+            className={`transition-colors hover:text-blue-500 font-medium ${
+              pathname === '/terms' ? 'text-blue-500' : 'text-slate-400'
+            }`}
           >
             Terms of Service
           </a>
           <a
             href="/docs"
-            className="transition-colors hover:text-blue-500 font-medium text-slate-400"
+            className={`transition-colors hover:text-blue-500 font-medium ${
+              pathname === '/docs' ? 'text-blue-500' : 'text-slate-400'
+            }`}
           >
             Documentation
           </a>
