@@ -22,6 +22,7 @@ import {
   Bar
 } from "recharts";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Header from "@/components/Header";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { DashboardSkeleton } from "@/components/ui/dashboard-skeleton";
@@ -44,6 +45,23 @@ interface SummaryStatWithIcon {
 export default function Dashboard() {
   const { data: session } = useSession();
   const { analytics, isLoading, error } = useAnalytics();
+  const router = useRouter();
+
+  // Function to get route based on title
+  const getRouteForTitle = (title: string): string => {
+    switch (title) {
+      case "Total Sessions":
+        return "/chat";
+      case "Mind Maps Created":
+        return "/mindmap";
+      case "Flashcards Made":
+        return "/flashcard";
+      case "Quizzes Completed":
+        return "/quiz";
+      default:
+        return "/dashboard";
+    }
+  };
 
   // Show sign-in prompt for non-authenticated users
   if (!session?.user?.email) {
@@ -200,10 +218,12 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 {summaryStats.map((stat: SummaryStatWithIcon) => {
                   const Icon = stat.icon;
+                  const route = getRouteForTitle(stat.title);
                   return (
-                    <div
+                    <button
                       key={stat.title}
-                      className="p-4 sm:p-6 rounded-2xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105"
+                      onClick={() => router.push(route)}
+                      className="p-4 sm:p-6 rounded-2xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-105 text-left w-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     >
                       <div className="flex items-center justify-between mb-3 sm:mb-4">
                         <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-r ${stat.gradient} flex items-center justify-center shadow-lg`}>
@@ -219,7 +239,7 @@ export default function Dashboard() {
                           </div>
                         )}
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
