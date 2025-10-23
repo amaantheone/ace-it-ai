@@ -240,7 +240,7 @@ export async function POST(req: Request) {
     if (imageContext) {
       // For image analysis, we need to use a vision-capable model
       const visionLlm = new ChatGoogleGenerativeAI({
-        model: "gemini-flash-latest",
+        model: "gemini-2.0-flash",
         temperature: 0.5,
         maxOutputTokens: 2048,
         streaming: false,
