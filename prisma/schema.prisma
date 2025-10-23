@@ -21,6 +21,7 @@ model User {
   updatedAt        DateTime          @updatedAt
   accounts         Account[]
   sessions         Session[]
+  chatSessions     ChatSession[]
   messages         Message[]
   flashCards       FlashCard[]
   flashCardFolders FlashCardFolder[]
@@ -30,15 +31,23 @@ model User {
 }
 
 model Session {
-  id           String    @id @default(cuid())
-  sessionToken String    @unique
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
   userId       String
   expires      DateTime
-  user         User      @relation(fields: [userId], references: [id])
-  topic        String?
-  startedAt    DateTime  @default(now())
-  endedAt      DateTime?
-  messages     Message[]
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model ChatSession {
+  id        String    @id @default(cuid())
+  topic     String?
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  messages  Message[]
 }
 
 model Account {
@@ -61,14 +70,14 @@ model Account {
 }
 
 model Message {
-  id        String   @id @default(cuid())
-  content   String
-  role      String // "user" or "ai"
-  createdAt DateTime @default(now())
-  sessionId String
-  session   Session  @relation(fields: [sessionId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
+  id            String      @id @default(cuid())
+  content       String
+  role          String // "user" or "ai"
+  createdAt     DateTime    @default(now())
+  chatSessionId String
+  chatSession   ChatSession @relation(fields: [chatSessionId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
 }
 
 model FlashCard {

@@ -16,7 +16,9 @@ interface MessageWithUser {
 
 export async function GET(request: Request, context: unknown) {
   const session = await getServerSession(authOptions);
-  const { sessionId } = (context as { params: { sessionId: string } }).params;
+  const params = await (context as { params: Promise<{ sessionId: string }> })
+    .params;
+  const { sessionId } = params;
 
   if (!session?.user?.email) {
     return new NextResponse("Unauthorized", { status: 401 });
@@ -25,7 +27,7 @@ export async function GET(request: Request, context: unknown) {
   try {
     const messages: MessageWithUser[] = await prisma.message.findMany({
       where: {
-        sessionId: sessionId,
+        chatSessionId: sessionId,
       },
       orderBy: {
         createdAt: "asc",
@@ -58,7 +60,9 @@ export async function GET(request: Request, context: unknown) {
 
 export async function POST(request: Request, context: unknown) {
   const session = await getServerSession(authOptions);
-  const { sessionId } = (context as { params: { sessionId: string } }).params;
+  const params = await (context as { params: Promise<{ sessionId: string }> })
+    .params;
+  const { sessionId } = params;
 
   if (!session?.user?.email) {
     return new NextResponse("Unauthorized", { status: 401 });
@@ -80,7 +84,7 @@ export async function POST(request: Request, context: unknown) {
       data: {
         content,
         role,
-        sessionId: sessionId,
+        chatSessionId: sessionId,
         userId: user.id,
       },
       include: {

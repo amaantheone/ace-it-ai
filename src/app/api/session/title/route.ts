@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     const title = String(response.content).slice(0, 30); // Ensure max length and convert to string
 
     // Update the session in the database
-    await prisma.session.update({
+    await prisma.chatSession.update({
       where: { id: sessionId },
       data: { topic: title },
     });

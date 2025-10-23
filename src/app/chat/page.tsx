@@ -11,7 +11,7 @@ import { ChatInputArea } from "../../components/ui/chat/chat-input-area";
 import { ChatMessages } from "../../components/ui/chat/chat-messages";
 import { LoginPopup } from "../../components/ui/login-popup";
 import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil, sendSuggestionMessage } from "../../utils/chatFunctions/messageHandlers";
-import { generateTitle as generateTitleUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil, loadInitialSessions, loadMessagesForSession, persistGuestState } from "../../utils/chatFunctions/sessionHandlers";
+import { generateTitle as generateTitleUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil, loadInitialSessions, loadMessagesForSession, persistGuestState, deleteSession } from "../../utils/chatFunctions/sessionHandlers";
 import SuggestionsGrid from "../../components/ui/chat/suggestions-grid";
 import { useScrollToBottom } from "../../components/ui/chat/hooks/useScrollToBottom";
 
@@ -149,6 +149,20 @@ export default function ChatPage() {
     setLoginPopupVariant,
     });
   }, [sessions, setSessions, setCurrentSessionId, setMessages, isMobileView, isGuest, setShowChatLoginPopup]);
+
+  const handleDeleteSession = useCallback(async (sessionId: string) => {
+    await deleteSession({
+      sessionId,
+      sessions,
+      setSessions,
+      currentSessionId,
+      setCurrentSessionId,
+      setMessages,
+      isGuest,
+      loadGuestData,
+      saveGuestData,
+    });
+  }, [sessions, setSessions, currentSessionId, setCurrentSessionId, setMessages, isGuest, loadGuestData, saveGuestData]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     handleKeyDownUtil(e, handleSendMessage, isLoading);
@@ -422,6 +436,7 @@ export default function ChatPage() {
           currentSessionId={currentSessionId}
           onSelectSession={setCurrentSessionId}
           generateTitle={generateTitle}
+          onDeleteSession={handleDeleteSession}
           onCloseSidebar={() => setIsSidebarOpen(false)}
         />
       </div>
@@ -454,6 +469,7 @@ export default function ChatPage() {
               currentSessionId={currentSessionId}
               onSelectSession={setCurrentSessionId}
               generateTitle={generateTitle}
+              onDeleteSession={handleDeleteSession}
               onCloseSidebar={() => setIsSidebarOpen(false)}
             />
           </div>

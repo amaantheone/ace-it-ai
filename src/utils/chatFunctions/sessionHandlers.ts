@@ -232,3 +232,97 @@ export const persistGuestState = ({
   saveGuestData(GUEST_SESSIONS_KEY, sessions);
   saveGuestData(GUEST_MESSAGES_KEY, messages);
 };
+
+// Delete a session
+export const deleteSession = async ({
+  sessionId,
+  sessions,
+  setSessions,
+  currentSessionId,
+  setCurrentSessionId,
+  setMessages,
+  isGuest,
+  loadGuestData,
+  saveGuestData,
+}: {
+  sessionId: string;
+  sessions: Session[];
+  setSessions: (sessions: Session[]) => void;
+  currentSessionId: string | null;
+  setCurrentSessionId: (id: string) => void;
+  setMessages: (sessionId: string, messages: Message[]) => void;
+  isGuest: boolean;
+  loadGuestData?: (key: string) => unknown;
+  saveGuestData?: (key: string, value: unknown) => void;
+}) => {
+  if (isGuest) {
+    // Guest mode: remove from local storage
+    if (!loadGuestData || !saveGuestData) return;
+
+    const updatedSessions = sessions.filter((s) => s.id !== sessionId);
+    setSessions(updatedSessions);
+
+    const guestMessages =
+      (loadGuestData(GUEST_MESSAGES_KEY) as Record<string, Message[]>) || {};
+    delete guestMessages[sessionId];
+
+    saveGuestData(GUEST_SESSIONS_KEY, updatedSessions);
+    saveGuestData(GUEST_MESSAGES_KEY, guestMessages);
+
+    // If this was the current session, switch to another session or create a new one
+    if (currentSessionId === sessionId) {
+      if (updatedSessions.length > 0) {
+        setCurrentSessionId(updatedSessions[0].id);
+      } else {
+        // Create new session for guest
+        const newSession: Session = {
+          id: crypto.randomUUID(),
+          topic: "",
+          startedAt: new Date(),
+        };
+        setSessions([newSession]);
+        setCurrentSessionId(newSession.id);
+        setMessages(newSession.id, []);
+        saveGuestData(GUEST_SESSIONS_KEY, [newSession]);
+        saveGuestData(GUEST_MESSAGES_KEY, { [newSession.id]: [] });
+      }
+    }
+  } else {
+    // Authenticated mode: delete from database
+    try {
+      const response = await fetch(`/api/session/${sessionId}/delete`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete session");
+      }
+
+      // Update local state
+      const updatedSessions = sessions.filter((s) => s.id !== sessionId);
+      setSessions(updatedSessions);
+
+      // If this was the current session, switch to another session or create a new one
+      if (currentSessionId === sessionId) {
+        if (updatedSessions.length > 0) {
+          setCurrentSessionId(updatedSessions[0].id);
+        } else {
+          // Create new session for authenticated user
+          const newSessionResponse = await fetch("/api/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          if (newSessionResponse.ok) {
+            const newSession = await newSessionResponse.json();
+            setSessions([newSession]);
+            setCurrentSessionId(newSession.id);
+            setMessages(newSession.id, []);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      throw error;
+    }
+  }
+};

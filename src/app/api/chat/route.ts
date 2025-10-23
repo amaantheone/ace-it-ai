@@ -146,7 +146,7 @@ export async function POST(req: Request) {
     } else {
       // Authenticated mode: retrieve from database
       const dbMessages = await prisma.message.findMany({
-        where: { sessionId },
+        where: { chatSessionId: sessionId },
         orderBy: { createdAt: "asc" },
         take: MAX_HISTORY,
       });
@@ -288,7 +288,7 @@ export async function POST(req: Request) {
         // After updating, trigger a regenerate with the updated message
         // Find and delete any AI response that follows this edited message
         const messages = await prisma.message.findMany({
-          where: { sessionId },
+          where: { chatSessionId: sessionId },
           orderBy: { createdAt: "asc" },
         });
 
@@ -330,7 +330,7 @@ export async function POST(req: Request) {
           data: {
             role: "ai",
             content: regenerateResponseText,
-            sessionId,
+            chatSessionId: sessionId,
             userId: user.id,
             createdAt,
           },
@@ -338,7 +338,7 @@ export async function POST(req: Request) {
 
         // Return the full updated messages array
         const allMessages = await prisma.message.findMany({
-          where: { sessionId },
+          where: { chatSessionId: sessionId },
           orderBy: { createdAt: "asc" },
         });
 
@@ -370,7 +370,7 @@ export async function POST(req: Request) {
       // For guest users, we don't need to delete from database since we don't persist
       if (!isGuestMode && user) {
         const messages = await prisma.message.findMany({
-          where: { sessionId },
+          where: { chatSessionId: sessionId },
           orderBy: { createdAt: "asc" },
         });
         let userIdx = -1;
@@ -434,7 +434,7 @@ export async function POST(req: Request) {
           data: {
             role: "ai",
             content: responseText,
-            sessionId,
+            chatSessionId: sessionId,
             userId: user.id,
             createdAt,
           },
@@ -475,7 +475,7 @@ export async function POST(req: Request) {
             data: {
               role: "user",
               content: message,
-              sessionId,
+              chatSessionId: sessionId,
               userId: user.id,
             },
           }),
@@ -483,7 +483,7 @@ export async function POST(req: Request) {
             data: {
               role: "ai",
               content: responseText,
-              sessionId,
+              chatSessionId: sessionId,
               userId: user.id,
             },
           }),

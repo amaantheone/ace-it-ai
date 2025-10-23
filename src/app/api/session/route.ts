@@ -22,12 +22,10 @@ export async function POST(req: Request) {
 
     const { topic } = await req.json().catch(() => ({}));
 
-    const newSession = await prisma.session.create({
+    const newSession = await prisma.chatSession.create({
       data: {
         userId: user.id,
-        sessionToken: crypto.randomUUID(),
         topic: topic || null,
-        expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         startedAt: new Date(),
       },
     });
@@ -67,7 +65,7 @@ export async function PUT(req: Request) {
       );
     }
 
-    const chatSession = await prisma.session.findUnique({
+    const chatSession = await prisma.chatSession.findUnique({
       where: { id: sessionId },
       include: { messages: true },
     });
@@ -85,7 +83,7 @@ export async function PUT(req: Request) {
         content: message,
         role: "user",
         userId: user.id,
-        sessionId: sessionId,
+        chatSessionId: sessionId,
       },
     });
 
@@ -115,7 +113,7 @@ export async function GET() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const sessions = await prisma.session.findMany({
+    const sessions = await prisma.chatSession.findMany({
       where: {
         userId: user.id,
       },

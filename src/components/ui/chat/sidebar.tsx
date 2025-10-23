@@ -31,6 +31,7 @@ interface SidebarProps {
   currentSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
   generateTitle: (sessionId: string, message: string) => Promise<void>;
+  onDeleteSession?: (sessionId: string) => Promise<void>;
   onCloseSidebar?: () => void;
 }
 
@@ -50,6 +51,7 @@ export function Sidebar({
   currentSessionId,
   onSelectSession,
   generateTitle,
+  onDeleteSession,
   onCloseSidebar,
 }: SidebarProps) {
   // Handle session selection with title generation
@@ -91,6 +93,7 @@ export function Sidebar({
               sessions={sessions}
               currentSessionId={currentSessionId}
               handleSessionSelect={handleSessionSelect}
+              onDeleteSession={onDeleteSession}
             />
           )}
         </div>
