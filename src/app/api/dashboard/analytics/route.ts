@@ -26,7 +26,7 @@ export async function GET() {
     // Get total counts
     const [totalSessions, totalMindmaps, totalFlashcards, totalQuizzes] =
       await Promise.all([
-        prisma.session.count({ where: { userId: user.id } }),
+        prisma.chatSession.count({ where: { userId: user.id } }),
         prisma.mindmap.count({ where: { userId: user.id } }),
         prisma.flashCard.count({ where: { userId: user.id } }),
         prisma.quiz.count({ where: { userId: user.id } }),
@@ -35,7 +35,7 @@ export async function GET() {
     // Get weekly counts
     const [weeklySessions, weeklyMindmaps, weeklyFlashcards, weeklyQuizzes] =
       await Promise.all([
-        prisma.session.count({
+        prisma.chatSession.count({
           where: {
             userId: user.id,
             startedAt: { gte: oneWeekAgo },
@@ -79,7 +79,7 @@ export async function GET() {
       );
 
       const [sessions, mindmaps, flashcards, quizzes] = await Promise.all([
-        prisma.session.count({
+        prisma.chatSession.count({
           where: {
             userId: user.id,
             startedAt: { gte: startOfDay, lt: endOfDay },
