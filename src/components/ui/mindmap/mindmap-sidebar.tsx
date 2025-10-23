@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Trash2, Edit2, Check, X } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useState } from 'react';
 
@@ -18,16 +19,20 @@ interface MindmapSidebarProps {
   currentMindmapId?: string;
   onSelectMindmap: (id: string) => void;
   onDeleteMindmap?: (id: string) => void; // New prop for delete functionality
+  onEditMindmapTitle?: (id: string, newTitle: string) => void; // New prop for edit functionality
   onCloseSidebar?: () => void; // Optional prop for mobile overlay close
 }
 
-export function MindmapSidebar({ mindmaps, currentMindmapId, onSelectMindmap, onDeleteMindmap, onCloseSidebar }: MindmapSidebarProps) {
+export function MindmapSidebar({ mindmaps, currentMindmapId, onSelectMindmap, onDeleteMindmap, onEditMindmapTitle, onCloseSidebar }: MindmapSidebarProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [mindmapToDelete, setMindmapToDelete] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   
   // Only close sidebar on mobile (when onCloseSidebar is provided and isMobileView is true)
   const isMobileView = typeof window !== 'undefined' && window.innerWidth < 768;
   const handleCardClick = (id: string) => {
+    if (editingId === id) return; // Don't select if currently editing
     onSelectMindmap(id);
     if (onCloseSidebar && isMobileView) {
       onCloseSidebar();
@@ -38,6 +43,37 @@ export function MindmapSidebar({ mindmaps, currentMindmapId, onSelectMindmap, on
     e.stopPropagation(); // Prevent card click
     setMindmapToDelete(mindmapId);
     setDeleteDialogOpen(true);
+  };
+
+  const handleEditClick = (e: React.MouseEvent, mindmapId: string, currentTitle: string) => {
+    e.stopPropagation(); // Prevent card click
+    setEditingId(mindmapId);
+    setEditingTitle(currentTitle);
+  };
+
+  const handleSaveEdit = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (editingId && onEditMindmapTitle && editingTitle.trim()) {
+      onEditMindmapTitle(editingId, editingTitle.trim());
+    }
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const handleCancelEdit = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingId(null);
+    setEditingTitle('');
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+    }
   };
 
   const handleConfirmDelete = () => {
@@ -82,26 +118,75 @@ export function MindmapSidebar({ mindmaps, currentMindmapId, onSelectMindmap, on
               if (mindmap.data && mindmap.data.root && mindmap.data.root.text) {
                 displayName = mindmap.data.root.text;
               }
+              
+              const isEditing = editingId === mindmap.id;
+              
               return (
                 <Card
                   key={mindmap.id}
                   className={`mx-2 my-1 cursor-pointer transition-colors duration-150 group ${mindmap.id === currentMindmapId ? 'border-primary bg-primary/10' : 'hover:bg-accent'} border-2 shadow-none`}
                   onClick={() => handleCardClick(mindmap.id)}
                 >
-                  <div className="py-1 px-2 flex items-center justify-between gap-2">
-                    <div className={`truncate font-medium text-sm ${mindmap.id === currentMindmapId ? 'text-primary' : ''}`}>
-                      {displayName}
-                    </div>
-                    {onDeleteMindmap && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:opacity-100 hover:bg-destructive/10 hover:text-destructive transition-opacity"
-                        onClick={(e) => handleDeleteClick(e, mindmap.id)}
-                        aria-label="Delete mindmap"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                  <div className="py-2 px-3 flex items-center justify-between gap-2">
+                    {isEditing ? (
+                      <div className="flex-1 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <Input
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onKeyDown={handleTitleKeyDown}
+                          className="text-sm h-7 border-primary"
+                          autoFocus
+                        />
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 hover:bg-green-100 hover:text-green-600"
+                            onClick={handleSaveEdit}
+                            disabled={!editingTitle.trim()}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 hover:bg-red-100 hover:text-red-600"
+                            onClick={handleCancelEdit}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className={`truncate font-medium text-sm flex-1 ${mindmap.id === currentMindmapId ? 'text-primary' : ''}`}>
+                          {displayName}
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {onEditMindmapTitle && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-blue-100 hover:text-blue-600"
+                              onClick={(e) => handleEditClick(e, mindmap.id, displayName)}
+                              aria-label="Edit mindmap title"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {onDeleteMindmap && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                              onClick={(e) => handleDeleteClick(e, mindmap.id)}
+                              aria-label="Delete mindmap"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 </Card>

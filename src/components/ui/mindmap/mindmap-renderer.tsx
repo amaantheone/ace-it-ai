@@ -112,29 +112,6 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
     setLastTouchDistance(0);
   }, []);
 
-  // Mouse handlers for desktop dragging
-  const handleMouseDown = useCallback((e: MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({
-      x: e.clientX - position.x,
-      y: e.clientY - position.y
-    });
-  }, [position]);
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (isDragging) {
-      e.preventDefault();
-      setPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
-      });
-    }
-  }, [isDragging, dragStart]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -160,27 +137,21 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
     const container = containerRef.current;
     if (!container) return;
 
-    // Touch events
+    // Touch events (keep for mobile)
     container.addEventListener('touchstart', handleTouchStart, { passive: false });
     container.addEventListener('touchmove', handleTouchMove, { passive: false });
     container.addEventListener('touchend', handleTouchEnd);
 
-    // Mouse events
-    container.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    // Mouse wheel for zoom only (no dragging for laptop/desktop)
     container.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
       container.removeEventListener('touchstart', handleTouchStart);
       container.removeEventListener('touchmove', handleTouchMove);
       container.removeEventListener('touchend', handleTouchEnd);
-      container.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel]);
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd, handleWheel]);
 
   useEffect(() => {
     renderMindmap({
@@ -253,10 +224,9 @@ export function MindmapRenderer({ mindmapData }: MindmapRendererProps) {
       {/* Mindmap Container */}
       <div
         ref={containerRef}
-        className="w-full h-full overflow-hidden bg-background rounded-lg cursor-grab"
+        className="w-full h-full overflow-hidden bg-background rounded-lg"
         style={{ 
-          minHeight: '400px',
-          cursor: isDragging ? 'grabbing' : 'grab'
+          minHeight: '400px'
         }}
       >
         <div

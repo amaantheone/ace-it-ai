@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, X, Edit } from "lucide-react";
 import { MindmapRenderer } from '@/components/ui/mindmap/mindmap-renderer';
 import { ChatInput } from "@/components/ui/chat/chat-input";
 import { MindmapSidebar } from '@/components/ui/mindmap/mindmap-sidebar';
+import { MindmapEditDialog } from '@/components/ui/mindmap/mindmap-edit-dialog';
 import { useGuest } from "@/contexts/GuestContext";
 import { LoginPopup } from "@/components/ui/login-popup";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -42,6 +43,7 @@ export default function MindmapPage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   // --- LocalStorage Caching Helpers ---
 
@@ -288,6 +290,118 @@ export default function MindmapPage() {
     }
   };
 
+  // --- Edit mindmap title: handle both guest and authenticated users ---
+  const handleEditMindmapTitle = async (id: string, newTitle: string) => {
+    setError('');
+    
+    try {
+      if (isGuest) {
+        // For guest users, update localStorage
+        const guestMindmaps = (loadGuestData('guest_mindmaps') as { id: string; topic: string; createdAt: string; data?: MindmapData }[]) || [];
+        const updatedMindmaps = guestMindmaps.map(mindmap => 
+          mindmap.id === id ? { ...mindmap, topic: newTitle } : mindmap
+        );
+        saveGuestData('guest_mindmaps', updatedMindmaps);
+        setMindmaps(updatedMindmaps);
+      } else {
+        // For authenticated users, call API to update in database
+        const mindmapToUpdate = mindmaps.find(m => m.id === id);
+        if (!mindmapToUpdate) {
+          throw new Error('Mindmap not found');
+        }
+        
+        const response = await fetch(`/api/mindmap/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            topic: newTitle,
+            data: mindmapToUpdate.data 
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update mindmap title');
+        }
+        
+        // Update local state and cache
+        const updatedMindmaps = mindmaps.map(mindmap => 
+          mindmap.id === id ? { ...mindmap, topic: newTitle } : mindmap
+        );
+        setMindmaps(updatedMindmaps);
+        saveMindmapListToCache(updatedMindmaps);
+      }
+    } catch (err) {
+      console.error('Error updating mindmap title:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update mindmap title');
+    }
+  };
+
+  // --- Edit mindmap structure: handle both guest and authenticated users ---
+  const handleEditMindmapData = async (updatedData: MindmapData) => {
+    if (!currentMindmapId) return;
+    
+    setError('');
+    
+    try {
+      if (isGuest) {
+        // For guest users, update localStorage
+        const guestMindmaps = (loadGuestData('guest_mindmaps') as { id: string; topic: string; createdAt: string; data?: MindmapData }[]) || [];
+        const updatedMindmaps = guestMindmaps.map(mindmap => 
+          mindmap.id === currentMindmapId ? { ...mindmap, data: updatedData } : mindmap
+        );
+        saveGuestData('guest_mindmaps', updatedMindmaps);
+        setMindmaps(updatedMindmaps);
+        
+        // Update individual mindmap cache
+        saveMindmapToCache(currentMindmapId, updatedData);
+        
+        // Update current display
+        setMindmapData(updatedData);
+      } else {
+        // For authenticated users, call API to update in database
+        const mindmapToUpdate = mindmaps.find(m => m.id === currentMindmapId);
+        if (!mindmapToUpdate) {
+          throw new Error('Mindmap not found');
+        }
+        
+        const response = await fetch(`/api/mindmap/${currentMindmapId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            topic: mindmapToUpdate.topic,
+            data: updatedData 
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update mindmap');
+        }
+        
+        // Update local state and cache
+        const updatedMindmaps = mindmaps.map(mindmap => 
+          mindmap.id === currentMindmapId ? { ...mindmap, data: updatedData } : mindmap
+        );
+        setMindmaps(updatedMindmaps);
+        saveMindmapListToCache(updatedMindmaps);
+        
+        // Update individual mindmap cache
+        saveMindmapToCache(currentMindmapId, updatedData);
+        
+        // Update current display
+        setMindmapData(updatedData);
+      }
+    } catch (err) {
+      console.error('Error updating mindmap:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update mindmap');
+    }
+  };
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobileView(window.innerWidth < 768);
@@ -311,6 +425,7 @@ export default function MindmapPage() {
           currentMindmapId={currentMindmapId || undefined}
           onSelectMindmap={handleSelectMindmap}
           onDeleteMindmap={handleDeleteMindmap}
+          onEditMindmapTitle={handleEditMindmapTitle}
           onCloseSidebar={() => setIsSidebarOpen(false)}
         />
       </div>
@@ -328,6 +443,7 @@ export default function MindmapPage() {
               currentMindmapId={currentMindmapId || undefined}
               onSelectMindmap={handleSelectMindmap}
               onDeleteMindmap={handleDeleteMindmap}
+              onEditMindmapTitle={handleEditMindmapTitle}
               onCloseSidebar={() => setIsSidebarOpen(false)}
             />
           </div>
@@ -416,7 +532,21 @@ export default function MindmapPage() {
         {mindmapData && (
           <div className={`flex-1 flex ${isMobileView ? 'min-h-0 min-w-0' : ''}`}>
             <Card className="w-full h-full flex-1 flex flex-col">
-              <CardContent className={`flex-1 pt-6 ${isMobileView ? 'p-1' : ''} flex flex-col`} style={isMobileView ? {height: '100%', minHeight: 0, minWidth: 0} : {}}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Current Mindmap</CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setIsEditDialogOpen(true)}
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit Structure
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className={`flex-1 pt-0 ${isMobileView ? 'p-1' : ''} flex flex-col`} style={isMobileView ? {height: '100%', minHeight: 0, minWidth: 0} : {}}>
                 <div className="flex-1 w-full h-full min-h-0 min-w-0">
                   <MindmapRenderer mindmapData={mindmapData} />
                 </div>
@@ -434,6 +564,16 @@ export default function MindmapPage() {
         closable={true}
         onClose={() => setShowMindmapLoginPopup(false)}
       />
+
+      {/* Mindmap Edit Dialog */}
+      {mindmapData && (
+        <MindmapEditDialog
+          open={isEditDialogOpen}
+          mindmapData={mindmapData}
+          onSave={handleEditMindmapData}
+          onClose={() => setIsEditDialogOpen(false)}
+        />
+      )}
     </div>
   );
 }
