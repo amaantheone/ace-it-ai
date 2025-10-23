@@ -233,6 +233,61 @@ export default function MindmapPage() {
     }
   };
 
+  // --- Delete mindmap: handle both guest and authenticated users ---
+  const handleDeleteMindmap = async (id: string) => {
+    setError('');
+    
+    try {
+      if (isGuest) {
+        // For guest users, remove from localStorage
+        const guestMindmaps = (loadGuestData('guest_mindmaps') as { id: string; topic: string; createdAt: string; data?: MindmapData }[]) || [];
+        const updatedMindmaps = guestMindmaps.filter(mindmap => mindmap.id !== id);
+        saveGuestData('guest_mindmaps', updatedMindmaps);
+        setMindmaps(updatedMindmaps);
+        
+        // Remove individual mindmap cache
+        try {
+          localStorage.removeItem(`guest_mindmap_${id}`);
+        } catch {}
+        
+        // If the deleted mindmap was currently displayed, clear it
+        if (currentMindmapId === id) {
+          setMindmapData(null);
+          setCurrentMindmapId(null);
+        }
+      } else {
+        // For authenticated users, call API to delete from database
+        const response = await fetch(`/api/mindmap/${id}`, {
+          method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete mindmap');
+        }
+        
+        // Remove from local state and cache
+        const updatedMindmaps = mindmaps.filter(mindmap => mindmap.id !== id);
+        setMindmaps(updatedMindmaps);
+        saveMindmapListToCache(updatedMindmaps);
+        
+        // Remove individual mindmap cache
+        try {
+          localStorage.removeItem(`mindmap_${id}`);
+        } catch {}
+        
+        // If the deleted mindmap was currently displayed, clear it
+        if (currentMindmapId === id) {
+          setMindmapData(null);
+          setCurrentMindmapId(null);
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting mindmap:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete mindmap');
+    }
+  };
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobileView(window.innerWidth < 768);
@@ -255,6 +310,7 @@ export default function MindmapPage() {
           mindmaps={mindmaps}
           currentMindmapId={currentMindmapId || undefined}
           onSelectMindmap={handleSelectMindmap}
+          onDeleteMindmap={handleDeleteMindmap}
           onCloseSidebar={() => setIsSidebarOpen(false)}
         />
       </div>
@@ -271,6 +327,7 @@ export default function MindmapPage() {
               mindmaps={mindmaps}
               currentMindmapId={currentMindmapId || undefined}
               onSelectMindmap={handleSelectMindmap}
+              onDeleteMindmap={handleDeleteMindmap}
               onCloseSidebar={() => setIsSidebarOpen(false)}
             />
           </div>
