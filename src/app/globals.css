@@ -197,4 +197,24 @@
       @apply text-sm;
     }
   }
+
+  /* KaTeX math rendering styles */
+  .katex-math {
+    font-size: inherit;
+  }
+  
+  .katex-math .katex {
+    font-size: inherit;
+  }
+  
+  /* Ensure math expressions work well in dark mode */
+  .dark .katex-math .katex-html {
+    color: inherit;
+  }
+  
+  /* Math display block styling */
+  .katex-math.block {
+    text-align: center;
+    margin: 1rem 0;
+  }
 }

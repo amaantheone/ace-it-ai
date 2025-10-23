@@ -13,7 +13,7 @@ import {
 import Skeleton, { SkeletonTheme } from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { RefreshCcw, CopyIcon, Edit2 } from "lucide-react";
-import Markdown from 'markdown-to-jsx';
+import { MarkdownWithMath } from "../markdown-with-math";
 import { useSessionStore } from '@/hooks/useSessionStore';
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -275,37 +275,9 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                         </SkeletonTheme>
                       ) : (
                         <div className="prose dark:prose-invert max-w-none text-foreground break-words overflow-wrap-anywhere">
-                          <Markdown options={{
-                            overrides: {
-                              p: {
-                                props: {
-                                  className: 'mb-2 break-words'
-                                }
-                              },
-                              ul: {
-                                props: {
-                                  className: 'list-disc pl-4 mb-2 space-y-1 break-words'
-                                }
-                              },
-                              li: {
-                                props: {
-                                  className: 'ml-2 break-words'
-                                }
-                              },
-                              code: {
-                                props: {
-                                  className: 'break-words overflow-x-auto text-xs md:text-sm'
-                                }
-                              },
-                              pre: {
-                                props: {
-                                  className: 'break-words overflow-x-auto text-xs md:text-sm whitespace-pre-wrap'
-                                }
-                              }
-                            }
-                          }}>
+                          <MarkdownWithMath className="">
                             {message.message || ''}
-                          </Markdown>
+                          </MarkdownWithMath>
                         </div>
                       )}
                       <div className="flex items-center mt-1.5 gap-1">
