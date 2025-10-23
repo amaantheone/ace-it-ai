@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { X } from "lucide-react";
 import { QuizSidebar } from "@/components/ui/quiz/quiz-sidebar";
-import { createAttempt, saveQuestionAnswer, getAttempt, getAttemptQuestions, updateQuizScore, updateAttemptScore, fetchQuizzes, updateQuizzesCache, deleteQuiz, removeQuizFromCache, QuizMeta } from "@/utils/quizFunctions/attemptHelpers";
+import { createAttempt, saveQuestionAnswer, getAttempt, getAttemptQuestions, updateQuizScore, updateAttemptScore, fetchQuizzes, updateQuizzesCache, deleteQuiz, QuizMeta } from "@/utils/quizFunctions/attemptHelpers";
 import { generateQuizStreaming } from "@/utils/quizFunctions/streamingQuiz";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
