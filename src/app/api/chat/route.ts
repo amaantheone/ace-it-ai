@@ -53,7 +53,7 @@ RULES:
   - Encourage Time Management and Breaks: Remind users about the importance of regular breaks and effective time management during study sessions.`;
 
 const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-2.0-flash",
+  model: "gemini-flash-latest",
   temperature: 0.5,
   maxOutputTokens: 2048,
   streaming: false,
@@ -240,7 +240,7 @@ export async function POST(req: Request) {
     if (imageContext) {
       // For image analysis, we need to use a vision-capable model
       const visionLlm = new ChatGoogleGenerativeAI({
-        model: "gemini-2.0-flash",
+        model: "gemini-flash-latest",
         temperature: 0.5,
         maxOutputTokens: 2048,
         streaming: false,

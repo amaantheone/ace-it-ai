@@ -38,7 +38,7 @@ Limit to max 3 levels deep.
 Use clear and concise labels.`;
 
 const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-2.0-flash",
+  model: "gemini-flash-latest",
   maxOutputTokens: 2048,
   temperature: 0.3,
 });

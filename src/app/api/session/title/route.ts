@@ -10,7 +10,7 @@ Rules:
 - Return only the title, nothing else`;
 
 const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-2.0-flash",
+  model: "gemini-flash-latest",
   temperature: 0.3, // Lower temperature for more focused titles
   maxOutputTokens: 50, // We only need a short title
 });

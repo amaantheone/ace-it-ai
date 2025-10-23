@@ -47,7 +47,7 @@ Return JSON format:
 }`;
 
 const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-2.0-flash",
+  model: "gemini-flash-latest",
   maxOutputTokens: 1024, // Reduced from 2048 for faster response
   temperature: 0.1, // Reduced from 0.3 for more consistent output
 });

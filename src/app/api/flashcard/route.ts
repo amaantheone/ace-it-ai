@@ -30,7 +30,7 @@ IMPORTANT: Keep the "term" field VERY SHORT (1-3 words maximum).
 Always return valid JSON format.`;
 
 const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-2.0-flash",
+  model: "gemini-flash-latest",
   maxOutputTokens: 2048,
   temperature: 0.3,
 });
