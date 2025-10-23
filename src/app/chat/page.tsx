@@ -1,19 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useTheme } from "../../contexts/ThemeContext";
-import { useGuest } from "../../contexts/GuestContext";
-import { useSessionStore, Session, Message } from "../../hooks/useSessionStore";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useGuest } from "@/contexts/GuestContext";
+import { useSessionStore, Session, Message } from "@/hooks/useSessionStore";
 import { useSession } from "next-auth/react";
-import { Sidebar } from "../../components/ui/chat/sidebar";
-import { ChatHeader } from "../../components/ui/chat/chat-header";
-import { ChatInputArea } from "../../components/ui/chat/chat-input-area";
-import { ChatMessages } from "../../components/ui/chat/chat-messages";
-import { LoginPopup } from "../../components/ui/login-popup";
-import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil, sendSuggestionMessage } from "../../utils/chatFunctions/messageHandlers";
-import { generateTitle as generateTitleUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil, loadInitialSessions, loadMessagesForSession, persistGuestState, deleteSession } from "../../utils/chatFunctions/sessionHandlers";
-import SuggestionsGrid from "../../components/ui/chat/suggestions-grid";
-import { useScrollToBottom } from "../../components/ui/chat/hooks/useScrollToBottom";
+import { Sidebar } from "@/components/ui/chat/sidebar";
+import { ChatHeader } from "@/components/ui/chat/chat-header";
+import { ChatInputArea } from "@/components/ui/chat/chat-input-area";
+import { ChatMessages } from "@/components/ui/chat/chat-messages";
+import { LoginPopup } from "@/components/ui/login-popup";
+import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil, sendSuggestionMessage } from "@/utils/chatFunctions/messageHandlers";
+import { generateTitle as generateTitleUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil, loadInitialSessions, loadMessagesForSession, persistGuestState, deleteSession } from "@/utils/chatFunctions/sessionHandlers";
+import { exportChatAsPDF } from "@/utils/chatPdfExport";
+import SuggestionsGrid from "@/components/ui/chat/suggestions-grid";
+import { useScrollToBottom } from "@/components/ui/chat/hooks/useScrollToBottom";
 
 export default function ChatPage() {
   const { data: session } = useSession();
@@ -396,6 +397,15 @@ export default function ChatPage() {
     });
   };
 
+  // Handler to export chat as PDF
+  const handleExportPDF = () => {
+    const currentMessages = getCurrentSessionMessages();
+    const currentSession = sessions.find(session => session.id === currentSessionId);
+    const sessionTitle = currentSession?.topic || 'Chat Conversation';
+    
+    exportChatAsPDF(currentMessages, sessionTitle);
+  };
+
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
@@ -478,7 +488,11 @@ export default function ChatPage() {
 
   {/* Main Chat Area */}
   <div className="flex-1 min-h-0 flex flex-col bg-background relative">
-        <ChatHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+        <ChatHeader 
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
+          onExportPDF={handleExportPDF}
+          hasMessages={getCurrentSessionMessages().length > 0}
+        />
   {/* Messages Area */}
   <div className="flex-1 min-h-0 overflow-y-auto flex flex-col relative" onScroll={handleScroll}>
           <ChatMessages

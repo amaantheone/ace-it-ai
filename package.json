@@ -39,6 +39,8 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.2",
     "framer-motion": "^12.12.2",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.3",
     "katex": "^0.16.25",
     "langchain": "^0.3.24",
     "lucide-react": "^0.508.0",
