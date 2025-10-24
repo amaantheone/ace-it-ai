@@ -45,6 +45,7 @@ export default function ChatPage() {
   const [isMobileView, setIsMobileView] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [loginPopupVariant, setLoginPopupVariant] = useState<"limit" | "newSession">("limit");
+  const [isSessionLoading, setIsSessionLoading] = useState(false); // Separate loading state for session switching
   const { theme, toggleTheme } = useTheme();
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -57,6 +58,9 @@ export default function ChatPage() {
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { bottomRef, showScrollToBottom, handleScroll, scrollToBottom } = useScrollToBottom({ threshold: 100, behavior: 'smooth' });
+  
+  // Track which session we've loaded messages for to prevent unnecessary reloads
+  const loadedSessionRef = useRef<string | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -104,20 +108,33 @@ export default function ChatPage() {
       setSessions,
       setCurrentSessionId,
       setMessages,
-      setIsLoading,
+      setIsLoading: setIsSessionLoading, // Use session loading instead of global loading
     });
-  }, [setSessions, setCurrentSessionId, setMessages, setIsLoading, currentSessionId, isGuest, loadGuestData, saveGuestData]);
+    // Reset loaded session reference when component mounts or guest status changes
+    loadedSessionRef.current = null;
+  }, [setSessions, setCurrentSessionId, setMessages, currentSessionId, isGuest, loadGuestData, saveGuestData]);
 
   // Load messages when switching sessions
   useEffect(() => {
-    loadMessagesForSession({
-      currentSessionId,
-      isGuest,
-      loadGuestData,
-      setMessages,
-      setIsLoading,
-    });
-  }, [currentSessionId, setMessages, isGuest, loadGuestData, setIsLoading]);
+    // Only load messages if we've switched to a different session
+    if (currentSessionId && currentSessionId !== loadedSessionRef.current) {
+      loadedSessionRef.current = currentSessionId;
+      setIsSessionLoading(true);
+      
+      loadMessagesForSession({
+        currentSessionId,
+        isGuest,
+        loadGuestData,
+        setMessages,
+        setIsLoading: setIsSessionLoading, // Use session loading state instead of global loading
+      }).then(() => {
+        // Auto-scroll to bottom after messages load
+        setTimeout(() => {
+          scrollToBottom();
+        }, 100);
+      });
+    }
+  }, [currentSessionId, isGuest, loadGuestData, setMessages, scrollToBottom]);
 
   // Save sessions/messages to localStorage on change (guest only)
   useEffect(() => {
@@ -138,6 +155,8 @@ export default function ChatPage() {
   }, [currentSessionId, messages]);
 
   const handleNewChat = useCallback(() => {
+    // Reset loaded session reference when creating new chat
+    loadedSessionRef.current = null;
     handleNewChatUtil({
       sessions,
       setSessions,
@@ -152,6 +171,10 @@ export default function ChatPage() {
   }, [sessions, setSessions, setCurrentSessionId, setMessages, isMobileView, isGuest, setShowChatLoginPopup]);
 
   const handleDeleteSession = useCallback(async (sessionId: string) => {
+    // Reset loaded session reference when deleting
+    if (sessionId === loadedSessionRef.current) {
+      loadedSessionRef.current = null;
+    }
     await deleteSession({
       sessionId,
       sessions,
@@ -169,11 +192,12 @@ export default function ChatPage() {
     handleKeyDownUtil(e, handleSendMessage, isLoading);
   };
 
-  const handleSendMessage = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSendMessage = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!currentSessionId || isLoading) return; // Prevent submission if already loading
 
-    handleSendMessageUtil(e, {
+    // Call the message handler and then scroll to bottom
+    await handleSendMessageUtil(e, {
       input,
       currentSessionId,
       username,
@@ -195,6 +219,11 @@ export default function ChatPage() {
       isLoading,
       setIsLoading,
     });
+
+    // Auto-scroll to bottom after AI response
+    setTimeout(() => {
+      scrollToBottom();
+    }, 100);
   };
 
   const handleGuestMessageEdit = useCallback(async (messageIndex: number, newContent: string) => {
@@ -259,6 +288,11 @@ export default function ChatPage() {
       // Update guest storage with final messages
       const finalAllMessages = { ...messages, [currentSessionId]: finalMessages };
       saveGuestData('messages', finalAllMessages);
+
+      // Auto-scroll to bottom after response
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
     } catch (error) {
       console.error('Failed to edit guest message:', error);
       // Revert the message change on error
@@ -269,7 +303,7 @@ export default function ChatPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentSessionId, messages, setMessages, saveGuestData, username, avatar, setIsLoading, getCurrentSessionMessages]);
+  }, [currentSessionId, messages, setMessages, saveGuestData, username, avatar, setIsLoading, getCurrentSessionMessages, scrollToBottom]);
 
   const handleGuestRegenerate = useCallback(async () => {
     if (!currentSessionId) return;
@@ -359,6 +393,11 @@ export default function ChatPage() {
       // Update guest storage with final messages
       const finalAllMessages = { ...messages, [currentSessionId]: finalMessages };
       saveGuestData('messages', finalAllMessages);
+
+      // Auto-scroll to bottom after response
+      setTimeout(() => {
+        scrollToBottom();
+      }, 100);
     } catch (error) {
       console.error('Failed to regenerate guest response:', error);
       
@@ -374,7 +413,7 @@ export default function ChatPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentSessionId, messages, setMessages, saveGuestData, setIsLoading, getCurrentSessionMessages]);
+  }, [currentSessionId, messages, setMessages, saveGuestData, setIsLoading, getCurrentSessionMessages, scrollToBottom]);
 
   // Handler to send a suggestion as a user message
   const handleSuggestionClick = async (text: string) => {
@@ -395,6 +434,11 @@ export default function ChatPage() {
       setSessions,
       setLoginPopupVariant,
     });
+
+    // Auto-scroll to bottom after AI response
+    setTimeout(() => {
+      scrollToBottom();
+    }, 100);
   };
 
   // Handler to export chat as PDF
@@ -499,7 +543,7 @@ export default function ChatPage() {
             messages={getCurrentSessionMessages()}
             messagesContainerRef={messagesContainerRef}
             bottomRef={bottomRef}
-            isLoading={isLoading}
+            isLoading={isSessionLoading} // Use session loading instead of global loading
             isGuestMode={isGuest}
             onGuestMessageEdit={handleGuestMessageEdit}
             onGuestRegenerate={handleGuestRegenerate}
