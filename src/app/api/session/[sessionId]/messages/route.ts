@@ -46,7 +46,7 @@ export async function GET(request: Request, context: unknown) {
     const transformedMessages = messages.map((msg: MessageWithUser) => ({
       id: msg.id,
       message: msg.content,
-      role: msg.role,
+      role: msg.role === "assistant" ? "ai" : msg.role, // Transform assistant to ai for frontend
       name: msg.user.name || "Guest",
       avatar: msg.user.image,
     }));
@@ -101,7 +101,7 @@ export async function POST(request: Request, context: unknown) {
     const transformedMessage = {
       id: message.id,
       message: message.content,
-      role: message.role,
+      role: message.role === "assistant" ? "ai" : message.role, // Transform assistant to ai for frontend
       name: message.user.name || "Guest",
       avatar: message.user.image,
     };

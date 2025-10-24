@@ -1,4 +1,9 @@
 import { Message, Session } from "@/hooks/useSessionStore";
+import {
+  createStreamingChatRequest,
+  handleStreamingResponse,
+  generateMessageId,
+} from "./streamingUtils";
 
 // Helper function to generate a simple title for guest sessions
 const generateGuestSessionTitle = (message: string): string => {
@@ -253,6 +258,311 @@ export const handleSendMessage = async (
   }
 };
 
+export const handleSendMessageWithStreaming = async (
+  e: React.FormEvent<HTMLFormElement>,
+  {
+    input,
+    currentSessionId,
+    username,
+    avatar,
+    messages,
+    setInput,
+    setMessages,
+    setSessions,
+    sessions,
+    formRef,
+    selectedFile,
+    setSelectedFile,
+    isGuestMode,
+    guestMessageCount,
+    incrementGuestMessageCount,
+    setShowChatLoginPopup,
+    guestMessageLimit,
+    setLoginPopupVariant,
+    isLoading,
+    setIsLoading,
+    // Additional props for streaming
+    appendToStreamingMessage,
+    startStreamingMessage,
+    completeStreamingMessage,
+    scrollToBottom,
+  }: {
+    input: string;
+    currentSessionId: string;
+    username: string;
+    avatar: string | null | undefined;
+    messages: Record<string, Message[]>;
+    setInput: (input: string) => void;
+    setMessages: (sessionId: string, messages: Message[]) => void;
+    setSessions: (sessions: Session[]) => void;
+    sessions: Session[];
+    formRef: React.RefObject<HTMLFormElement>;
+    selectedFile?: File | null;
+    setSelectedFile?: (file: File | null) => void;
+    isGuestMode?: boolean;
+    guestMessageCount?: number;
+    incrementGuestMessageCount?: () => number;
+    setShowChatLoginPopup?: (open: boolean) => void;
+    guestMessageLimit?: number;
+    setLoginPopupVariant?: (variant: "limit" | "newSession") => void;
+    isLoading?: boolean;
+    setIsLoading?: (loading: boolean) => void;
+    // Streaming methods
+    appendToStreamingMessage?: (
+      sessionId: string,
+      messageId: string,
+      content: string
+    ) => void;
+    startStreamingMessage?: (sessionId: string, messageId: string) => void;
+    completeStreamingMessage?: (sessionId: string, messageId: string) => void;
+    scrollToBottom?: () => void;
+  }
+) => {
+  e.preventDefault();
+
+  // Prevent multiple simultaneous requests
+  if (isLoading) {
+    console.log("Request already in progress, ignoring duplicate");
+    return;
+  }
+
+  if (!input.trim() || !currentSessionId) return;
+
+  // Set loading state immediately to prevent duplicate requests
+  if (setIsLoading) setIsLoading(true);
+
+  // Guest gating
+  if (isGuestMode && setShowChatLoginPopup && guestMessageCount !== undefined) {
+    const allowed = enforceGuestMessageLimit({
+      guestMessageCount,
+      setShowChatLoginPopup,
+      limit: guestMessageLimit,
+      setLoginPopupVariant,
+    });
+    if (!allowed) {
+      if (setIsLoading) setIsLoading(false);
+      return;
+    }
+
+    // Only increment the count after we know the message will be sent
+    if (incrementGuestMessageCount) {
+      incrementGuestMessageCount();
+    }
+  }
+
+  const userMessageId = generateMessageId();
+  const userMessage: Message = {
+    id: userMessageId,
+    message: input,
+    role: "user",
+    avatar: avatar || "",
+    name: username,
+  };
+
+  const currentInput = input;
+  setInput("");
+  formRef.current?.reset();
+  if (setSelectedFile) setSelectedFile(null);
+
+  try {
+    const currentMessages = messages[currentSessionId] || [];
+    setMessages(currentSessionId, [...currentMessages, userMessage]);
+
+    // Add streaming AI message
+    const aiMessageId = generateMessageId();
+    const aiStreamingMessage: Message = {
+      id: aiMessageId,
+      message: "",
+      role: "ai",
+      name: "AI Tutor",
+      isLoading: true,
+    };
+
+    const messagesWithAI = [
+      ...currentMessages,
+      userMessage,
+      aiStreamingMessage,
+    ];
+    setMessages(currentSessionId, messagesWithAI);
+
+    // Prepare streaming request payload
+    const payload = {
+      message: currentInput,
+      sessionId: currentSessionId,
+      userMessageId,
+      isGuestMode: isGuestMode || false,
+      guestMessages: isGuestMode
+        ? currentMessages.map((msg) => ({
+            role: msg.role,
+            content: msg.message,
+            id: msg.id,
+          }))
+        : undefined,
+    };
+
+    // Start streaming request
+    const streamingResponse = await createStreamingChatRequest(
+      "/api/chat/stream",
+      payload,
+      selectedFile
+    );
+
+    // Start streaming and update UI
+    if (startStreamingMessage) {
+      startStreamingMessage(currentSessionId, aiMessageId);
+    }
+
+    // Handle streaming response with smart scroll behavior
+    let streamedContent = "";
+    let hasScrolledToShowResponse = false;
+
+    // Function to scroll to show the AI response at top of viewport
+    const scrollToShowResponse = () => {
+      // Find the AI message element and scroll it into view at top
+      const aiMessageElement = document.querySelector(
+        `[data-message-id="${aiMessageId}"]`
+      ) as HTMLElement;
+      if (aiMessageElement) {
+        aiMessageElement.scrollIntoView({
+          behavior: "smooth",
+          block: "start", // Position at top of viewport
+        });
+      } else if (scrollToBottom) {
+        // Fallback to bottom scroll if element not found
+        scrollToBottom();
+      }
+    };
+
+    // Detect user scroll activity to re-enable auto-scroll
+    const handleUserScroll = () => {
+      hasScrolledToShowResponse = false; // Re-enable auto-scroll when user scrolls
+    };
+
+    // Add scroll listener
+    const scrollContainer =
+      document.querySelector("[data-scroll-container]") || window;
+    scrollContainer.addEventListener("scroll", handleUserScroll, {
+      passive: true,
+    });
+
+    try {
+      await handleStreamingResponse(streamingResponse, {
+        onChunk: (content: string) => {
+          streamedContent += content;
+
+          if (appendToStreamingMessage) {
+            appendToStreamingMessage(currentSessionId, aiMessageId, content);
+          }
+
+          // Auto-scroll to show AI response when first line is complete
+          if (!hasScrolledToShowResponse) {
+            // Scroll when we have a complete first line or enough content
+            if (streamedContent.includes("\n") || streamedContent.length > 40) {
+              setTimeout(() => {
+                scrollToShowResponse();
+                hasScrolledToShowResponse = true;
+              }, 100); // Small delay to ensure DOM is updated
+            }
+          }
+        },
+        onComplete: () => {
+          // Clean up scroll listener
+          scrollContainer.removeEventListener("scroll", handleUserScroll);
+
+          // Just mark streaming as complete, don't override the incrementally built content
+          if (completeStreamingMessage) {
+            completeStreamingMessage(currentSessionId, aiMessageId);
+          }
+          // Final scroll to bottom
+          if (scrollToBottom) {
+            setTimeout(() => scrollToBottom(), 100);
+          }
+        },
+        onError: (error: string) => {
+          // Clean up scroll listener on error
+          scrollContainer.removeEventListener("scroll", handleUserScroll);
+
+          console.error("Streaming error:", error);
+          // Replace with error message
+          const errorMessage: Message = {
+            id: aiMessageId,
+            message: "Sorry, there was an error. Please try again.",
+            role: "ai",
+            name: "AI Tutor",
+            isLoading: false,
+          };
+          setMessages(currentSessionId, [
+            ...currentMessages,
+            userMessage,
+            errorMessage,
+          ]);
+        },
+      });
+    } catch (error) {
+      // Clean up scroll listener on any error
+      scrollContainer.removeEventListener("scroll", handleUserScroll);
+      throw error;
+    }
+
+    // Generate title for new sessions without a topic
+    const currentSession = sessions.find((s) => s.id === currentSessionId);
+    if (currentSession && !currentSession.topic) {
+      if (isGuestMode) {
+        // For guest mode: generate a simple title based on the first message
+        try {
+          const title = generateGuestSessionTitle(currentInput);
+          setSessions(
+            sessions.map((s) =>
+              s.id === currentSessionId ? { ...s, topic: title } : s
+            )
+          );
+        } catch (titleError) {
+          console.error("Failed to generate guest title:", titleError);
+        }
+      } else {
+        // For authenticated users: use the API
+        try {
+          const response = await fetch("/api/session/title", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: currentSessionId,
+              message: currentInput,
+            }),
+          });
+          if (response.ok) {
+            const { title } = await response.json();
+            setSessions(
+              sessions.map((s) =>
+                s.id === currentSessionId ? { ...s, topic: title } : s
+              )
+            );
+          }
+        } catch (titleError) {
+          console.error("Failed to generate title:", titleError);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    const errorMessage: Message = {
+      id: generateMessageId(),
+      message: "Sorry, there was an error. Please try again.",
+      role: "ai",
+      name: "AI Tutor",
+      isLoading: false,
+    };
+    const currentMessages = messages[currentSessionId] || [];
+    setMessages(currentSessionId, [
+      ...currentMessages.filter((msg) => !msg.isLoading),
+      errorMessage,
+    ]);
+  } finally {
+    // Always reset loading state
+    if (setIsLoading) setIsLoading(false);
+  }
+};
+
 export const handleKeyDown = (
   e: React.KeyboardEvent<HTMLTextAreaElement>,
   handleSendMessage: (e: React.FormEvent<HTMLFormElement>) => void,
@@ -309,6 +619,11 @@ export const sendSuggestionMessage = async (
     sessions,
     setSessions,
     setLoginPopupVariant,
+    // Add streaming props
+    appendToStreamingMessage,
+    startStreamingMessage,
+    completeStreamingMessage,
+    scrollToBottom,
   }: {
     currentSessionId: string | null;
     isGuestMode: boolean;
@@ -325,6 +640,15 @@ export const sendSuggestionMessage = async (
     sessions: Session[];
     setSessions: (sessions: Session[]) => void;
     setLoginPopupVariant?: (variant: "limit" | "newSession") => void;
+    // Streaming methods
+    appendToStreamingMessage?: (
+      sessionId: string,
+      messageId: string,
+      content: string
+    ) => void;
+    startStreamingMessage?: (sessionId: string, messageId: string) => void;
+    completeStreamingMessage?: (sessionId: string, messageId: string) => void;
+    scrollToBottom?: () => void;
   }
 ) => {
   if (!currentSessionId) return;
@@ -355,8 +679,8 @@ export const sendSuggestionMessage = async (
   setInput("");
   setIsLoading(true);
 
-  // Reuse existing send handler
-  await handleSendMessage(
+  // Use streaming send handler instead of regular one
+  await handleSendMessageWithStreaming(
     {
       preventDefault: () => {},
       target: formRef?.current as HTMLFormElement,
@@ -378,6 +702,15 @@ export const sendSuggestionMessage = async (
       guestMessageCount,
       incrementGuestMessageCount,
       setIsLoading,
+      setShowChatLoginPopup,
+      guestMessageLimit: 4,
+      setLoginPopupVariant,
+      isLoading: false,
+      // Add streaming props
+      appendToStreamingMessage,
+      startStreamingMessage,
+      completeStreamingMessage,
+      scrollToBottom,
     }
   );
   setIsLoading(false);

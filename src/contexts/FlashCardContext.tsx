@@ -192,8 +192,7 @@ export function FlashCardProvider({ children }: { children: React.ReactNode }) {
           throw new Error(errorData.details || errorData.error || 'Failed to delete folder');
         }
 
-        const result = await response.json();
-        console.log('Folder deleted successfully:', result.message);
+        await response.json();
         
       } catch (error) {
         console.error('Error deleting folder from database:', error);

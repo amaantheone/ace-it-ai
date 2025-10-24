@@ -8,17 +8,67 @@ interface MathComponentProps {
   children: React.ReactNode;
 }
 
+// Function to decode escaped math content
+function decodeMathContent(content: string): string {
+  return content
+    .replace(/&#123;/g, '{')
+    .replace(/&#125;/g, '}')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+// Function to safely convert children to string, handling React elements
+function childrenToString(children: React.ReactNode): string {
+  if (typeof children === 'string') {
+    return children;
+  }
+  
+  if (Array.isArray(children)) {
+    return children.map(child => childrenToString(child)).join('');
+  }
+  
+  if (React.isValidElement(children)) {
+    // If it's a React element, try to extract text content
+    const props = children.props as { children?: React.ReactNode };
+    if (typeof props.children === 'string') {
+      return props.children;
+    }
+    // For complex elements, recursively extract text
+    return childrenToString(props.children);
+  }
+  
+  // If it's an object that got stringified to [object Object], 
+  // try to extract meaningful content
+  if (typeof children === 'object' && children !== null) {
+    // Check if it has common text properties
+    const obj = children as { children?: React.ReactNode; props?: { children?: React.ReactNode } };
+    if (obj.children !== undefined) {
+      return childrenToString(obj.children);
+    }
+    if (obj.props?.children !== undefined) {
+      return childrenToString(obj.props.children);
+    }
+    // Last resort: return empty string rather than [object Object]
+    return '';
+  }
+  
+  return String(children);
+}
+
 // Custom component for inline math
 function MathComponent({ children }: MathComponentProps) {
-  // Convert children to string, handling arrays
-  const mathString = Array.isArray(children) ? children.join('') : String(children);
+  // Convert children to string safely, then decode
+  const rawMathString = childrenToString(children);
+  const mathString = decodeMathContent(rawMathString);
+  
   return <InlineMath>{mathString}</InlineMath>;
 }
 
 // Custom component for block math
 function BlockMathComponent({ children }: MathComponentProps) {
-  // Convert children to string, handling arrays
-  const mathString = Array.isArray(children) ? children.join('') : String(children);
+  // Convert children to string safely, then decode
+  const rawMathString = childrenToString(children);
+  const mathString = decodeMathContent(rawMathString);
   return <BlockMath>{mathString}</BlockMath>;
 }
 
@@ -27,11 +77,28 @@ interface MarkdownWithMathProps {
   className?: string;
 }
 
+// Function to escape LaTeX content for safe markdown processing
+function escapeMathContent(mathContent: string): string {
+  // Encode curly braces and other special characters that markdown-to-jsx might interpret
+  return mathContent
+    .replace(/\{/g, '&#123;')
+    .replace(/\}/g, '&#125;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // Function to parse and replace LaTeX expressions
 function preprocessMathContent(content: string): string {
   // First, handle expressions already wrapped in dollar signs
-  content = content.replace(/\$\$([^$]+?)\$\$/g, '<BlockMath>$1</BlockMath>');
-  content = content.replace(/(?<!\$)\$(?!\$)([^$\n]+?)(?<!\$)\$(?!\$)/g, '<MathComponent>$1</MathComponent>');
+  content = content.replace(/\$\$([^$]+?)\$\$/g, (match, mathContent) => {
+    const escaped = escapeMathContent(mathContent);
+    return `<BlockMath>${escaped}</BlockMath>`;
+  });
+  
+  content = content.replace(/(?<!\$)\$(?!\$)([^$\n]+?)(?<!\$)\$(?!\$)/g, (match, mathContent) => {
+    const escaped = escapeMathContent(mathContent);
+    return `<MathComponent>${escaped}</MathComponent>`;
+  });
   
   // Handle unwrapped LaTeX expressions line by line
   const lines = content.split('\n');
@@ -52,11 +119,13 @@ function preprocessMathContent(content: string): string {
     if (hasLatexCommand || hasFraction || hasSpecialChars || hasParentheses) {
       // If line starts with LaTeX command, likely a block equation
       if (/^\\/.test(trimmedLine)) {
-        return `<BlockMath>${trimmedLine}</BlockMath>`;
+        const escaped = escapeMathContent(trimmedLine);
+        return `<BlockMath>${escaped}</BlockMath>`;
       }
       // If it's mixed content, wrap the whole line as inline math
       else if (trimmedLine.length > 0) {
-        return `<MathComponent>${trimmedLine}</MathComponent>`;
+        const escaped = escapeMathContent(trimmedLine);
+        return `<MathComponent>${escaped}</MathComponent>`;
       }
     }
     

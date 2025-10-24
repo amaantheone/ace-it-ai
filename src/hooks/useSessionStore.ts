@@ -34,6 +34,13 @@ interface SessionActions {
     messageId: string,
     updates: Partial<Message>
   ) => void;
+  appendToStreamingMessage: (
+    sessionId: string,
+    messageId: string,
+    content: string
+  ) => void;
+  startStreamingMessage: (sessionId: string, messageId: string) => void;
+  completeStreamingMessage: (sessionId: string, messageId: string) => void;
   setInput: (input: string) => void;
   setIsLoading: (isLoading: boolean) => void;
   clearMessages: (sessionId: string) => void;
@@ -73,6 +80,38 @@ export const useSessionStore = create<SessionState & SessionActions>(
           ...state.messages,
           [sessionId]: (state.messages[sessionId] || []).map((msg) =>
             msg.id === messageId ? { ...msg, ...updates } : msg
+          ),
+        },
+      })),
+
+    appendToStreamingMessage: (sessionId, messageId, content) =>
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [sessionId]: (state.messages[sessionId] || []).map((msg) =>
+            msg.id === messageId
+              ? { ...msg, message: msg.message + content }
+              : msg
+          ),
+        },
+      })),
+
+    startStreamingMessage: (sessionId, messageId) =>
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [sessionId]: (state.messages[sessionId] || []).map((msg) =>
+            msg.id === messageId ? { ...msg, isLoading: false } : msg
+          ),
+        },
+      })),
+
+    completeStreamingMessage: (sessionId, messageId) =>
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [sessionId]: (state.messages[sessionId] || []).map((msg) =>
+            msg.id === messageId ? { ...msg, isLoading: false } : msg
           ),
         },
       })),

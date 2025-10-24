@@ -10,7 +10,7 @@ import { ChatHeader } from "@/components/ui/chat/chat-header";
 import { ChatInputArea } from "@/components/ui/chat/chat-input-area";
 import { ChatMessages } from "@/components/ui/chat/chat-messages";
 import { LoginPopup } from "@/components/ui/login-popup";
-import { handleSendMessage as handleSendMessageUtil, handleKeyDown as handleKeyDownUtil, sendSuggestionMessage } from "@/utils/chatFunctions/messageHandlers";
+import { handleSendMessageWithStreaming, handleKeyDown as handleKeyDownUtil, sendSuggestionMessage } from "@/utils/chatFunctions/messageHandlers";
 import { generateTitle as generateTitleUtil, handleNewChat as handleNewChatUtil, getCurrentSessionMessages as getCurrentSessionMessagesUtil, loadInitialSessions, loadMessagesForSession, persistGuestState, deleteSession } from "@/utils/chatFunctions/sessionHandlers";
 import { exportChatAsPDF } from "@/utils/chatPdfExport";
 import SuggestionsGrid from "@/components/ui/chat/suggestions-grid";
@@ -39,6 +39,9 @@ export default function ChatPage() {
     setMessages,
     setInput,
     setIsLoading,
+    appendToStreamingMessage,
+    startStreamingMessage,
+    completeStreamingMessage,
   } = useSessionStore();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -196,8 +199,8 @@ export default function ChatPage() {
     e.preventDefault();
     if (!currentSessionId || isLoading) return; // Prevent submission if already loading
 
-    // Call the message handler and then scroll to bottom
-    await handleSendMessageUtil(e, {
+    // Call the streaming message handler and then scroll to bottom
+    await handleSendMessageWithStreaming(e, {
       input,
       currentSessionId,
       username,
@@ -218,12 +221,13 @@ export default function ChatPage() {
       setLoginPopupVariant,
       isLoading,
       setIsLoading,
+      appendToStreamingMessage,
+      startStreamingMessage,
+      completeStreamingMessage,
+      scrollToBottom,
     });
 
-    // Auto-scroll to bottom after AI response
-    setTimeout(() => {
-      scrollToBottom();
-    }, 100);
+    // No need for additional scrolling here since we scroll during streaming
   };
 
   const handleGuestMessageEdit = useCallback(async (messageIndex: number, newContent: string) => {
@@ -433,6 +437,11 @@ export default function ChatPage() {
       sessions: sessions as Session[],
       setSessions,
       setLoginPopupVariant,
+      // Add streaming props
+      appendToStreamingMessage,
+      startStreamingMessage,
+      completeStreamingMessage,
+      scrollToBottom,
     });
 
     // Auto-scroll to bottom after AI response
@@ -538,7 +547,7 @@ export default function ChatPage() {
           hasMessages={getCurrentSessionMessages().length > 0}
         />
   {/* Messages Area */}
-  <div className="flex-1 min-h-0 overflow-y-auto flex flex-col relative" onScroll={handleScroll}>
+  <div className="flex-1 min-h-0 overflow-y-auto flex flex-col relative" data-scroll-container onScroll={handleScroll}>
           <ChatMessages
             messages={getCurrentSessionMessages()}
             messagesContainerRef={messagesContainerRef}

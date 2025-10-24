@@ -348,8 +348,11 @@ export async function POST(req: Request) {
           messages: allMessages.map((msg) => ({
             id: msg.id,
             message: msg.content,
-            role: msg.role,
-            name: msg.role === "ai" ? "AI Tutor" : undefined,
+            role: msg.role === "assistant" ? "ai" : msg.role, // Transform assistant to ai for frontend
+            name:
+              msg.role === "assistant" || msg.role === "ai"
+                ? "AI Tutor"
+                : undefined,
           })),
           edited: true,
         });

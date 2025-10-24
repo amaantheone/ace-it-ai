@@ -234,23 +234,45 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
   return (
     <div className="w-full max-w-3xl mx-auto px-2 md:px-4">
       <ChatMessageList ref={messagesContainerRef}>
+      <style jsx>{`
+        .chat-streaming-content .inline-markdown p,
+        .chat-streaming-content .inline-markdown h1,
+        .chat-streaming-content .inline-markdown h2,
+        .chat-streaming-content .inline-markdown h3,
+        .chat-streaming-content .inline-markdown h4,
+        .chat-streaming-content .inline-markdown h5,
+        .chat-streaming-content .inline-markdown h6,
+        .chat-streaming-content .inline-markdown ul,
+        .chat-streaming-content .inline-markdown ol,
+        .chat-streaming-content .inline-markdown li,
+        .chat-streaming-content .inline-markdown blockquote {
+          display: inline;
+          margin: 0;
+          padding: 0;
+        }
+        .chat-streaming-content .inline-markdown pre,
+        .chat-streaming-content .inline-markdown code {
+          display: inline;
+          margin: 0;
+          white-space: pre-wrap;
+        }
+        .chat-streaming-content .inline-markdown br {
+          display: inline;
+        }
+      `}</style>
         <AnimatePresence>
           {messages.map((message, index) => {
             const variant = getMessageVariant(message.role);
             return (
               <motion.div
-                key={index}
-                layout
-                initial={{ opacity: 0, scale: 1, y: 50, x: 0 }}
+                key={String(message.id ?? index)}
+                data-message-id={message.id}
+                initial={{ opacity: 0, scale: 1, y: 12, x: 0 }}
                 animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
-                exit={{ opacity: 0, scale: 1, y: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 1, y: 0, x: 0 }}
                 transition={{
-                  opacity: { duration: 0.1 },
-                  layout: {
-                    type: "spring",
-                    bounce: 0.3,
-                    duration: index * 0.05 + 0.2,
-                  },
+                  opacity: { duration: 0.08 },
+                  y: { type: "spring", bounce: 0.15, duration: 0.35 },
                 }}
                 style={{ originX: 0.5, originY: 0.5 }}
                 className="flex flex-col gap-2 p-2 md:p-4 w-full min-w-0"
@@ -274,10 +296,14 @@ export function ChatMessages({ messages, messagesContainerRef, bottomRef, isLoad
                           </div>
                         </SkeletonTheme>
                       ) : (
-                        <div className="prose dark:prose-invert max-w-none text-foreground break-words overflow-wrap-anywhere">
-                          <MarkdownWithMath className="">
-                            {message.message || ''}
-                          </MarkdownWithMath>
+                        <div className="prose dark:prose-invert max-w-none text-foreground break-words overflow-wrap-anywhere min-h-[1.5rem]">
+                          <span className="chat-streaming-content" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5', display: 'inline-block', width: '100%' }}>
+                            <span style={{ display: 'inline' }}>
+                              <MarkdownWithMath className="inline-markdown">
+                                {message.message || ''}
+                              </MarkdownWithMath>
+                            </span>
+                          </span>
                         </div>
                       )}
                       <div className="flex items-center mt-1.5 gap-1">
