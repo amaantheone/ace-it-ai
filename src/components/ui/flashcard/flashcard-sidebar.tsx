@@ -34,6 +34,23 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+// Additional drop zone for folders with cards
+function FolderDropZone({ folderId, isOver }: { folderId: string; isOver: boolean }) {
+  const { setNodeRef } = useDroppable({
+    id: `${folderId}-dropzone`,
+  });
+
+  return (
+    <div 
+      ref={setNodeRef}
+      className={cn(
+        "min-h-[20px] transition-all duration-200",
+        isOver && "bg-accent/30 rounded py-1"
+      )}
+    />
+  );
+}
+
 // Draggable Card Component
 function DraggableCard({ 
   card, 
@@ -275,26 +292,40 @@ function DroppableFolder({
         )}
       </div>
       
-      {/* Render cards in folder if expanded */}
+      {/* Render cards in folder if expanded - This area should also be droppable */}
       {expandedFolders[folder.id] && (
-        <div className="ml-4 pl-2 border-l border-border">
+        <div className={cn(
+          "ml-4 pl-2 border-l border-border relative",
+          // Add visual feedback when dragging over the expanded folder area
+          isOver && "bg-accent/20 rounded-r-md"
+        )}>
           {getFolderCards(folder.id).length === 0 ? (
-            <div className="text-xs text-muted-foreground italic py-1">No cards in this folder</div>
+            <div className={cn(
+              "text-xs text-muted-foreground italic py-3 px-2 rounded",
+              // Enhanced empty folder drop zone styling
+              isOver && "bg-accent/30 border-2 border-dashed border-primary/40"
+            )}>
+              No cards in this folder
+            </div>
           ) : (
-            <SortableContext 
-              items={getFolderCards(folder.id).map(card => card.id!)} 
-              strategy={verticalListSortingStrategy}
-            >
-              {getFolderCards(folder.id).map(card => (
-                <DraggableCard 
-                  key={card.id} 
-                  card={card} 
-                  currentId={currentId}
-                  handleDelete={handleDelete}
-                  isInFolder={true}
-                />
-              ))}
-            </SortableContext>
+            <>
+              <SortableContext 
+                items={getFolderCards(folder.id).map(card => card.id!)} 
+                strategy={verticalListSortingStrategy}
+              >
+                {getFolderCards(folder.id).map(card => (
+                  <DraggableCard 
+                    key={card.id} 
+                    card={card} 
+                    currentId={currentId}
+                    handleDelete={handleDelete}
+                    isInFolder={true}
+                  />
+                ))}
+              </SortableContext>
+              {/* Additional droppable area at the bottom of folder when it has cards */}
+              <FolderDropZone folderId={folder.id} isOver={isOver || false} />
+            </>
           )}
         </div>
       )}
@@ -393,7 +424,30 @@ export function FlashCardSidebar() {
 
   const handleDragOver = (event: DragOverEvent) => {
     const { over } = event;
-    setOverId(over ? over.id as string : null);
+    
+    if (over) {
+      const overId = over.id as string;
+      
+      // Check if we're directly over a folder
+      let targetFolderId = folders.find(f => f.id === overId)?.id;
+      
+      // Check if we're over a folder dropzone
+      if (!targetFolderId && overId.endsWith('-dropzone')) {
+        targetFolderId = overId.replace('-dropzone', '');
+      }
+      
+      // If not directly over a folder, check if we're over a card that's in a folder
+      if (!targetFolderId) {
+        const cardFolder = folders.find(f => f.cardIds.includes(overId));
+        if (cardFolder) {
+          targetFolderId = cardFolder.id;
+        }
+      }
+      
+      setOverId(targetFolderId || overId);
+    } else {
+      setOverId(null);
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -411,10 +465,23 @@ export function FlashCardSidebar() {
     }
 
     const cardId = active.id as string;
-    const folderId = over.id as string;
+    const overId = over.id as string;
 
-    // Check if we're dropping on a folder
-    const targetFolder = folders.find(f => f.id === folderId);
+    // Check if we're dropping on a folder directly
+    let targetFolder = folders.find(f => f.id === overId);
+    
+    // Check if we're dropping on a folder dropzone
+    if (!targetFolder && overId.endsWith('-dropzone')) {
+      const folderId = overId.replace('-dropzone', '');
+      targetFolder = folders.find(f => f.id === folderId);
+    }
+    
+    // If not dropping directly on a folder, check if we're dropping on a card that's in a folder
+    if (!targetFolder) {
+      // Find which folder the drop target card belongs to
+      targetFolder = folders.find(f => f.cardIds.includes(overId));
+    }
+
     if (targetFolder) {
       try {
         // Success haptic feedback
@@ -429,7 +496,7 @@ export function FlashCardSidebar() {
         })));
         
         // Add to new folder
-        await addCardToFolder(cardId, folderId);
+        await addCardToFolder(cardId, targetFolder.id);
       } catch (error) {
         console.error('Error moving card:', error);
         setError('Failed to move card to folder');
