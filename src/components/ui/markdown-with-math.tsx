@@ -203,6 +203,36 @@ export function MarkdownWithMath({ children, className = '' }: MarkdownWithMathP
               props: {
                 className: 'border-l-4 border-muted pl-4 italic break-words'
               }
+            },
+            table: {
+              props: {
+                className: 'w-full border-collapse border border-border rounded-lg overflow-hidden my-4 table-fixed'
+              }
+            },
+            thead: {
+              props: {
+                className: 'bg-muted/50'
+              }
+            },
+            tbody: {
+              props: {
+                className: 'divide-y divide-border'
+              }
+            },
+            tr: {
+              props: {
+                className: 'border-b border-border hover:bg-muted/30 transition-colors'
+              }
+            },
+            th: {
+              props: {
+                className: 'border border-border px-2 py-2 text-left font-semibold text-foreground bg-muted/70 break-words text-xs md:text-sm'
+              }
+            },
+            td: {
+              props: {
+                className: 'border border-border px-2 py-2 text-foreground align-top break-words text-xs md:text-sm'
+              }
             }
           }
         }}

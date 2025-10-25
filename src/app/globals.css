@@ -217,4 +217,34 @@
     text-align: center;
     margin: 1rem 0;
   }
+  
+  /* Enhanced table styling for chat responses - no horizontal scroll */
+  .chat-table-responsive {
+    width: 100%;
+    max-width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  
+  .chat-table-responsive th,
+  .chat-table-responsive td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    vertical-align: top;
+  }
+  
+  /* Mobile specific adjustments - smaller text, proper wrapping */
+  @media (max-width: 768px) {
+    .chat-table-responsive {
+      font-size: 0.75rem;
+    }
+    
+    .chat-table-responsive th,
+    .chat-table-responsive td {
+      padding: 0.375rem 0.25rem;
+      font-size: 0.75rem;
+      line-height: 1.4;
+    }
+  }
 }

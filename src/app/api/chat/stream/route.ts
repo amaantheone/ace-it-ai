@@ -60,7 +60,7 @@ const streamingLlm = new ChatGoogleGenerativeAI({
 
 // Vision LLM for images
 const visionLlm = new ChatGoogleGenerativeAI({
-  model: "gemini-pro-vision",
+  model: "gemini-2.0-flash",
   temperature: 0.5,
   maxOutputTokens: 2048,
   streaming: true,
