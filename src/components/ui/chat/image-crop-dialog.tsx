@@ -3,16 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactCrop, { PercentCrop, PixelCrop, convertToPixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { clampPercentCrop, getCroppedBlob } from "./crop-utils";
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ImageCropDialogProps {
   isOpen: boolean;
@@ -135,71 +128,81 @@ export function ImageCropDialog({
     }
   }, [completedCrop, dataUrl, onClose, onCropComplete, sourceFile]);
 
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        onClose();
-      }
-    },
-    [onClose]
-  );
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Crop image</DialogTitle>
-          <DialogDescription>
-            Adjust the selection to choose what you want to send.
-          </DialogDescription>
-        </DialogHeader>
+    <div className="fixed inset-0 z-50 bg-black">
+      <div className={cn("relative h-full w-full overflow-auto", isProcessing && "pointer-events-none opacity-80")}>
+        {/* Header with close button */}
+        <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between bg-gradient-to-b from-black/50 to-transparent p-4">
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+            disabled={isProcessing}
+          >
+            <X size={24} />
+          </button>
 
-        <div className="flex flex-col gap-4">
-          <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-lg border bg-muted">
-            {!dataUrl ? (
-              <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
-                {error ?? "Preparing image..."}
-              </div>
-            ) : (
-              <ReactCrop
-                crop={crop}
-                onChange={handleCropChange}
-                onComplete={handleCropComplete}
-                className="max-h-full max-w-full"
-                ruleOfThirds
-                keepSelection
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  ref={imageRef}
-                  src={dataUrl}
-                  alt="Image to crop"
-                  onLoad={handleImageLoad}
-                  className="max-h-[70vh] w-auto"
-                />
-              </ReactCrop>
-            )}
-          </div>
+          <span className="text-sm font-medium text-white">Crop image</span>
 
-          {error && (
-            <p className="text-xs text-destructive">{error}</p>
-          )}
-          {!error && (
-            <p className="text-xs text-muted-foreground">
-              Drag the handles on the crop box to resize it. The cropped image will replace the original upload.
-            </p>
+          <div className="w-10" />
+        </div>
+
+        {/* Crop area */}
+        <div className="flex h-full w-full items-center justify-center p-4">
+          {!dataUrl ? (
+            <div className="flex flex-col items-center justify-center gap-2">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/20 border-t-white" />
+              <div className="text-sm text-white/60">{error ? "Error loading image" : "Preparing image..."}</div>
+            </div>
+          ) : (
+            <ReactCrop
+              crop={crop}
+              onChange={handleCropChange}
+              onComplete={handleCropComplete}
+              className="max-h-full max-w-full"
+              ruleOfThirds
+              keepSelection
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={imageRef}
+                src={dataUrl}
+                alt="Image to crop"
+                onLoad={handleImageLoad}
+                className="max-h-full w-auto object-contain"
+              />
+            </ReactCrop>
           )}
         </div>
 
-        <DialogFooter className="flex-row justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isProcessing}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleUseImage} disabled={isProcessing || !dataUrl}>
+        {/* Error message */}
+        {error && (
+          <div className="absolute left-0 right-0 top-24 mx-4 rounded-lg bg-red-500/10 border border-red-500/50 p-3">
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+
+        {/* Bottom controls */}
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-gradient-to-t from-black/90 to-transparent px-4 py-6">
+          <button
+            onClick={onClose}
+            className="flex h-12 items-center gap-2 rounded-lg bg-white/10 px-4 text-white hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isProcessing}
+          >
+            <X size={20} />
+            <span className="text-sm font-medium">Cancel</span>
+          </button>
+
+          <button
+            onClick={handleUseImage}
+            disabled={isProcessing || !dataUrl}
+            className="flex h-12 items-center gap-2 rounded-lg bg-blue-600 px-6 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+          >
             {isProcessing ? "Processing..." : "Use image"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

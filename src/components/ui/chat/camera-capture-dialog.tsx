@@ -3,18 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import ReactCrop, { PercentCrop, PixelCrop, convertToPixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Icons } from "@/components/Icons";
 import { cn } from "@/lib/utils";
 import { clampPercentCrop, getCroppedBlob } from "./crop-utils";
+import { X, RotateCcw } from "lucide-react";
 
 type CameraCaptureDialogProps = {
   isOpen: boolean;
@@ -218,132 +210,136 @@ export function CameraCaptureDialog({
     }
   }, [capturedImage, completedCrop, onCapture, onClose, resetState]);
 
-  const handleDialogChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        onClose();
-        resetState();
-      }
-    },
-    [onClose, resetState]
-  );
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleDialogChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Take a photo</DialogTitle>
-          <DialogDescription>
-            Capture an image using your camera and crop it before sending.
-          </DialogDescription>
-        </DialogHeader>
+    <div className="fixed inset-0 z-50 bg-black">
+      {!capturedImage ? (
+        // Camera view
+        <div className="relative h-full w-full">
+          <video
+            ref={videoRef}
+            className="h-full w-full object-cover"
+            autoPlay
+            muted
+            playsInline
+          />
 
-        <div className="flex flex-col gap-4">
-          <div className="relative w-full overflow-hidden rounded-lg border bg-muted">
-            {!capturedImage ? (
-              <div className="relative aspect-[3/4] w-full bg-black">
-                <video
-                  ref={videoRef}
-                  className="absolute inset-0 h-full w-full object-cover"
-                  autoPlay
-                  muted
-                  playsInline
-                />
-                {isInitializingCamera && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-sm text-white">
-                    Initializing camera...
-                  </div>
-                )}
-                {error && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/90 p-4 text-center text-sm text-destructive">
-                    {error}
-                  </div>
-                )}
+          {isInitializingCamera && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+              <div className="text-center text-white">
+                <div className="mb-2 text-sm">Initializing camera...</div>
               </div>
-            ) : (
-              <div
-                className={cn(
-                  "relative flex aspect-square w-full items-center justify-center bg-black",
-                  isProcessing && "pointer-events-none opacity-80"
-                )}
-              >
-                <ReactCrop
-                  crop={crop}
-                  onChange={handleCropChange}
-                  onComplete={handleCropComplete}
-                  className="max-h-full max-w-full"
-                  ruleOfThirds
-                  keepSelection
+            </div>
+          )}
+
+          {error && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-4">
+              <div className="text-center">
+                <p className="mb-4 text-sm text-red-400">{error}</p>
+                <button
+                  onClick={onClose}
+                  className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
                 >
-                  {/* The cropping library requires a native img element for direct pixel access */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    ref={imageRef}
-                    src={capturedImage}
-                    alt="Captured preview"
-                    onLoad={handleImageLoad}
-                    className="max-h-[70vh] w-auto"
-                  />
-                </ReactCrop>
+                  Close
+                </button>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Top controls */}
+          <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-4">
+            <button
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+              disabled={isInitializingCamera}
+            >
+              <X size={24} />
+            </button>
+
+            <button
+              onClick={handleSwitchCamera}
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors",
+                isInitializingCamera && "opacity-50 cursor-not-allowed"
+              )}
+              disabled={isInitializingCamera || !!error}
+            >
+              <Icons.SwitchCamera className="h-5 w-5" />
+            </button>
           </div>
 
-          {capturedImage && (
-            <p className="text-xs text-muted-foreground">
-              Drag the handles on the crop box to resize it. Move the box to adjust the area you want to send.
-            </p>
-          )}
-
-          {!capturedImage && !error && (
-            <p className="text-xs text-muted-foreground">
-              Tip: Position your document or object in good lighting, then tap capture.
-            </p>
-          )}
+          {/* Bottom capture button */}
+          <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-8">
+            <button
+              onClick={handleCapture}
+              disabled={isInitializingCamera || !!error}
+              className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="h-14 w-14 rounded-full bg-white" />
+            </button>
+          </div>
         </div>
+      ) : (
+        // Crop view
+        <div className={cn("relative h-full w-full overflow-auto bg-black", isProcessing && "pointer-events-none opacity-80")}>
+          {/* Header with close button */}
+          <div className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between bg-gradient-to-b from-black/50 to-transparent p-4">
+            <button
+              onClick={onClose}
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"
+              disabled={isProcessing}
+            >
+              <X size={24} />
+            </button>
 
-        <DialogFooter className="flex-row justify-end gap-2">
-          {capturedImage ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleRetake}
-                disabled={isProcessing}
-              >
-                Retake
-              </Button>
-              <Button
-                type="button"
-                onClick={handleUsePhoto}
-                disabled={isProcessing}
-              >
-                {isProcessing ? "Processing..." : "Use photo"}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSwitchCamera}
-                disabled={isInitializingCamera || !!error}
-                className="mr-auto gap-2"
-              >
-                <Icons.SwitchCamera className="h-4 w-4" />
-                <span>Switch</span>
-              </Button>
-              <Button
-                type="button"
-                onClick={handleCapture}
-                disabled={isInitializingCamera || !!error}
-              >
-                Capture
-              </Button>
-            </>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <span className="text-sm font-medium text-white">Crop photo</span>
+
+            <div className="w-10" />
+          </div>
+
+          {/* Crop area */}
+          <div className="flex h-full w-full items-center justify-center p-4">
+            <ReactCrop
+              crop={crop}
+              onChange={handleCropChange}
+              onComplete={handleCropComplete}
+              className="max-h-full max-w-full"
+              ruleOfThirds
+              keepSelection
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={imageRef}
+                src={capturedImage}
+                alt="Captured preview"
+                onLoad={handleImageLoad}
+                className="max-h-full w-auto object-contain"
+              />
+            </ReactCrop>
+          </div>
+
+          {/* Bottom controls */}
+          <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between bg-gradient-to-t from-black/90 to-transparent px-4 py-6">
+            <button
+              onClick={handleRetake}
+              className="flex h-12 items-center gap-2 rounded-lg bg-white/10 px-4 text-white hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isProcessing}
+            >
+              <RotateCcw size={20} />
+              <span className="text-sm font-medium">Retake</span>
+            </button>
+
+            <button
+              onClick={handleUsePhoto}
+              disabled={isProcessing}
+              className="flex h-12 items-center gap-2 rounded-lg bg-blue-600 px-6 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {isProcessing ? "Processing..." : "Use photo"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
