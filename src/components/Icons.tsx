@@ -57,3 +57,47 @@ export const BrainNetworkIcon = () => (
     <line x1="17.2" y1="18.8" x2="13.8" y2="13.2" stroke="currentColor" strokeWidth="1"/>
   </svg>
 );
+
+export const Icons = {
+  StartLearningIcon,
+  MindMapIcon,
+  QuizIcon,
+  FlashCardIcon,
+  BookIcon,
+  BrainNetworkIcon,
+  SwitchCamera: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+      <circle cx="12" cy="13" r="3" />
+      <path d="m18 9-2-2" />
+      <path d="m6 9 2-2" />
+    </svg>
+  ),
+};
+
+export function Icon({
+  name,
+  size = 24,
+  color = 'currentColor',
+}: {
+  name: keyof typeof Icons;
+  size?: number;
+  color?: string;
+}) {
+  const icon = Icons[name];
+  if (!icon) {
+    throw new Error(`Icon not found: ${name}`);
+  }
+  return React.createElement(icon, { size, color });
+}

@@ -286,6 +286,7 @@ export const handleSendMessageWithStreaming = async (
     startStreamingMessage,
     completeStreamingMessage,
     scrollToBottom,
+    isAutoScrollEnabled,
   }: {
     input: string;
     currentSessionId: string;
@@ -315,7 +316,8 @@ export const handleSendMessageWithStreaming = async (
     ) => void;
     startStreamingMessage?: (sessionId: string, messageId: string) => void;
     completeStreamingMessage?: (sessionId: string, messageId: string) => void;
-    scrollToBottom?: () => void;
+    scrollToBottom?: (options?: { force?: boolean }) => void;
+    isAutoScrollEnabled?: () => boolean;
   }
 ) => {
   e.preventDefault();
@@ -367,6 +369,11 @@ export const handleSendMessageWithStreaming = async (
   try {
     const currentMessages = messages[currentSessionId] || [];
     setMessages(currentSessionId, [...currentMessages, userMessage]);
+    if (scrollToBottom) {
+      requestAnimationFrame(() => {
+        scrollToBottom({ force: true });
+      });
+    }
 
     // Add streaming AI message
     const aiMessageId = generateMessageId();
@@ -384,6 +391,12 @@ export const handleSendMessageWithStreaming = async (
       aiStreamingMessage,
     ];
     setMessages(currentSessionId, messagesWithAI);
+
+    if (scrollToBottom) {
+      requestAnimationFrame(() => {
+        scrollToBottom({ force: true });
+      });
+    }
 
     // Prepare streaming request payload
     const payload = {
@@ -412,38 +425,9 @@ export const handleSendMessageWithStreaming = async (
       startStreamingMessage(currentSessionId, aiMessageId);
     }
 
-    // Handle streaming response with smart scroll behavior
+    // Handle streaming response with respectful auto-scroll behavior
     let streamedContent = "";
     let hasScrolledToShowResponse = false;
-
-    // Function to scroll to show the AI response at top of viewport
-    const scrollToShowResponse = () => {
-      // Find the AI message element and scroll it into view at top
-      const aiMessageElement = document.querySelector(
-        `[data-message-id="${aiMessageId}"]`
-      ) as HTMLElement;
-      if (aiMessageElement) {
-        aiMessageElement.scrollIntoView({
-          behavior: "smooth",
-          block: "start", // Position at top of viewport
-        });
-      } else if (scrollToBottom) {
-        // Fallback to bottom scroll if element not found
-        scrollToBottom();
-      }
-    };
-
-    // Detect user scroll activity to re-enable auto-scroll
-    const handleUserScroll = () => {
-      hasScrolledToShowResponse = false; // Re-enable auto-scroll when user scrolls
-    };
-
-    // Add scroll listener
-    const scrollContainer =
-      document.querySelector("[data-scroll-container]") || window;
-    scrollContainer.addEventListener("scroll", handleUserScroll, {
-      passive: true,
-    });
 
     try {
       await handleStreamingResponse(streamingResponse, {
@@ -454,21 +438,16 @@ export const handleSendMessageWithStreaming = async (
             appendToStreamingMessage(currentSessionId, aiMessageId, content);
           }
 
-          // Auto-scroll to show AI response when first line is complete
-          if (!hasScrolledToShowResponse) {
-            // Scroll when we have a complete first line or enough content
+          if (!hasScrolledToShowResponse && (isAutoScrollEnabled?.() ?? true)) {
             if (streamedContent.includes("\n") || streamedContent.length > 40) {
               setTimeout(() => {
-                scrollToShowResponse();
+                scrollToBottom?.();
                 hasScrolledToShowResponse = true;
-              }, 100); // Small delay to ensure DOM is updated
+              }, 100);
             }
           }
         },
         onComplete: () => {
-          // Clean up scroll listener
-          scrollContainer.removeEventListener("scroll", handleUserScroll);
-
           // Just mark streaming as complete, don't override the incrementally built content
           if (completeStreamingMessage) {
             completeStreamingMessage(currentSessionId, aiMessageId);
@@ -479,9 +458,6 @@ export const handleSendMessageWithStreaming = async (
           }
         },
         onError: (error: string) => {
-          // Clean up scroll listener on error
-          scrollContainer.removeEventListener("scroll", handleUserScroll);
-
           console.error("Streaming error:", error);
           // Replace with error message
           const errorMessage: Message = {
@@ -499,8 +475,6 @@ export const handleSendMessageWithStreaming = async (
         },
       });
     } catch (error) {
-      // Clean up scroll listener on any error
-      scrollContainer.removeEventListener("scroll", handleUserScroll);
       throw error;
     }
 
@@ -624,6 +598,7 @@ export const sendSuggestionMessage = async (
     startStreamingMessage,
     completeStreamingMessage,
     scrollToBottom,
+    isAutoScrollEnabled,
   }: {
     currentSessionId: string | null;
     isGuestMode: boolean;
@@ -648,7 +623,8 @@ export const sendSuggestionMessage = async (
     ) => void;
     startStreamingMessage?: (sessionId: string, messageId: string) => void;
     completeStreamingMessage?: (sessionId: string, messageId: string) => void;
-    scrollToBottom?: () => void;
+    scrollToBottom?: (options?: { force?: boolean }) => void;
+    isAutoScrollEnabled?: () => boolean;
   }
 ) => {
   if (!currentSessionId) return;
@@ -711,6 +687,7 @@ export const sendSuggestionMessage = async (
       startStreamingMessage,
       completeStreamingMessage,
       scrollToBottom,
+      isAutoScrollEnabled,
     }
   );
   setIsLoading(false);

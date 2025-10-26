@@ -60,7 +60,7 @@ export default function ChatPage() {
   const avatar = session?.user?.image;
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const { bottomRef, showScrollToBottom, handleScroll, scrollToBottom } = useScrollToBottom({ threshold: 100, behavior: 'smooth' });
+  const { bottomRef, showScrollToBottom, handleScroll, scrollToBottom, getAutoScrollEnabled } = useScrollToBottom({ threshold: 100, behavior: 'smooth' });
   
   // Track which session we've loaded messages for to prevent unnecessary reloads
   const loadedSessionRef = useRef<string | null>(null);
@@ -133,7 +133,7 @@ export default function ChatPage() {
       }).then(() => {
         // Auto-scroll to bottom after messages load
         setTimeout(() => {
-          scrollToBottom();
+          scrollToBottom({ force: true });
         }, 100);
       });
     }
@@ -225,6 +225,7 @@ export default function ChatPage() {
       startStreamingMessage,
       completeStreamingMessage,
       scrollToBottom,
+      isAutoScrollEnabled: getAutoScrollEnabled,
     });
 
     // No need for additional scrolling here since we scroll during streaming
@@ -442,6 +443,7 @@ export default function ChatPage() {
       startStreamingMessage,
       completeStreamingMessage,
       scrollToBottom,
+      isAutoScrollEnabled: getAutoScrollEnabled,
     });
 
     // Auto-scroll to bottom after AI response
