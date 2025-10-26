@@ -84,14 +84,16 @@ export const Icons = {
       <path d="m6 9 2-2" />
     </svg>
   ),
-};
+} as const;
+
+export type IconName = keyof typeof Icons;
 
 export function Icon({
   name,
   size = 24,
   color = 'currentColor',
 }: {
-  name: keyof typeof Icons;
+  name: IconName;
   size?: number;
   color?: string;
 }) {
@@ -99,5 +101,5 @@ export function Icon({
   if (!icon) {
     throw new Error(`Icon not found: ${name}`);
   }
-  return React.createElement(icon, { size, color });
+  return React.createElement(icon, { size, color } as React.SVGProps<SVGSVGElement>);
 }
