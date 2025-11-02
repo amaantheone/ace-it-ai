@@ -262,20 +262,38 @@ export async function POST(req: Request) {
           for await (const chunk of response) {
             const content = chunk.content;
             if (content) {
-              completeResponse += content;
-              buffer += content;
+              const contentStr =
+                typeof content === "string" ? content : String(content);
+              completeResponse += contentStr;
+              buffer += contentStr;
 
               // Split buffer into words and send them in groups of 2-3
               const words = buffer.split(/(\s+)/); // Split on whitespace but keep the whitespace
 
-              // Keep the last word in buffer (might be incomplete)
-              buffer = words.pop() || "";
+              // Only keep the last word in buffer if it's not whitespace and might be incomplete
+              // Check if the last element is a complete word (not whitespace) that might continue
+              let wordsToSend = words;
+              if (words.length > 0) {
+                const lastElement = words[words.length - 1];
+                // Only keep in buffer if it's a non-whitespace word that might be incomplete
+                if (
+                  lastElement &&
+                  lastElement.trim() &&
+                  !contentStr.endsWith(" ") &&
+                  !contentStr.endsWith("\n")
+                ) {
+                  buffer = words.pop() || "";
+                  wordsToSend = words;
+                } else {
+                  buffer = "";
+                }
+              }
 
               // Group words into chunks of 2-3 and send them
-              for (let i = 0; i < words.length; i += 3) {
-                const wordChunk = words.slice(i, i + 3).join("");
-                if (wordChunk.trim()) {
-                  // Skip chunks that are only whitespace
+              for (let i = 0; i < wordsToSend.length; i += 3) {
+                const wordChunk = wordsToSend.slice(i, i + 3).join("");
+                if (wordChunk) {
+                  // Send all chunks including whitespace-only ones to preserve spacing
                   const data = JSON.stringify({
                     type: "chunk",
                     content: wordChunk,
