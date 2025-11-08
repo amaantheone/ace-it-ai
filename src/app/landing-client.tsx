@@ -3,8 +3,6 @@
 import React from 'react';
 import { 
   BookOpen, 
-  Brain, 
-  CreditCard, 
   FileQuestion, 
   Sparkles,
   ArrowRight,
@@ -12,23 +10,12 @@ import {
   Zap,
   Play
 } from 'lucide-react';
+import Image from 'next/image';
 import AppBar from '@/components/AppBar';
 import Footer from '@/components/Footer';
 
 export default function LandingClient() {
   const features = [
-    {
-      icon: BookOpen,
-      title: "Flashcards",
-      description: "Create and organize flashcards with custom tags, folders, and translations for effective studying",
-      gradient: "from-blue-500 to-cyan-500",
-    },
-    {
-      icon: Brain,
-      title: "Mind Maps",
-      description: "Visualize relationships between concepts with interactive mind maps that enhance understanding",
-      gradient: "from-teal-500 to-emerald-500",
-    },
     {
       icon: FileQuestion,
       title: "Adaptive Quizzes",
@@ -36,10 +23,10 @@ export default function LandingClient() {
       gradient: "from-indigo-500 to-blue-500",
     },
     {
-      icon: CreditCard,
-      title: "AI Chat Assistant",
-      description: "Get help with your studies through our intelligent chat system that answers your questions",
-      gradient: "from-cyan-500 to-teal-500",
+      icon: BookOpen,
+      title: "Flashcards",
+      description: "Create and organize flashcards with custom tags, folders, and translations for effective studying",
+      gradient: "from-blue-500 to-cyan-500",
     }
   ];
 
@@ -93,6 +80,116 @@ export default function LandingClient() {
                   <Play size={18} className="sm:w-5 sm:h-5" />
                   Watch Demo
                 </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="px-4 sm:px-6 py-12 sm:py-16 lg:py-24">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12 sm:mb-16 lg:mb-20">
+              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 tracking-tight text-white">
+                Everything You Need to Excel
+              </h2>
+              <p className="text-lg sm:text-xl max-w-3xl mx-auto font-light text-slate-300 px-4">
+                Our comprehensive AI-powered learning platform provides all the tools you need to master any subject
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-16 lg:mb-20">
+              {/* AI Chat Demo GIF */}
+              <div
+                className="group p-6 sm:p-8 lg:p-10 rounded-2xl transition-all duration-500 hover:scale-105 bg-slate-800/50 hover:bg-slate-800/70 border border-slate-700/50 backdrop-blur-md shadow-xl hover:shadow-2xl animate-fade-in-up"
+                style={{
+                  animationDelay: '0ms'
+                }}
+              >
+                <div className="w-full h-full flex flex-col">
+                  <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">
+                    AI Chat Assistant
+                  </h3>
+                  <p className="text-base sm:text-lg leading-relaxed font-light text-slate-300 mb-6">
+                    Get help with your studies through our intelligent chat system that answers your questions
+                  </p>
+                  <div className="flex-1 flex items-center justify-center rounded-xl overflow-hidden bg-slate-900/50">
+                    <Image 
+                      src="/chat-demo.gif" 
+                      alt="AI Chat Assistant Demo" 
+                      width={800}
+                      height={600}
+                      className="w-full h-full rounded-lg object-cover"
+                      unoptimized
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Mind Map Demo GIF */}
+              <div
+                className="group p-6 sm:p-8 lg:p-10 rounded-2xl transition-all duration-500 hover:scale-105 bg-slate-800/50 hover:bg-slate-800/70 border border-slate-700/50 backdrop-blur-md shadow-xl hover:shadow-2xl animate-fade-in-up"
+                style={{
+                  animationDelay: '100ms'
+                }}
+              >
+                <div className="w-full h-full flex flex-col">
+                  <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">
+                    Mind Maps
+                  </h3>
+                  <p className="text-base sm:text-lg leading-relaxed font-light text-slate-300 mb-6">
+                    Visualize relationships between concepts with interactive mind maps that enhance understanding
+                  </p>
+                  <div className="flex-1 flex items-center justify-center rounded-xl overflow-hidden bg-slate-900/50">
+                    <Image 
+                      src="/mindmap-demo.gif" 
+                      alt="Mind Map Demo" 
+                      width={800}
+                      height={600}
+                      className="w-full h-auto rounded-lg"
+                      unoptimized
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {features.map((feature, index) => {
+                const Icon = feature.icon;
+                return (
+                  <div
+                    key={feature.title}
+                    className="group p-6 sm:p-8 lg:p-10 rounded-2xl transition-all duration-500 hover:scale-105 bg-slate-800/50 hover:bg-slate-800/70 border border-slate-700/50 backdrop-blur-md shadow-xl hover:shadow-2xl animate-fade-in-up"
+                    style={{
+                      animationDelay: `${(index + 2) * 100}ms`
+                    }}
+                  >
+                    <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center mb-6 sm:mb-8 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
+                      <Icon size={24} className="sm:w-8 sm:h-8 text-white" />
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">
+                      {feature.title}
+                    </h3>
+                    <p className="text-base sm:text-lg leading-relaxed font-light text-slate-300">
+                      {feature.description}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Benefits */}
+            <div className="p-6 sm:p-8 lg:p-10 rounded-2xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shadow-xl">
+              <h3 className="text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 text-center text-white">
+                Why Choose Ace It AI?
+              </h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+                {benefits.map((benefit, index) => (
+                  <div key={index} className="flex items-start gap-3 sm:gap-4">
+                    <CheckCircle size={20} className="sm:w-6 sm:h-6 text-teal-500 flex-shrink-0 mt-1" />
+                    <p className="text-base sm:text-lg font-light text-slate-300">
+                      {benefit}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -183,62 +280,6 @@ export default function LandingClient() {
                     Complete access to all features for free, with no hidden costs, subscriptions, or trial periods
                   </p>
                 </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section id="features" className="px-4 sm:px-6 py-12 sm:py-16 lg:py-24">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-12 sm:mb-16 lg:mb-20">
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 tracking-tight text-white">
-                Everything You Need to Excel
-              </h2>
-              <p className="text-lg sm:text-xl max-w-3xl mx-auto font-light text-slate-300 px-4">
-                Our comprehensive AI-powered learning platform provides all the tools you need to master any subject
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 mb-12 sm:mb-16 lg:mb-20">
-              {features.map((feature, index) => {
-                const Icon = feature.icon;
-                return (
-                  <div
-                    key={feature.title}
-                    className="group p-6 sm:p-8 lg:p-10 rounded-2xl transition-all duration-500 hover:scale-105 bg-slate-800/50 hover:bg-slate-800/70 border border-slate-700/50 backdrop-blur-md shadow-xl hover:shadow-2xl animate-fade-in-up"
-                    style={{
-                      animationDelay: `${index * 100}ms`
-                    }}
-                  >
-                    <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-r ${feature.gradient} flex items-center justify-center mb-6 sm:mb-8 group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                      <Icon size={24} className="sm:w-8 sm:h-8 text-white" />
-                    </div>
-                    <h3 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-white">
-                      {feature.title}
-                    </h3>
-                    <p className="text-base sm:text-lg leading-relaxed font-light text-slate-300">
-                      {feature.description}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Benefits */}
-            <div className="p-6 sm:p-8 lg:p-10 rounded-2xl bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shadow-xl">
-              <h3 className="text-2xl sm:text-3xl font-bold mb-8 sm:mb-10 text-center text-white">
-                Why Choose Ace It AI?
-              </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-                {benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-start gap-3 sm:gap-4">
-                    <CheckCircle size={20} className="sm:w-6 sm:h-6 text-teal-500 flex-shrink-0 mt-1" />
-                    <p className="text-base sm:text-lg font-light text-slate-300">
-                      {benefit}
-                    </p>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
