@@ -14,6 +14,9 @@ interface GuestContextType {
   guestIndividualFlashcardCount: number;
   incrementGuestIndividualFlashcardCount: () => number;
   resetGuestIndividualFlashcardCount: () => void;
+  guestPromptImprovementCount: number;
+  incrementGuestPromptImprovementCount: () => number;
+  resetGuestPromptImprovementCount: () => void;
   
   // Feature-specific login popup flags
   showChatLoginPopup: boolean;
@@ -54,6 +57,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
   const [guestMessageCount, setGuestMessageCount] = useState(0);
   const [guestMindmapCount, setGuestMindmapCount] = useState(0);
   const [guestIndividualFlashcardCount, setGuestIndividualFlashcardCount] = useState(0);
+  const [guestPromptImprovementCount, setGuestPromptImprovementCount] = useState(0);
   
   // Feature-specific login popup flags
   const [showChatLoginPopup, setShowChatLoginPopup] = useState(false);
@@ -71,6 +75,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
   const GUEST_MESSAGE_COUNT_KEY = 'guest_message_count';
   const GUEST_MINDMAP_COUNT_KEY = 'guest_mindmap_count';
   const GUEST_INDIVIDUAL_FLASHCARD_COUNT_KEY = 'guest_individual_flashcard_count';
+  const GUEST_PROMPT_IMPROVEMENT_COUNT_KEY = 'guest_prompt_improvement_count';
   const GUEST_SESSIONS_KEY = 'guest_sessions';
   const GUEST_MESSAGES_KEY = 'guest_messages';
   const GUEST_FLASHCARDS_KEY = 'guest_flashcards';
@@ -84,6 +89,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
       localStorage.removeItem(GUEST_MESSAGE_COUNT_KEY);
       localStorage.removeItem(GUEST_MINDMAP_COUNT_KEY);
       localStorage.removeItem(GUEST_INDIVIDUAL_FLASHCARD_COUNT_KEY);
+      localStorage.removeItem(GUEST_PROMPT_IMPROVEMENT_COUNT_KEY);
       localStorage.removeItem(GUEST_SESSIONS_KEY);
       localStorage.removeItem(GUEST_MESSAGES_KEY);
       localStorage.removeItem(GUEST_FLASHCARDS_KEY);
@@ -120,6 +126,10 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
         if (savedIndividualFlashcardCount) {
           setGuestIndividualFlashcardCount(parseInt(savedIndividualFlashcardCount, 10));
         }
+        const savedPromptImprovementCount = localStorage.getItem(GUEST_PROMPT_IMPROVEMENT_COUNT_KEY);
+        if (savedPromptImprovementCount) {
+          setGuestPromptImprovementCount(parseInt(savedPromptImprovementCount, 10));
+        }
         localStorage.setItem(GUEST_FLAG_KEY, 'true');
       } catch (error) {
         console.error('Error loading guest counts:', error);
@@ -130,6 +140,7 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
       setGuestMessageCount(0);
       setGuestMindmapCount(0);
       setGuestIndividualFlashcardCount(0);
+      setGuestPromptImprovementCount(0);
       setShowLoginPopup(false);
       setShowChatLoginPopup(false);
       setShowMindmapLoginPopup(false);
@@ -169,6 +180,17 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
       }
     }
   }, [guestIndividualFlashcardCount, isGuest]);
+
+  // Save guest prompt improvement count to localStorage
+  useEffect(() => {
+    if (isGuest) {
+      try {
+        localStorage.setItem(GUEST_PROMPT_IMPROVEMENT_COUNT_KEY, guestPromptImprovementCount.toString());
+      } catch (error) {
+        console.error('Error saving guest prompt improvement count:', error);
+      }
+    }
+  }, [guestPromptImprovementCount, isGuest]);
 
   // Check if should show feature-specific login popups
   useEffect(() => {
@@ -243,6 +265,24 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
     }
   }, []);
 
+  const incrementGuestPromptImprovementCount = useCallback(() => {
+    if (isGuest) {
+      const newCount = guestPromptImprovementCount + 1;
+      setGuestPromptImprovementCount(newCount);
+      return newCount;
+    }
+    return 0;
+  }, [isGuest, guestPromptImprovementCount]);
+
+  const resetGuestPromptImprovementCount = useCallback(() => {
+    setGuestPromptImprovementCount(0);
+    try {
+      localStorage.removeItem(GUEST_PROMPT_IMPROVEMENT_COUNT_KEY);
+    } catch (error) {
+      console.error('Error resetting guest prompt improvement count:', error);
+    }
+  }, []);
+
   const saveGuestData = useCallback((key: string, data: unknown) => {
     if (isGuest) {
       try {
@@ -287,6 +327,9 @@ export const GuestProvider: React.FC<GuestProviderProps> = ({ children }) => {
     guestIndividualFlashcardCount,
     incrementGuestIndividualFlashcardCount,
     resetGuestIndividualFlashcardCount,
+    guestPromptImprovementCount,
+    incrementGuestPromptImprovementCount,
+    resetGuestPromptImprovementCount,
     showLoginPopup,
     setShowLoginPopup,
     showChatLoginPopup,

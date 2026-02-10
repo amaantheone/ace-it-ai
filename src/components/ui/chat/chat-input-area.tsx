@@ -1,6 +1,6 @@
 'use client';
 
-import { Paperclip, ArrowDown, Camera } from "lucide-react";
+import { Paperclip, ArrowDown, Camera, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatInput as BaseChatInput } from "./chat-input";
 import { SendButton } from "./send-button";
@@ -10,6 +10,7 @@ import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { CameraCaptureDialog } from "./camera-capture-dialog";
 import { ImageCropDialog } from "./image-crop-dialog";
+import { useGuest } from "@/contexts/GuestContext";
 
 // Dynamically import VoiceInput to avoid SSR issues
 const VoiceInput = dynamic(() => import("@/components/VoiceInput"), { ssr: false });
@@ -39,6 +40,7 @@ export function ChatInputArea({
   showScrollToBottom = false,
   onScrollToBottom,
 }: ChatInputAreaProps) {
+  const { isGuest, incrementGuestPromptImprovementCount } = useGuest();
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -48,7 +50,9 @@ export function ChatInputArea({
   const [imageToCrop, setImageToCrop] = useState<File | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [isImproving, setIsImproving] = useState(false);
   const overlayDragCounterRef = useRef(0);
+  const improvePromptCacheRef = useRef<Map<string, string>>(new Map());
 
   const ACCEPTED_FILE_TYPES = useRef(new Set(["application/pdf"]));
 
@@ -173,6 +177,82 @@ export function ChatInputArea({
     }
   };
 
+  const handleImprovePrompt = async () => {
+    if (!input.trim()) {
+      return;
+    }
+
+    // Check cache first
+    const cacheKey = input.trim();
+    if (improvePromptCacheRef.current.has(cacheKey)) {
+      const cached = improvePromptCacheRef.current.get(cacheKey);
+      if (cached) {
+        onChange({
+          target: { value: cached },
+        } as React.ChangeEvent<HTMLTextAreaElement>);
+        if (isGuest) {
+          incrementGuestPromptImprovementCount();
+        }
+        return;
+      }
+    }
+
+    setIsImproving(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    try {
+      const response = await fetch("/api/chat/improve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: input }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to improve prompt");
+      }
+
+      const data = await response.json();
+      if (data.success && data.improved) {
+        // Cache the result
+        improvePromptCacheRef.current.set(cacheKey, data.improved);
+        
+        onChange({
+          target: { value: data.improved },
+        } as React.ChangeEvent<HTMLTextAreaElement>);
+        
+        // Increment the guest counter if in guest mode
+        if (isGuest) {
+          incrementGuestPromptImprovementCount();
+        }
+      } else {
+        throw new Error(data.error || "Invalid response");
+      }
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("Error improving prompt:", error);
+      let errorMessage = "Failed to improve prompt. Please try again.";
+      
+      if (error instanceof Error) {
+        if (error.name === "AbortError") {
+          errorMessage = "Prompt improvement timed out. Please try again.";
+        } else {
+          errorMessage = `Error: ${error.message}`;
+        }
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsImproving(false);
+    }
+  };
+
   const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const file = extractFileFromDataTransfer(event.clipboardData);
     if (file) {
@@ -283,7 +363,7 @@ export function ChatInputArea({
           {isDragActive && (
             <div className="pointer-events-none absolute inset-0 rounded-lg border-2 border-dashed border-primary/70 bg-background/80" />
           )}
-          <div className="flex items-center gap-2">
+          <div className="relative">
             <BaseChatInput
               ref={inputRef}
               value={input}
@@ -293,8 +373,28 @@ export function ChatInputArea({
               onDragOver={handleInputDragOver}
               onDrop={handleInputDrop}
               placeholder="Ask anything..."
-              className="min-h-[60px] md:min-h-[80px] resize-none rounded-lg bg-muted border-border p-3 text-foreground placeholder:text-muted-foreground"
+              disabled={isImproving}
+              className={cn(
+                "min-h-[60px] md:min-h-[80px] resize-none rounded-lg bg-muted border-border p-3 pr-12 text-foreground placeholder:text-muted-foreground transition-opacity",
+                isImproving && "opacity-50 cursor-not-allowed"
+              )}
             />
+            <Button
+              variant="ghost"
+              size="icon"
+              type="button"
+              className="absolute right-2 bottom-3 h-6 w-6 hover:bg-muted hover:opacity-80 transition-all text-foreground p-0 flex items-center justify-center"
+              onClick={handleImprovePrompt}
+              disabled={isImproving || !input.trim()}
+              aria-label="Improve prompt"
+              title="Enhance your prompt"
+            >
+              {isImproving ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Sparkles className="h-5 w-5" />
+              )}
+            </Button>
           </div>
           {selectedFile && (
             <div className="flex items-center gap-2 mt-2">
