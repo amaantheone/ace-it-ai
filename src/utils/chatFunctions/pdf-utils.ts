@@ -9,7 +9,7 @@ import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 export async function processPDF(buffer: Buffer): Promise<string> {
   // Use PDFLoader to load the PDF from buffer
   // PDFLoader expects a Blob or string path, so convert Buffer to Blob
-  const blob = new Blob([buffer], { type: "application/pdf" });
+  const blob = new Blob([buffer as BlobPart], { type: "application/pdf" });
   const loader = new PDFLoader(blob);
   const docs = await loader.load();
 
