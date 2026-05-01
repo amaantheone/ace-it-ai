@@ -63,15 +63,37 @@ export async function renderMindmap({
 
     // Attach click handlers to node text elements
     if (onNodeClick) {
-      // Mermaid mindmap nodes are usually <text> elements inside the SVG
-      const textNodes = svg.querySelectorAll("text");
-      textNodes.forEach((textNode) => {
-        textNode.style.cursor = "pointer";
-        textNode.addEventListener("click", (e) => {
+      const extractWord = (el: Element | null) => {
+        if (!el) return "";
+        const txt = el.textContent || "";
+        return txt.trim();
+      };
+
+      const attachInteractive = (el: Element, label: string) => {
+        // Make sure the element can receive mouse events
+        (el as HTMLElement).style.cursor = "pointer";
+        (el as HTMLElement).style.pointerEvents = "all";
+
+        el.addEventListener("click", (e) => {
           e.stopPropagation();
-          const word = textNode.textContent || "";
-          onNodeClick(word, e);
+          const word = extractWord(el);
+          onNodeClick(word, e as MouseEvent);
         });
+      };
+
+      // Mermaid mindmap output varies by version/theme; cover common cases.
+      const textNodes = Array.from(svg.querySelectorAll("text"));
+      const foreignTextNodes = Array.from(svg.querySelectorAll("foreignObject"));
+      const groupNodes = Array.from(svg.querySelectorAll("g"));
+
+      textNodes.forEach((n) => attachInteractive(n, "text"));
+      foreignTextNodes.forEach((n) => attachInteractive(n, "foreignObject"));
+
+      // Some Mermaid diagrams put pointer-events on <g> wrappers; attach as a fallback
+      // but avoid attaching to the root <svg> itself.
+      groupNodes.forEach((g) => {
+        if (g === svg) return;
+        attachInteractive(g, "g");
       });
     }
   }
